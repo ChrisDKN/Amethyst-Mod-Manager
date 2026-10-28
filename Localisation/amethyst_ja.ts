@@ -24221,6 +24221,10 @@ Try clearing your search or filters.</source>
       <translation>著者のバージョンを使用</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>削除</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>切り詰められたプレビュー。選択する前に完全なファイルを確認してください。</translation>
     </message>

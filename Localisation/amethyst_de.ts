@@ -24221,6 +24221,10 @@ Versuche deine Suche oder Filter zu löschen.</translation>
       <translation>Autorenversion verwenden</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>Löschen</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>Vorschau abgeschnitten. Überprüfen Sie die kompletten Dateien vor der Auswahl.</translation>
     </message>

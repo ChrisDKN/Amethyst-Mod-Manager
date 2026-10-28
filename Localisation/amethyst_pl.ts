@@ -24218,6 +24218,10 @@ Spróbuj wyczyścić wyszukiwanie lub filtry.</translation>
       <translation>Użyj wersji autora</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>Usuń</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>Podgląd skrócony. Przejrzyj kompletne pliki przed wyborem.</translation>
     </message>

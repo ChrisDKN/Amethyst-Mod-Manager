@@ -24221,6 +24221,10 @@ Probeer uw zoekopdracht of filters leeg te maken.</translation>
       <translation>Gebruik auteur versie</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>Verwijderen</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>Voorbeeld truncated. Controleer de volledige bestanden voordat u kiest.</translation>
     </message>

@@ -24219,6 +24219,10 @@ Intente borrar su búsqueda o filtros.</translation>
       <translation>Usar versión del autor</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>Eliminar</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>Vista previa truncada. Revisa los archivos completos antes de elegir.</translation>
     </message>

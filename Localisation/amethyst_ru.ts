@@ -24221,6 +24221,10 @@ Try clearing your search or filters.</source>
       <translation>Использовать версию автора</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>Удалить</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>Предварительный просмотр усечен. Просмотрите все файлы перед выбором.</translation>
     </message>
