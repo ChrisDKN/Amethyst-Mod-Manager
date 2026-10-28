@@ -481,6 +481,12 @@ class DetachableTabWidget(QTabWidget):
         w.deleteLater()
         self._update_bar_visibility()
 
+    def _close_tabs(self, pages: list[QWidget]):
+        for page in reversed(pages):
+            index = self.indexOf(page)
+            if index != -1:
+                self._on_close_requested(index)
+
     def _close_scoped(self, placeholder: QWidget):
         """Tear down a panel-scoped tab: remove its widget from the target stack,
         reset that stack to page 0, and drop the tab. Selection then lands on the
@@ -519,6 +525,12 @@ class DetachableTabWidget(QTabWidget):
         current = self._modes.get(id(content), MODE_FULL)
 
         menu = QMenu(self)
+        detach = menu.addAction(QCoreApplication.translate(
+            "DetachableTabWidget", "Detach"))
+        detach.setEnabled(id(w) not in self._permanent)
+        detach.triggered.connect(
+            lambda _=False: self._detach(self.indexOf(w), global_pos))
+        menu.addSeparator()
         entries = [
             (MODE_MODLIST, QCoreApplication.translate(
                 "DetachableTabWidget", "Pin to Modlist Panel"),
@@ -539,6 +551,25 @@ class DetachableTabWidget(QTabWidget):
                 act.setEnabled(False)   # already in this mode
             act.triggered.connect(
                 lambda _=False, m=mode, c=content: self._repin(c, m))
+        if not menu.actions()[-1].isSeparator():
+            menu.addSeparator()
+        close_menu = menu.addMenu(QCoreApplication.translate(
+            "DetachableTabWidget", "Close"))
+        closable = [self.widget(i) for i in range(self.count())
+                    if id(self.widget(i)) not in self._permanent]
+        close_entries = [
+            (QCoreApplication.translate("DetachableTabWidget", "Close Others"),
+             [page for page in closable if page is not w]),
+            (QCoreApplication.translate("DetachableTabWidget", "Close All to the Right"),
+             [page for page in closable if self.indexOf(page) > index]),
+            (QCoreApplication.translate("DetachableTabWidget", "Close Tab"),
+             [w] if id(w) not in self._permanent else []),
+        ]
+        for label, pages in close_entries:
+            act = close_menu.addAction(label)
+            act.setEnabled(bool(pages))
+            act.triggered.connect(
+                lambda _=False, targets=pages: self._close_tabs(targets))
         from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
         key = next((key for key, page in self._keys.items() if page is w), "")
         add_plugin_actions(menu, self, "tabs", menu_item("tab", self.tabText(index), id=key))
