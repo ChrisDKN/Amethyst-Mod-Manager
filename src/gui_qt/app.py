@@ -2275,11 +2275,21 @@ class MainWindow(QMainWindow):
             ("Sync", self.tr("Sync")),
             ("Groups", self.tr("Groups")),
             ("Plugin Rules", self.tr("Plugin Rules")),
+            ("LOOT", self.tr("LOOT")),
         ]:
-            b = (self._color_button(
-                    disp, _c(self._pal, "ACCENT"), compact=True)
-                 if label == "Sort Plugins"
-                 else self._text_button(disp, compact=True))
+            if label == "Sort Plugins":
+                b = self._color_button(disp, _c(self._pal, "ACCENT"), compact=True)
+            elif label == "LOOT":
+                b = self._action_button("", "loot.png", compact=True)
+                b.setToolButtonStyle(Qt.ToolButtonIconOnly)
+                b.setFixedSize(self._FOOT_BTN_H, self._FOOT_BTN_H)
+                px = self._FOOT_BTN_H - 4
+                b.setIcon(icon("loot.png", px))
+                b.setIconSize(QSize(px, px))
+                b.setStyleSheet("QToolButton#FooterButton { padding: 1px; }")
+                b.setAccessibleName(disp)
+            else:
+                b = self._text_button(disp, compact=True)
             b.setFixedHeight(self._FOOT_BTN_H)
             btns.addWidget(b)
             _made[label] = b
@@ -2288,6 +2298,8 @@ class MainWindow(QMainWindow):
         self._register_plugin_footer("plugins_footer", btns)
         self._plugin_sort_btn = _made["Sort Plugins"]
         self._plugin_refresh_btn = _made["Refresh Plugins"]
+        self._plugin_loot_btn = _made["LOOT"]
+        self._plugin_loot_btn.setToolTip(self.tr("Show LOOT diagnostics"))
         self._plugin_sync_btn = _made["Sync"]
         self._plugin_sync_btn.setToolTip(
             self.tr("Match plugin load order to modlist priority"))
@@ -2297,6 +2309,7 @@ class MainWindow(QMainWindow):
         self._plugin_footer_btns.append(self._plugin_filters_btn)
         self._plugin_sort_btn.clicked.connect(self._on_sort_plugins)
         self._plugin_refresh_btn.clicked.connect(self._on_refresh_plugins)
+        self._plugin_loot_btn.clicked.connect(self._open_loot_report)
         self._plugin_sync_btn.clicked.connect(self._on_sync_plugins)
         self._plugin_groups_btn.clicked.connect(self._open_plugin_groups_tab)
         self._plugin_rules_btn.clicked.connect(self._open_plugin_rules_tab)
@@ -20297,6 +20310,9 @@ class MainWindow(QMainWindow):
         # Point the Saves tab at this game/profile (saves can be per-profile).
         if hasattr(self, "_saves_view"):
             self._saves_view.configure(self._gs.game, self._gs.profile or "")
+        loot_report = getattr(self, "_loot_report_overlay", None)
+        if loot_report is not None:
+            loot_report.view.configure(self._gs.game, self._gs.profile_dir())
         self._refresh_footer_toggle_labels()
         # Re-apply an active search + filters against the fresh row indices.
         # set_entries fired modelReset, which dropped the view's applied-hidden
@@ -21279,6 +21295,9 @@ class MainWindow(QMainWindow):
         self._refresh_plugin_stats()
         self._refresh_framework_banner()
         self._apply_plugins_supported()
+        loot_report = getattr(self, "_loot_report_overlay", None)
+        if loot_report is not None:
+            loot_report.view.configure(self._gs.game, self._gs.profile_dir())
         if timing is not None:
             timing.mark("Plugins filters, stats, and framework support updated",
                         phase_started=phase_started)
@@ -21813,6 +21832,22 @@ class MainWindow(QMainWindow):
         self._refresh_userlist_flags()
 
     # ---- Sort Plugins (LOOT) ----------------------------------------------
+    def _open_loot_report(self):
+        game = self._gs.game
+        profile_dir = self._gs.profile_dir()
+        if (not self._plugins_supported()
+                or not getattr(game, "loot_sort_enabled", False)
+                or profile_dir is None):
+            return
+        overlay = getattr(self, "_loot_report_overlay", None)
+        if overlay is not None:
+            overlay.raise_()
+            return
+        from gui_qt.plugins.loot_report import LootReportOverlay
+        self._loot_report_overlay = LootReportOverlay(
+            self, game, profile_dir,
+            on_done=lambda _result: setattr(self, "_loot_report_overlay", None))
+
     def _loot_input_state(self, userlist_path=None):
         game = self._gs.game
         pdir = self._gs.profile_dir()
@@ -22331,6 +22366,8 @@ class MainWindow(QMainWindow):
             svfp = getattr(self, "_saves_filter_panel", None)
             if svfp is not None and svfp.isVisible():
                 svfp.setVisible(False)
+        loot = supported and bool(getattr(self._gs.game, "loot_sort_enabled", False))
+        self._plugin_loot_btn.setVisible(loot)
         # Footer (page 0 of the swap stack = the plugin tools) is hidden only
         # while the Plugins sub-tab is active; other tabs keep their own footer.
         self._refresh_plugin_footer_visibility()

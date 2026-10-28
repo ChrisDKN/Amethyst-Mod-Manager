@@ -2,6 +2,7 @@ py.install_sources(
   '__init__.py',
   'cycle.py',
   'groups.py',
+  'loot_report.py',
   'menu.py',
   'model.py',
   'rules.py',

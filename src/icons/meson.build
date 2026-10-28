@@ -34,6 +34,7 @@ py.install_sources(
   'lock.png',
   'Logo.png',
   'Loot_info.png',
+  'loot.png',
   'lutris.png',
   'minus.png',
   'nexus.png',
