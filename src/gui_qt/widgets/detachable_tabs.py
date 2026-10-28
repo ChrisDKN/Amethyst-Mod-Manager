@@ -5,8 +5,7 @@ wizards, …) open here as TABS instead of new windows. A tab can be:
   * switched between (multiple "overlays" open at once),
   * closed,
   * dragged out of the tab bar → becomes a floating window,
-  * closed → redocks back as a tab (close == redock),
-  * dragged back over the tab bar → redocks as a tab.
+  * closed → redocks back as a tab (close == redock).
 Programmatic close_tab(key) dismisses the view for real (no redock).
 
 State is preserved across detach/reattach because the page widget is reparented,
@@ -23,96 +22,13 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QPoint, Signal, QCoreApplication
 from PySide6.QtWidgets import (
     QTabWidget, QTabBar, QWidget, QMainWindow, QStackedWidget,
-    QLabel, QMenu,
+    QMenu,
 )
 
 # The three ways a view can be presented (see DetachableTabWidget docstring).
 MODE_FULL = "full"          # a normal full-UI tab (like the Nexus browser)
 MODE_MODLIST = "modlist"    # panel-scoped: takes over the modlist panel only
 MODE_PLUGINS = "plugins"    # panel-scoped: takes over the plugins panel only
-
-
-# -- reliable mouse-button-down probe -----------------------------------------
-# Qt's QGuiApplication.mouseButtons() is NOT updated during a window-manager
-# title-bar drag on X11 (the WM grabs the pointer), so it can't tell us when the
-# user lets go. XQueryPointer reads the real server-side button state and works
-# even mid-grab. We probe libX11 via ctypes (always present on an X11 session);
-# anything else falls back to Qt's state.
-_X11_BTN1 = 0x100   # Button1Mask
-
-
-def _make_x11_button_probe():
-    try:
-        import ctypes
-        import ctypes.util
-        from PySide6.QtWidgets import QApplication
-        if QApplication.instance() is None or \
-                QApplication.platformName() not in ("xcb", "x11"):
-            return None
-        lib = ctypes.util.find_library("X11")
-        if not lib:
-            return None
-        x = ctypes.CDLL(lib)
-        x.XOpenDisplay.restype = ctypes.c_void_p
-        x.XOpenDisplay.argtypes = [ctypes.c_char_p]
-        x.XDefaultRootWindow.restype = ctypes.c_ulong
-        x.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
-        x.XQueryPointer.restype = ctypes.c_int
-        x.XQueryPointer.argtypes = [
-            ctypes.c_void_p, ctypes.c_ulong,
-            ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
-            ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
-            ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
-            ctypes.POINTER(ctypes.c_uint)]
-        dpy = x.XOpenDisplay(None)
-        if not dpy:
-            return None
-        root = x.XDefaultRootWindow(dpy)
-        rr = ctypes.c_ulong(); cc = ctypes.c_ulong()
-        rx = ctypes.c_int(); ry = ctypes.c_int()
-        wx = ctypes.c_int(); wy = ctypes.c_int()
-        mask = ctypes.c_uint()
-
-        def _probe() -> bool:
-            x.XQueryPointer(dpy, root, rr, cc, rx, ry, wx, wy, mask)
-            return bool(mask.value & _X11_BTN1)
-        return _probe
-    except Exception:
-        return None
-
-
-_x11_button_probe = None
-_x11_probe_inited = False
-
-
-def _left_button_down() -> bool:
-    """True while the left mouse button is physically held - reliable during a
-    WM title-bar drag (X11 via XQueryPointer), else Qt's mouseButtons()."""
-    global _x11_button_probe, _x11_probe_inited
-    if not _x11_probe_inited:
-        _x11_button_probe = _make_x11_button_probe()
-        _x11_probe_inited = True
-    if _x11_button_probe is not None:
-        try:
-            return _x11_button_probe()
-        except Exception:
-            pass
-    from PySide6.QtGui import QGuiApplication
-    return bool(QGuiApplication.mouseButtons() & Qt.LeftButton)
-
-
-def _have_reliable_release_probe() -> bool:
-    """True when we can detect the real mouse-button-release during a WM drag
-    (X11 XQueryPointer). On native Wayland we CAN'T (the compositor owns the drag
-    + global button state is blocked), so the drag-back gesture would misfire -
-    callers disable it there and rely on close-to-redock instead.
-    NOTE: re-test on a Wayland session - XWayland reports platformName 'xcb' and
-    works; only native 'wayland' lacks the probe."""
-    global _x11_button_probe, _x11_probe_inited
-    if not _x11_probe_inited:
-        _x11_button_probe = _make_x11_button_probe()
-        _x11_probe_inited = True
-    return _x11_button_probe is not None
 
 
 class _DetachTabBar(QTabBar):
@@ -157,13 +73,11 @@ class _DetachTabBar(QTabBar):
 
 class _FloatingTab(QMainWindow):
     """A detached tab living in its own window. Closing the window REDOCKS the
-    view back into the tab bar (close == redock); dragging it back over the tab
-    bar also redocks. The page widget is reparented, never recreated."""
+    view back into the tab bar (close == redock). The page widget is reparented,
+    never recreated."""
 
     # Emitted when the window should give its page back to the tab widget.
     redock_requested = Signal(QWidget, str)   # (page, title)
-    moved = Signal(object)                     # (self) - drag-in-progress tracking
-    drag_finished = Signal(object)             # (self) - title-bar drag released
 
     def __init__(self, page: QWidget, title: str, parent=None):
         super().__init__(parent)
@@ -188,22 +102,8 @@ class _FloatingTab(QMainWindow):
         self._redocking = True
         return self.takeCentralWidget()
 
-    def moveEvent(self, event):
-        super().moveEvent(event)
-        self.moved.emit(self)
-
-    def event(self, event):
-        # A native title-bar drag ends with a NonClientArea mouse-button-release
-        # (Qt receives this even though it doesn't own the drag). Use it as the
-        # reliable "let go" signal - mouseButtons() is unreliable mid-WM-drag.
-        from PySide6.QtCore import QEvent
-        if event.type() == QEvent.NonClientAreaMouseButtonRelease:
-            self.drag_finished.emit(self)
-        return super().event(event)
-
     def closeEvent(self, event):
-        # Close means redock (unless the page was already taken for a drag-back
-        # redock, in which case just let the empty window close).
+        # Redock unless the page was already taken by the manager.
         if not self._redocking:
             page = self.takeCentralWidget()
             if page is not None:
@@ -694,20 +594,9 @@ class DetachableTabWidget(QTabWidget):
         flt.activateWindow()
         self._floats.append(flt)
         self._update_bar_visibility()
-        # Drag-back redock needs a reliable button-release probe (X11). On native
-        # Wayland we can't read it, so the gesture would misfire - skip wiring it
-        # there and rely on close-to-redock (the window's X button) instead.
-        # (Re-test on a Wayland session; XWayland still reports xcb and works.)
-        if _have_reliable_release_probe():
-            # Connect only AFTER the window is placed + shown so the initial
-            # programmatic move() doesn't trigger anything. `moved` updates the
-            # indicator; `drag_finished` (title-bar release) also redocks.
-            flt.moved.connect(self._on_float_moved)
-            flt.drag_finished.connect(self._on_drag_finished)
 
     def _on_redock(self, page: QWidget, title: str):
         """A floating window closed → bring its page back as a tab."""
-        self._set_drop_indicator(False)
         # Was this a SCOPED float? Re-scope it into its panel stack.
         target = None
         for f in self._floats:
@@ -731,104 +620,6 @@ class DetachableTabWidget(QTabWidget):
             page.show()
             self.setCurrentIndex(idx)
         self._update_bar_visibility()
-
-    def _redock_zone(self):
-        """Global-coords rect where dropping a floating window redocks it."""
-        bar = self.tabBar()
-        if not bar.isVisible() and self.count() <= 1:
-            # Tab bar hidden (only permanent tab) - top strip of the widget.
-            tl = self.mapToGlobal(self.rect().topLeft())
-            zone = self.rect().translated(tl)
-            zone.setHeight(48)
-            return zone
-        tl = bar.mapToGlobal(bar.rect().topLeft())
-        return bar.rect().translated(tl).adjusted(-24, -24, 24, 24)
-
-    def _on_float_moved(self, flt):
-        """A float's title bar is being dragged. Start (or keep) a poll that
-        tracks the cursor + global button state: show the drop indicator while
-        dragging over the redock zone, and redock on the release EDGE over the
-        zone. On X11 the WM grabs the pointer during the drag (so the
-        NonClientArea release event / live button state are unreliable mid-drag),
-        but `mouseButtons()` reports released once the grab ends - which the poll
-        catches."""
-        self._drag_flt = flt
-        timer = getattr(self, "_drag_poll", None)
-        if timer is None:
-            from PySide6.QtCore import QTimer
-            timer = QTimer(self)
-            timer.setInterval(40)
-            timer.timeout.connect(self._poll_drag)
-            self._drag_poll = timer
-        if not timer.isActive():
-            timer.start()
-
-    def _poll_drag(self):
-        from PySide6.QtGui import QCursor
-        flt = getattr(self, "_drag_flt", None)
-        if flt is None or flt not in self._floats:
-            self._drag_poll.stop()
-            self._set_drop_indicator(False)
-            return
-        over = self._redock_zone().contains(QCursor.pos())
-        if _left_button_down():
-            # Still dragging - keep the indicator in sync.
-            self._set_drop_indicator(over)
-            return
-        # Button physically released → stop polling + redock if over the zone.
-        self._drag_poll.stop()
-        self._set_drop_indicator(False)
-        if over:
-            page = flt.take_page()
-            if page is not None:
-                self._on_redock(page, flt._title)
-            flt.close()
-
-    def _on_drag_finished(self, flt):
-        """NonClientArea release (when the platform delivers it) - redock if over
-        the zone. Harmless if it never fires (the poll handles X11)."""
-        from PySide6.QtGui import QCursor
-        if flt not in self._floats:
-            return
-        if self._redock_zone().contains(QCursor.pos()):
-            self._set_drop_indicator(False)
-            page = flt.take_page()
-            if page is not None:
-                self._on_redock(page, flt._title)
-            flt.close()
-            if getattr(self, "_drag_poll", None) is not None:
-                self._drag_poll.stop()
-
-    def _set_drop_indicator(self, show: bool):
-        """Show/hide a translucent accent overlay marking the redock drop zone."""
-        ind = getattr(self, "_drop_ind", None)
-        if show:
-            if ind is None:
-                ind = QLabel(self)
-                # Explicit context: pyside6-lupdate can't statically resolve
-                # self's class here, so self.tr() would land in an empty ("")
-                # context and never match at runtime. Pin it to the class name.
-                ind.setText(QCoreApplication.translate(
-                    "DetachableTabWidget", "Drop to redock"))
-                ind.setAlignment(Qt.AlignCenter)
-                from gui_qt.appearance.theme import active_palette, _c
-                palette = active_palette()
-                acc = _c(palette, "ACCENT")
-                ind.setStyleSheet(
-                    f"background: {_c(palette, 'BG_SELECT')};"
-                    f" color: {_c(palette, 'TEXT_ON_ACCENT')};"
-                    f" border: 2px dashed {acc}; border-radius: 6px;"
-                    f" font-size: 14px; font-weight: 600;")
-                self._drop_ind = ind
-            bar = self.tabBar()
-            if bar.isVisible():
-                ind.setGeometry(0, 0, self.width(), bar.height() + 8)
-            else:
-                ind.setGeometry(0, 0, self.width(), 48)
-            ind.show()
-            ind.raise_()
-        elif ind is not None:
-            ind.hide()
 
     # -- helpers ------------------------------------------------------------
     def _focus(self, widget: QWidget):
