@@ -2901,20 +2901,16 @@ fn rebuild_casing(snapshot: &mut GraphSnapshot, intent: &ProfileIntent) {
     // mutable standard maps once and convert them to persistent structures at
     // publication; CasingState::add intentionally copy-on-writes each context
     // and posting set, which is ideal for small deltas but quadratic here.
-    let winners: Vec<_> = snapshot
-        .winners
-        .iter()
-        .filter_map(|(key, candidate_id)| {
-            (key.namespace != Namespace::Archive)
-                .then(|| snapshot.candidate(*candidate_id))
-                .flatten()
-                .map(|candidate| (key.clone(), candidate.clone()))
-        })
-        .collect();
     let mut variants: HashMap<CasingContext, BTreeMap<String, CasingVariant>> = HashMap::new();
     let mut postings: HashMap<CasingContext, HashSet<PathKey>> = HashMap::new();
-    for (key, candidate) in winners {
-        for (context, spelling) in CasingState::candidate_contexts(&candidate) {
+    for (key, candidate_id) in snapshot.winners.iter() {
+        if key.namespace == Namespace::Archive {
+            continue;
+        }
+        let Some(candidate) = snapshot.candidate(*candidate_id) else {
+            continue;
+        };
+        for (context, spelling) in CasingState::candidate_contexts(candidate) {
             let value = variants
                 .entry(context.clone())
                 .or_default()

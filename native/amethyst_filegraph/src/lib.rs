@@ -24,6 +24,15 @@ fn encode<T: serde::Serialize>(value: &T) -> Result<Vec<u8>> {
     Ok(rmp_serde::to_vec_named(value)?)
 }
 
+fn encode_compact<T: serde::Serialize>(value: &T) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    value.serialize(
+        &mut rmp_serde::Serializer::new(&mut bytes)
+            .with_bytes(rmp_serde::config::BytesMode::ForceIterables),
+    )?;
+    Ok(bytes)
+}
+
 fn decode<'a, T: serde::Deserialize<'a>>(bytes: &'a [u8]) -> Result<T> {
     Ok(rmp_serde::from_slice(bytes)?)
 }
@@ -34,9 +43,7 @@ fn encoded_py<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<Py<PyB
 }
 
 fn encoded_py_compact<T: serde::Serialize>(py: Python<'_>, value: &T) -> PyResult<Py<PyBytes>> {
-    let bytes = rmp_serde::to_vec(value)
-        .map_err(FileGraphError::from)
-        .map_err(PyErr::from)?;
+    let bytes = encode_compact(value).map_err(PyErr::from)?;
     Ok(PyBytes::new(py, &bytes).unbind())
 }
 
@@ -292,7 +299,7 @@ impl ProfileSession {
         let bytes = py
             .detach(move || {
                 let plan = core.deployment_plan(snapshot_generation)?;
-                rmp_serde::to_vec(plan.as_ref()).map_err(FileGraphError::from)
+                encode_compact(plan.as_ref())
             })
             .map_err(PyErr::from)?;
         Ok(PyBytes::new(py, &bytes).unbind())

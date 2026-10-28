@@ -312,7 +312,7 @@ struct CatalogPathIdentity {
     database: FileIdentity,
 }
 
-const PROJECTION_CACHE_FORMAT: u32 = 1;
+const PROJECTION_CACHE_FORMAT: u32 = 2;
 const PROJECTION_CACHE_NAME: &str = "filegraph.cache";
 
 type ProjectionSelection = Arc<Vec<(String, String)>>;
@@ -321,6 +321,7 @@ type RawFileCache = (u64, ProjectionSelection, CatalogRows<RawCatalogFile>);
 type SharedStringTable = (Vec<Arc<str>>, HashMap<Arc<str>, u32>);
 
 struct LoadedProjectionCache {
+    needs_upgrade: bool,
     generation: u64,
     selection: ProjectionSelection,
     candidates: CatalogRows<Candidate>,
@@ -629,6 +630,7 @@ fn decode_projection_cache(cache: ProjectionCacheRead) -> Result<LoadedProjectio
         });
     }
     Ok(LoadedProjectionCache {
+        needs_upgrade: cache.format != PROJECTION_CACHE_FORMAT,
         generation: cache.generation,
         selection: Arc::new(cache.selection),
         candidates: CatalogRows::from_rows(candidates, |candidate| candidate.mod_key.clone()),
@@ -648,7 +650,7 @@ fn read_projection_cache(
     };
     let started = Instant::now();
     let cache: ProjectionCacheRead = rmp_serde::from_read(BufReader::new(file))?;
-    if cache.format != PROJECTION_CACHE_FORMAT
+    if (cache.format != 1 && cache.format != PROJECTION_CACHE_FORMAT)
         || cache.schema_version != SCHEMA_VERSION
         || cache.database != database
     {
@@ -747,7 +749,10 @@ fn write_projection_cache(
             .open(&temporary)?;
         {
             let mut writer = BufWriter::with_capacity(1024 * 1024, file);
-            rmp_serde::encode::write(&mut writer, &payload)?;
+            payload.serialize(
+                &mut rmp_serde::Serializer::new(&mut writer)
+                    .with_bytes(rmp_serde::config::BytesMode::ForceIterables),
+            )?;
             writer.flush()?;
         }
         if file_identity(database_path)? != database {
@@ -859,7 +864,8 @@ impl LibraryCore {
                 Some((cache.generation, cache.selection.clone(), cache.candidates));
             *self.raw_file_cache.write() =
                 Some((cache.generation, cache.selection.clone(), cache.raw_files));
-            *self.projection_cache_saved.lock() = Some((cache.generation, cache.selection));
+            *self.projection_cache_saved.lock() =
+                (!cache.needs_upgrade).then_some((cache.generation, cache.selection));
         } else {
             *self.candidate_cache.write() = None;
             *self.raw_file_cache.write() = None;
@@ -933,7 +939,8 @@ impl LibraryCore {
         };
         let (candidate_cache, raw_file_cache, projection_cache_saved) = match projection {
             Some(cache) => {
-                let saved = Some((cache.generation, cache.selection.clone()));
+                let saved =
+                    (!cache.needs_upgrade).then(|| (cache.generation, cache.selection.clone()));
                 (
                     Some((cache.generation, cache.selection.clone(), cache.candidates)),
                     Some((cache.generation, cache.selection, cache.raw_files)),
