@@ -1,0 +1,7 @@
+{
+  "Crc32.NET.LICENSE.txt": "https://raw.githubusercontent.com/force-net/Crc32.NET/develop/LICENSE",
+  "K4os.Compression.LZ4.LICENSE.txt": "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Compression.LZ4/master/LICENSE",
+  "K4os.Hash.xxHash.LICENSE.txt": "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Hash.xxHash/master/LICENSE",
+  "NLog.LICENSE.txt": "https://raw.githubusercontent.com/NLog/NLog/v4.7.8/LICENSE.txt",
+  "Roslyn.LICENSE.txt": "https://raw.githubusercontent.com/dotnet/roslyn/8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b/License.txt"
+}

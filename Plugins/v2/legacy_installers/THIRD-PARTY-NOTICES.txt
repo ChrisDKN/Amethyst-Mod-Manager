@@ -1,0 +1,57 @@
+This helper links GPL-3.0-only FOMOD and OMODFramework components.
+See LICENSE in the plugin root and the corresponding source archive supplied alongside each release.
+Runtime and third-party components retain their own licences; full notices are in licenses/.
+
+Crc32.NET/1.2.0
+Authors: force
+Copyright: Copyright by Force 2016-2017
+licenses/Crc32.NET.LICENSE.txt
+
+K4os.Compression.LZ4.Streams/1.2.6
+Authors: Milosz Krajewski
+Copyright: None
+licenses/K4os.Compression.LZ4.LICENSE.txt
+
+K4os.Compression.LZ4/1.2.6
+Authors: Milosz Krajewski
+Copyright: None
+licenses/K4os.Compression.LZ4.LICENSE.txt
+
+K4os.Hash.xxHash/1.0.6
+Authors: Milosz Krajewski
+Copyright: Milosz Krajewski
+licenses/K4os.Hash.xxHash.LICENSE.txt
+
+Microsoft.CodeAnalysis.CSharp/4.14.0
+Authors: Microsoft
+Copyright: © Microsoft Corporation. All rights reserved.
+licenses/microsoft.codeanalysis.csharp-4.14.0/ThirdPartyNotices.rtf
+licenses/Roslyn.LICENSE.txt
+
+Microsoft.CodeAnalysis.Common/4.14.0
+Authors: Microsoft
+Copyright: © Microsoft Corporation. All rights reserved.
+licenses/microsoft.codeanalysis.common-4.14.0/ThirdPartyNotices.rtf
+licenses/Roslyn.LICENSE.txt
+
+NLog/4.7.8
+Authors: Jarek Kowalski,Kim Christensen,Julian Verdurmen
+Copyright: Copyright (c) 2004-2021 NLog Project - https://nlog-project.org/
+licenses/NLog.LICENSE.txt
+
+SharpCompress/0.48.0
+Authors: Adam Hathcock
+Copyright: Copyright (c) 2025  Adam Hathcock
+licenses/sharpcompress-0.48.0/README.md
+licenses/SharpCompress.LICENSE.txt
+
+runtimepack.Microsoft.NETCore.App.Runtime.win-x64/10.0.14
+Authors: Microsoft
+Copyright: © Microsoft Corporation. All rights reserved.
+licenses/microsoft.netcore.app.runtime.win-x64-10.0.14/THIRD-PARTY-NOTICES.TXT
+licenses/microsoft.netcore.app.runtime.win-x64-10.0.14/LICENSE.TXT
+
+runtimepack.Microsoft.WindowsDesktop.App.Runtime.win-x64/10.0.14
+Authors: Microsoft
+Copyright: © Microsoft Corporation. All rights reserved.
+licenses/microsoft.windowsdesktop.app.runtime.win-x64-10.0.14/LICENSE

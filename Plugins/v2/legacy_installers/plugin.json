@@ -1,0 +1,25 @@
+{
+  "api_version": 1,
+  "id": "amethyst.legacy_installers",
+  "name": "Legacy Scripted Installers",
+  "version": "1.1.1",
+  "author": "ChrisDKN",
+  "min_manager_version": "2.6.0",
+  "description": "Experimental desktop installation of C# FOMOD and OMOD packages using their original installers.",
+  "entrypoint": "installer.py",
+  "ui": "stdio",
+  "methods": [],
+  "show_in_menu": false,
+  "installers": [
+    {
+      "id": "legacy_scripts",
+      "label": "Legacy scripted installer",
+      "entrypoint": "installer.py",
+      "formats": [
+        "scripted_fomod",
+        "omod"
+      ],
+      "interactive": true
+    }
+  ]
+}

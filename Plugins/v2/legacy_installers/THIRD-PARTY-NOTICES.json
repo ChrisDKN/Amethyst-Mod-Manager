@@ -1,0 +1,137 @@
+[
+  {
+    "package": "Crc32.NET/1.2.0",
+    "authors": "force",
+    "copyright": "Copyright by Force 2016-2017",
+    "license": "MIT",
+    "project": "https://github.com/force-net/Crc32.NET",
+    "notices": [
+      "licenses/Crc32.NET.LICENSE.txt"
+    ]
+  },
+  {
+    "package": "K4os.Compression.LZ4.Streams/1.2.6",
+    "authors": "Milosz Krajewski",
+    "copyright": null,
+    "license": "MIT",
+    "project": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4",
+    "notices": [
+      "licenses/K4os.Compression.LZ4.LICENSE.txt"
+    ]
+  },
+  {
+    "package": "K4os.Compression.LZ4/1.2.6",
+    "authors": "Milosz Krajewski",
+    "copyright": null,
+    "license": "MIT",
+    "project": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4",
+    "notices": [
+      "licenses/K4os.Compression.LZ4.LICENSE.txt"
+    ]
+  },
+  {
+    "package": "K4os.Hash.xxHash/1.0.6",
+    "authors": "Milosz Krajewski",
+    "copyright": "Milosz Krajewski",
+    "license": "MIT",
+    "project": "https://github.com/MiloszKrajewski/K4os.Hash.xxHash",
+    "notices": [
+      "licenses/K4os.Hash.xxHash.LICENSE.txt"
+    ]
+  },
+  {
+    "package": "Microsoft.CodeAnalysis.CSharp/4.14.0",
+    "authors": "Microsoft",
+    "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+    "license": "MIT",
+    "project": "https://github.com/dotnet/roslyn",
+    "notices": [
+      "licenses/microsoft.codeanalysis.csharp-4.14.0/ThirdPartyNotices.rtf",
+      "licenses/Roslyn.LICENSE.txt"
+    ],
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/dotnet/roslyn",
+      "branch": "release/dev17.14",
+      "commit": "8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b"
+    }
+  },
+  {
+    "package": "Microsoft.CodeAnalysis.Common/4.14.0",
+    "authors": "Microsoft",
+    "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+    "license": "MIT",
+    "project": "https://github.com/dotnet/roslyn",
+    "notices": [
+      "licenses/microsoft.codeanalysis.common-4.14.0/ThirdPartyNotices.rtf",
+      "licenses/Roslyn.LICENSE.txt"
+    ],
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/dotnet/roslyn",
+      "branch": "release/dev17.14",
+      "commit": "8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b"
+    }
+  },
+  {
+    "package": "NLog/4.7.8",
+    "authors": "Jarek Kowalski,Kim Christensen,Julian Verdurmen",
+    "copyright": "Copyright (c) 2004-2021 NLog Project - https://nlog-project.org/",
+    "license": "BSD-3-Clause",
+    "project": "https://nlog-project.org/",
+    "notices": [
+      "licenses/NLog.LICENSE.txt"
+    ],
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/NLog/NLog.git"
+    }
+  },
+  {
+    "package": "SharpCompress/0.48.0",
+    "authors": "Adam Hathcock",
+    "copyright": "Copyright (c) 2025  Adam Hathcock",
+    "license": "MIT",
+    "project": "https://github.com/adamhathcock/sharpcompress",
+    "notices": [
+      "licenses/sharpcompress-0.48.0/README.md",
+      "licenses/SharpCompress.LICENSE.txt"
+    ],
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/adamhathcock/sharpcompress",
+      "commit": "6e59c7d7bbf8c19a8a92c3c382599906684bb93d"
+    }
+  },
+  {
+    "package": "runtimepack.Microsoft.NETCore.App.Runtime.win-x64/10.0.14",
+    "authors": "Microsoft",
+    "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+    "license": "MIT",
+    "project": "https://dot.net/",
+    "notices": [
+      "licenses/microsoft.netcore.app.runtime.win-x64-10.0.14/THIRD-PARTY-NOTICES.TXT",
+      "licenses/microsoft.netcore.app.runtime.win-x64-10.0.14/LICENSE.TXT"
+    ],
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/dotnet/dotnet",
+      "commit": "0427b9abbead3fa64c6655eb4290c537397131fa"
+    }
+  },
+  {
+    "package": "runtimepack.Microsoft.WindowsDesktop.App.Runtime.win-x64/10.0.14",
+    "authors": "Microsoft",
+    "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+    "license": "MIT",
+    "project": "https://dot.net/",
+    "notices": [
+      "licenses/microsoft.windowsdesktop.app.runtime.win-x64-10.0.14/LICENSE"
+    ],
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/dotnet/dotnet",
+      "commit": "0427b9abbead3fa64c6655eb4290c537397131fa"
+    }
+  }
+]
