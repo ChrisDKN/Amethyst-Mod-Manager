@@ -196,9 +196,7 @@ def _scan_external_text_files(game, profile_dir: Path | None
                               ) -> list[tuple[str, str, Path]]:
     entries: list[tuple[str, str, Path]] = []
 
-    # Vanilla game folder (skip symlinks/hardlinks = deployed files). Use
-    #    os.walk + scandir so the extension check (cheap) gates the stat (costly)
-    #    - most game files aren't text and never get stat'd.
+    # Skip deployed symlinks; hardlinks can also be original game files.
     game_path = (game.get_game_path()
                  if game and hasattr(game, "get_game_path") else None)
     if game_path and Path(game_path).is_dir():
@@ -223,8 +221,6 @@ def _scan_external_text_files(game, profile_dir: Path | None
                         continue
                     try:
                         if de.is_symlink() or not de.is_file():
-                            continue
-                        if de.stat(follow_symlinks=False).st_nlink > 1:
                             continue
                     except OSError:
                         continue
