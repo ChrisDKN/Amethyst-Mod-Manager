@@ -7,9 +7,11 @@
 - Added automatic Steam overlay loading for direct game launches, including VFS
 - Added Thunderstore share code importing through the Thunderstore dropdown
 - Added an option to export saves on profile export and import on profile import
-- Added a LOOT report tab to the plugins panel showing the masterlist's general messages and plugin download locations
+- Added a LOOT report button to the plugins tab showing the masterlist's general messages and plugin download locations
 ### Changes
 - Custom repositories can now be added to source custom game handlers in the add game menu
+- Script extender wizards now default to installing into the modlist intead of the game folder
+- Centered the Plugins panel buttons to match the modlist panel
 ### Bug Fixes
 - Fixed some Windows-created ZIP archives installing empty folders as files
 - Fixed Restore failing when profile-save state is empty or malformed.
@@ -17,6 +19,7 @@
 - Fixed an issue where prefixes created in the mods folder from the BS/OS and Pandora wizards could cause other applications mods scanning to break
 - Fixed an issue in the Nexus browser when searching in the Tracked/Endored windows where it would search within the Browse window instead
 - Fixed an issue where manually adding a folder/mod to a wabbajack list would not appear even when refreshing the modlist
+- Fixed an issue where the game folder's text files were not showing in the text files tab
 
 ---
 
