@@ -2,7 +2,7 @@
   "api_version": 1,
   "id": "amethyst.nexus_mod_info",
   "name": "Nexus mod info",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "ChrisDKN",
   "min_manager_version": "2.6.0",
   "description": "Show the selected mod's Nexus image, short description, downloads, endorsements and version beneath the modlist.",
@@ -10,6 +10,7 @@
   "ui": "qt",
   "service": true,
   "methods": [],
+  "show_in_menu": false,
   "settings": [
     {"key": "enabled", "label": "Show Nexus info beneath the modlist", "type": "boolean", "default": true}
   ]
