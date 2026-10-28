@@ -275,9 +275,10 @@ def apply_environment(game, settings: dict, env: dict) -> None:
         # MAKO 4.5 disables Steam's overlay by default; preserve existing launches.
         write_atomic_text(launcher_config, "version=1\ndisable_steam_overlay=0\n")
     env.pop("MAKO_ENV", None)
+    env.pop("DISABLE_MAKO", None)
     env.update(AMM_MAKO_LAUNCH="1", MAKO_CONFIG=str(config),
                MAKO_PROFILE="Amethyst",
-               DISABLE_MAKO="0", MAKO_ALLOW_COMPETING_LAYERS="0",
+               MAKO_ALLOW_COMPETING_LAYERS="0",
                MAKO_LAUNCH_CONFIG=str(launcher_config))
 
 
@@ -395,7 +396,7 @@ def wrap_command(command: list[str], env: dict, *, sandbox_bridge=False,
     if log_fn is None:
         from Utils.app_log import app_log
         log_fn = app_log
-    wrapper = ["/usr/bin/env", "-u", "MAKO_ENV",
+    wrapper = ["/usr/bin/env", "-u", "MAKO_ENV", "-u", "DISABLE_MAKO",
                *_mangohud_arguments(env, log_fn), launcher]
     portal = next((index for index, part in enumerate(command)
                    if Path(part).name == "flatpak-spawn"
