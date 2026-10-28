@@ -21279,6 +21279,11 @@ class MainWindow(QMainWindow):
         self._refresh_plugin_stats()
         self._refresh_framework_banner()
         self._apply_plugins_supported()
+        # loot.json may have been rewritten by the sort/refresh that triggered
+        # this reload - re-read it the next time the report tab is shown.
+        lrv = getattr(self, "_loot_report_view", None)
+        if lrv is not None:
+            lrv.configure(self._gs.game, self._gs.profile_dir())
         if timing is not None:
             timing.mark("Plugins filters, stats, and framework support updated",
                         phase_started=phase_started)
@@ -22331,6 +22336,12 @@ class MainWindow(QMainWindow):
             svfp = getattr(self, "_saves_filter_panel", None)
             if svfp is not None and svfp.isVisible():
                 svfp.setVisible(False)
+        # The LOOT report only makes sense for games the built-in sorter
+        # handles; it reads the loot.json a sort or refresh leaves behind.
+        loot = supported and bool(getattr(self._gs.game, "loot_sort_enabled", False))
+        self._plugin_tab_labels[self._LOOT_TAB_IDX].setVisible(loot)
+        if not loot and self._plugin_stack.currentIndex() == self._LOOT_TAB_IDX:
+            self._select_plugin_tab(0)
         # Footer (page 0 of the swap stack = the plugin tools) is hidden only
         # while the Plugins sub-tab is active; other tabs keep their own footer.
         self._refresh_plugin_footer_visibility()
@@ -23263,7 +23274,7 @@ class MainWindow(QMainWindow):
         self._plugin_tab_names = [self.tr("Plugins"), self.tr("Mod Files"),
                                   self.tr("Text Files"), self.tr("Data"),
                                   self.tr("Downloads"), self.tr("Overrides"),
-                                  self.tr("Saves")]
+                                  self.tr("Saves"), self.tr("LOOT")]
         self._plugin_stack = QStackedWidget()
         if startup_timing is not None:
             startup_timing.record(
@@ -23313,9 +23324,10 @@ class MainWindow(QMainWindow):
         self._DOWNLOADS_TAB_IDX = 4
         self._OVERRIDES_TAB_IDX = 5
         self._SAVES_TAB_IDX = 6
+        self._LOOT_TAB_IDX = 7
         phase_started = _startup_time.perf_counter()
         self._plugin_page_placeholders = {}
-        for idx in range(1, 7):
+        for idx in range(1, 8):
             placeholder = QWidget()
             self._plugin_page_placeholders[idx] = placeholder
             self._plugin_stack.addWidget(placeholder)
@@ -23343,12 +23355,14 @@ class MainWindow(QMainWindow):
         # Plugins sits - the two are never visible together), and Saves sits
         # next to Text Files rather than at the end. List indices are unchanged
         # so the click closures, styling loop and stack pages keep their
-        # numbering; only the visual order differs.
-        for i in [self._OVERRIDES_TAB_IDX, 0, 1, self._TEXT_FILES_TAB_IDX,
-                  self._SAVES_TAB_IDX, self._DATA_TAB_IDX,
-                  self._DOWNLOADS_TAB_IDX]:
+        # numbering; only the visual order differs. The LOOT report follows
+        # Plugins because it describes the same load order.
+        for i in [self._OVERRIDES_TAB_IDX, 0, self._LOOT_TAB_IDX, 1,
+                  self._TEXT_FILES_TAB_IDX, self._SAVES_TAB_IDX,
+                  self._DATA_TAB_IDX, self._DOWNLOADS_TAB_IDX]:
             tabs.addWidget(self._plugin_tab_labels[i])
         self._plugin_tab_labels[self._OVERRIDES_TAB_IDX].setVisible(False)
+        self._plugin_tab_labels[self._LOOT_TAB_IDX].setVisible(False)
         tabs.addStretch(1)
         # Framework-status banner ABOVE the tabs so it's visible on every
         # sub-tab (one colored row per framework the game declares).
@@ -23408,6 +23422,7 @@ class MainWindow(QMainWindow):
                 1: "_mod_files_view", 2: "_text_files_view",
                 3: "_data_view", 4: "_downloads_view",
                 5: "_overrides_view", 6: "_saves_view",
+                7: "_loot_report_view",
             }
             view = getattr(self, attrs.get(idx, ""), None)
             if view is not None:
@@ -23473,6 +23488,10 @@ class MainWindow(QMainWindow):
             attr = "_saves_view"
             view.on_open_image = self._open_image_preview_tab
             view.on_open_text = self._open_text_editor_tab
+        elif idx == 7:
+            from gui_qt.plugins.loot_report import LootReportView
+            view = LootReportView()
+            attr = "_loot_report_view"
         else:
             placeholders[idx] = placeholder
             return None
@@ -23511,6 +23530,8 @@ class MainWindow(QMainWindow):
             view.configure(game, self._gs.profile or "")
             view.set_known_plugins(
                 [row.name for row in self._plugin_model.natural_rows()])
+        elif idx == 7:
+            view.configure(game, profile_dir)
         return view
 
     def _select_plugin_tab(self, idx: int):
@@ -23531,7 +23552,10 @@ class MainWindow(QMainWindow):
         dl_idx = getattr(self, "_DOWNLOADS_TAB_IDX", 4)
         ov_idx = getattr(self, "_OVERRIDES_TAB_IDX", 5)
         sv_idx = getattr(self, "_SAVES_TAB_IDX", 6)
+        loot_idx = getattr(self, "_LOOT_TAB_IDX", 7)
         if fstack is not None:
+            # The LOOT report shares the plugin tools footer (page 0) so Sort
+            # and Refresh stay one click away while reading the report.
             fstack.setCurrentIndex(
                 1 if idx == 1 else 2 if idx == data_idx
                 else 3 if idx == dl_idx else 4 if idx == tf_idx
@@ -23556,6 +23580,9 @@ class MainWindow(QMainWindow):
         svv = getattr(self, "_saves_view", None)
         if svv is not None:
             svv.set_visible_tab(idx == sv_idx)
+        lrv = getattr(self, "_loot_report_view", None)
+        if lrv is not None:
+            lrv.set_visible_tab(idx == loot_idx)
         for i, lbl in enumerate(self._plugin_tab_labels):
             sel = i == idx
             col = _c(self._pal, "TEXT_MAIN" if sel else "TEXT_DIM")
