@@ -6,7 +6,7 @@ import os
 import shlex
 from types import SimpleNamespace
 
-from .launchers import ProviderError, assert_idle, prefix_lock
+from .launchers import ProviderError, assert_idle, matches_game_path, prefix_lock
 
 
 def prefix_environment(entry, log=lambda message: None, *, read_only=False):
@@ -53,7 +53,7 @@ def launch_entry(entry, *, game=None, executable=None, arguments=None, log=lambd
     elif not exe.is_file():
         raise ProviderError(f"Application executable is unavailable: {exe}")
     if game is not None:
-        if Path(game.get_game_path()).resolve() != Path(entry["game_path"]).resolve():
+        if not matches_game_path(game, entry["game_path"]):
             raise ProviderError("The launcher's game path changed. Restore and reconfigure this installation.")
         saved_prefix = game.get_prefix_path()
         if str(saved_prefix or "") != str(entry["prefix_path"] or ""):

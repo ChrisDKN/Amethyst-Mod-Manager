@@ -155,11 +155,11 @@ def launch_hook(game_index):
             had_entry = hasattr(game, "_plugin_launcher_entry")
             previous_entry = getattr(game, "_plugin_launcher_entry", None)
             try:
-                from .launchers import selected_entry
+                from .launchers import matches_game_path, selected_entry
                 game._plugin_launcher_entry = selected_entry(game, log=log)
                 entry = game._plugin_launcher_entry
                 if entry is not None:
-                    if (Path(game.get_game_path()).resolve() != Path(entry["game_path"]).resolve()
+                    if (not matches_game_path(game, entry["game_path"])
                             or str(game.get_prefix_path() or "") != str(entry["prefix_path"] or "")):
                         raise ValueError("The launcher installation changed. Restore and reconfigure it before launching.")
                 hooks = prepare_launch(game, executable, log_fn=log)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import copy
 import fcntl
 import hashlib
 from Utils import json_limits as json
@@ -207,6 +208,18 @@ def selected_entry(game, **kwargs):
     return get_entry(*saved, **kwargs) if saved else None
 
 
+def matches_game_path(game, path):
+    current = game.get_game_path()
+    if current is None or path is None:
+        return False
+    if Path(current).resolve() == Path(path).resolve():
+        return True
+    candidate = copy.copy(game)
+    candidate._game_path = Path(path)
+    resolved = candidate.get_game_path()
+    return resolved is not None and Path(current).resolve() == Path(resolved).resolve()
+
+
 def matches(game, entry):
     if not entry["installed"] or not Path(entry["game_path"]).is_dir():
         return False
@@ -238,7 +251,6 @@ def assert_idle(entry):
 
 
 def linked_profiles(provider_id, entry_ids, *, prefix_path=None, installation=None):
-    import copy
     from Utils.games.discovery import discover_games
     linked = []
     wanted = {(provider_id, eid) for eid in entry_ids}
@@ -257,8 +269,7 @@ def linked_profiles(provider_id, entry_ids, *, prefix_path=None, installation=No
                 for path in (selected.get_prefix_path(), selected.get_game_path(), selected.get_profile_root()))
             same_install = False
             if (installation is not None and installation["installed"]
-                    and selected.get_game_path() is not None
-                    and Path(selected.get_game_path()).resolve() == Path(installation["game_path"]).resolve()
+                    and matches_game_path(selected, installation["game_path"])
                     and str(selected.get_prefix_path() or "") == str(installation["prefix_path"] or "")):
                 from Utils.executables.launch import is_game_launch_exe
                 same_install = is_game_launch_exe(selected, Path(installation["executable"]))
