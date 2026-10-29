@@ -29,7 +29,7 @@
   "mod_install_as_is_if_no_match": true,
   "restore_before_deploy": true,
   "normalize_folder_case": true,
-  "filemap_casing": "upper",
+  "filemap_casing": "preserve",
   "wine_dll_overrides": {
     "winmm": "native,builtin",
     "dwmapi": "native,builtin"
@@ -142,6 +142,6 @@
   ],
   "restore_whitelist": [],
   "custom_frameworks": {},
-  "version": 5,
+  "version": 6,
   "editable": false
 }
