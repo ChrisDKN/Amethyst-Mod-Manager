@@ -242,6 +242,22 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</transl
         <translation>Search by name…</translation>
     </message>
     <message>
+        <source>Repositories…</source>
+        <translation>Repositories…</translation>
+    </message>
+    <message>
+        <source>Syncing game handlers…</source>
+        <translation>Syncing game handlers…</translation>
+    </message>
+    <message>
+        <source>Handler sync finished with {0} error(s). {1}</source>
+        <translation>Handler sync finished with {0} error(s). {1}</translation>
+    </message>
+    <message>
+        <source>Game handlers are up to date.</source>
+        <translation>Game handlers are up to date.</translation>
+    </message>
+    <message>
         <source>Installed</source>
         <translation>Installed</translation>
     </message>
@@ -3026,6 +3042,52 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
     </message>
 </context>
 <context>
+    <name>ColumnModel</name>
+    <message>
+        <source>Yes</source>
+        <translation>Yes</translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation>No</translation>
+    </message>
+</context>
+<context>
+    <name>CommandPalette</name>
+    <message>
+        <source>Plugin commands</source>
+        <translation>Plugin commands</translation>
+    </message>
+    <message>
+        <source>Search commands…</source>
+        <translation>Search commands…</translation>
+    </message>
+    <message>
+        <source>Command</source>
+        <translation>Command</translation>
+    </message>
+    <message>
+        <source>Shortcut</source>
+        <translation>Shortcut</translation>
+    </message>
+    <message>
+        <source>Toolbar</source>
+        <translation>Toolbar</translation>
+    </message>
+    <message>
+        <source>Assign shortcuts in Settings → Shortcuts. Select Toolbar to pin a command.</source>
+        <translation>Assign shortcuts in Settings → Shortcuts. Select Toolbar to pin a command.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Run</source>
+        <translation>Run</translation>
+    </message>
+</context>
+<context>
     <name>ConfigureGameView</name>
     <message>
         <source>{0} Game - {1}</source>
@@ -3512,6 +3574,14 @@ The default profile's settings are not affected.</translation>
         <translation>Set</translation>
     </message>
     <message>
+        <source>A previous deployment needs restoring before you can change locations. You can restore it here before adding the game.</source>
+        <translation>A previous deployment needs restoring before you can change locations. You can restore it here before adding the game.</translation>
+    </message>
+    <message>
+        <source>Restore previous deployment</source>
+        <translation>Restore previous deployment</translation>
+    </message>
+    <message>
         <source>Configured</source>
         <translation>Configured</translation>
     </message>
@@ -3562,6 +3632,14 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Mod staging</source>
         <translation>Mod staging</translation>
+    </message>
+    <message>
+        <source>Previous deployment's staging folder. Restore before changing it.</source>
+        <translation>Previous deployment's staging folder. Restore before changing it.</translation>
+    </message>
+    <message>
+        <source>Found via launcher plugin.</source>
+        <translation>Found via launcher plugin.</translation>
     </message>
     <message>
         <source>Game executable not found on any drive.</source>
@@ -3700,6 +3778,34 @@ Flatpak applies new filesystem access on the next launch. Restart now, then open
         <translation>Moving Mod Staging Files</translation>
     </message>
     <message>
+        <source>Restore the previous deployment of {0} using its saved locations?
+
+Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</source>
+        <translation>Restore the previous deployment of {0} using its saved locations?
+
+Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</translation>
+    </message>
+    <message>
+        <source>Restoring previous deployment…</source>
+        <translation>Restoring previous deployment…</translation>
+    </message>
+    <message>
+        <source>Unexpected restore failure.</source>
+        <translation>Unexpected restore failure.</translation>
+    </message>
+    <message>
+        <source>Previous deployment restored. Save to finish configuring the game.</source>
+        <translation>Previous deployment restored. Save to finish configuring the game.</translation>
+    </message>
+    <message>
+        <source>The staging folder can now be changed.</source>
+        <translation>The staging folder can now be changed.</translation>
+    </message>
+    <message>
+        <source>Restore failed: {0}</source>
+        <translation>Restore failed: {0}</translation>
+    </message>
+    <message>
         <source>Yes</source>
         <translation>Yes</translation>
     </message>
@@ -3726,16 +3832,24 @@ This cannot be undone.</translation>
         <translation>Removing instance…</translation>
     </message>
     <message>
-        <source>Scan {0} and remove leftover deployed mod files (hardlinks/symlinks/copies) that weren't restored?
+        <source>Clean {0}, including its mod data and root folders?
 
-Vanilla game files are kept. This cannot be undone.</source>
-        <translation>Scan {0} and remove leftover deployed mod files (hardlinks/symlinks/copies) that weren't restored?
+Remove recorded mod files and links to staged mods, restore vanilla backups, and remove case aliases. Unrecorded copies are kept. This cannot be undone.</source>
+        <translation>Clean {0}, including its mod data and root folders?
 
-Vanilla game files are kept. This cannot be undone.</translation>
+Remove recorded mod files and links to staged mods, restore vanilla backups, and remove case aliases. Unrecorded copies are kept. This cannot be undone.</translation>
+    </message>
+    <message>
+        <source>Game folder cleanup complete.</source>
+        <translation>Game folder cleanup complete.</translation>
     </message>
     <message>
         <source>Clean Game Folder - {0}</source>
         <translation>Clean Game Folder - {0}</translation>
+    </message>
+    <message>
+        <source>Cannot clean the game folder while a VFS deployment exists. Use Restore first. If game files are already missing, recover them from the VFS view before restoring.</source>
+        <translation>Cannot clean the game folder while a VFS deployment exists. Use Restore first. If game files are already missing, recover them from the VFS view before restoring.</translation>
     </message>
     <message>
         <source>Cleaning game folder…</source>
@@ -3744,10 +3858,6 @@ Vanilla game files are kept. This cannot be undone.</translation>
     <message>
         <source>Clean failed: {0}</source>
         <translation>Clean failed: {0}</translation>
-    </message>
-    <message>
-        <source>Clean complete - {0} deployed file(s) removed.</source>
-        <translation>Clean complete - {0} deployed file(s) removed.</translation>
     </message>
 </context>
 <context>
@@ -5368,6 +5478,10 @@ When it completes, the app switches to the new profile - then come back here and
 <context>
     <name>DetachableTabWidget</name>
     <message>
+        <source>Detach</source>
+        <translation>Detach</translation>
+    </message>
+    <message>
         <source>Pin to Modlist Panel</source>
         <translation>Pin to Modlist Panel</translation>
     </message>
@@ -5380,8 +5494,20 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Pin to Full Screen</translation>
     </message>
     <message>
-        <source>Drop to redock</source>
-        <translation>Drop to redock</translation>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Close Others</source>
+        <translation>Close Others</translation>
+    </message>
+    <message>
+        <source>Close All to the Right</source>
+        <translation>Close All to the Right</translation>
+    </message>
+    <message>
+        <source>Close Tab</source>
+        <translation>Close Tab</translation>
     </message>
 </context>
 <context>
@@ -5801,10 +5927,6 @@ Download the archive manually (do NOT use the Mod Manager download button), then
         <translation>Downloading {0}…</translation>
     </message>
     <message>
-        <source>{0} not found after extraction.</source>
-        <translation>{0} not found after extraction.</translation>
-    </message>
-    <message>
         <source>Downloaded and extracted {0}.</source>
         <translation>Downloaded and extracted {0}.</translation>
     </message>
@@ -5857,28 +5979,12 @@ or use Browse to select it manually.</translation>
         <translation>Extracting {0}…</translation>
     </message>
     <message>
-        <source>{0} not found after extraction.
-Check that the archive contains {0}.</source>
-        <translation>{0} not found after extraction.
-Check that the archive contains {0}.</translation>
-    </message>
-    <message>
         <source>Extracted {0} file(s).</source>
         <translation>Extracted {0} file(s).</translation>
     </message>
     <message>
         <source>Step 4: Deploy Modlist</source>
         <translation>Step 4: Deploy Modlist</translation>
-    </message>
-    <message>
-        <source>Before deploying, please delete any output from a previous
-{0} run (the '{1}' mod in your mod list).
-
-Once you have done this, click Deploy.</source>
-        <translation>Before deploying, please delete any output from a previous
-{0} run (the '{1}' mod in your mod list).
-
-Once you have done this, click Deploy.</translation>
     </message>
     <message>
         <source>Skip</source>
@@ -5935,14 +6041,6 @@ Please restart the wizard and install {1} first.</translation>
         <translation>Launching {0}…</translation>
     </message>
     <message>
-        <source>xLODGen does not support {0}.</source>
-        <translation>xLODGen does not support {0}.</translation>
-    </message>
-    <message>
-        <source>Game path not configured.</source>
-        <translation>Game path not configured.</translation>
-    </message>
-    <message>
         <source>{0} finished.</source>
         <translation>{0} finished.</translation>
     </message>
@@ -5951,22 +6049,8 @@ Please restart the wizard and install {1} first.</translation>
         <translation>Launch error: {0}</translation>
     </message>
     <message>
-        <source>{0} is running.
-Close it when you are done, then click Done.</source>
-        <translation>{0} is running.
-Close it when you are done, then click Done.</translation>
-    </message>
-    <message>
         <source>Fetching latest release from GitHub…</source>
         <translation>Fetching latest release from GitHub…</translation>
-    </message>
-    <message>
-        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>Searching Downloads folder…</source>
@@ -6808,10 +6892,6 @@ Changes take effect on the next launch. If a variable ever stops the app from st
         <translation>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</translation>
     </message>
     <message>
-        <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
-        <translation>Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
-    </message>
-    <message>
         <source>Use shared prefix</source>
         <translation>Use shared prefix</translation>
     </message>
@@ -6870,6 +6950,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>How to run this .jar:
 Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
 Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. 'Game default' uses the game's prefix. With a specific Proton version, choose an isolated prefix next to the jar or the shared prefix used by wizard tools.</translation>
+    </message>
+    <message>
+        <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix for the tool, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
+        <translation>Game default uses the game's prefix. A specific Proton version uses an isolated prefix for the tool, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
     </message>
     <message>
         <source>Game loaders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
@@ -6983,6 +7067,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Thunderstore</translation>
     </message>
     <message>
+        <source>Mod provider</source>
+        <translation>Mod provider</translation>
+    </message>
+    <message>
         <source>Direct</source>
         <translation>Direct</translation>
     </message>
@@ -7041,6 +7129,14 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Export…</source>
         <translation>Export…</translation>
+    </message>
+    <message>
+        <source>Include saves</source>
+        <translation>Include saves</translation>
+    </message>
+    <message>
+        <source>Include a Saves tab export in the profile archive. Importing the profile will offer to restore these saves.</source>
+        <translation>Include a Saves tab export in the profile archive. Importing the profile will offer to restore these saves.</translation>
     </message>
     <message>
         <source>Mod Name</source>
@@ -7133,6 +7229,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>This mod was not installed from Thunderstore.</source>
         <translation>This mod was not installed from Thunderstore.</translation>
+    </message>
+    <message>
+        <source>This mod has no portable provider source.</source>
+        <translation>This mod has no portable provider source.</translation>
     </message>
     <message>
         <source>Could not load versions from Thunderstore.</source>
@@ -7229,6 +7329,10 @@ That is fine for your own backup. Do not share or upload the file in this state 
     <message>
         <source>Building file-edit patches…</source>
         <translation>Building file-edit patches…</translation>
+    </message>
+    <message>
+        <source>Packing saves: {0}</source>
+        <translation>Packing saves: {0}</translation>
     </message>
     <message>
         <source>Packing mod: {0}</source>
@@ -7402,6 +7506,10 @@ Click Done to clean up the extracted files and close.</translation>
     <message>
         <source>Clear all filters</source>
         <translation>Clear all filters</translation>
+    </message>
+    <message>
+        <source>Open as tab</source>
+        <translation>Open as tab</translation>
     </message>
 </context>
 <context>
@@ -7946,6 +8054,64 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     <message>
         <source>✘  {0} Not Present</source>
         <translation>✘  {0} Not Present</translation>
+    </message>
+</context>
+<context>
+    <name>GameRepositoriesOverlay</name>
+    <message>
+        <source>Custom game repositories</source>
+        <translation>Custom game repositories</translation>
+    </message>
+    <message>
+        <source>Choose a folder containing custom game handler JSON files. Blank branch uses the default branch; blank folder uses the repository root. Close to sync changes. Use Game sources to choose between handlers with the same game ID. Disabling or removing a repository keeps downloaded games.</source>
+        <translation>Choose a folder containing custom game handler JSON files. Blank branch uses the default branch; blank folder uses the repository root. Close to sync changes. Use Game sources to choose between handlers with the same game ID. Disabling or removing a repository keeps downloaded games.</translation>
+    </message>
+    <message>
+        <source>Repository removed. Downloaded games are kept.</source>
+        <translation>Repository removed. Downloaded games are kept.</translation>
+    </message>
+    <message>
+        <source>Game sources…</source>
+        <translation>Game sources…</translation>
+    </message>
+</context>
+<context>
+    <name>GameSourcesOverlay</name>
+    <message>
+        <source>Game handler sources</source>
+        <translation>Game handler sources</translation>
+    </message>
+    <message>
+        <source>Choose one handler source for each game ID. The game's existing name is kept so saved paths and profiles continue to work. Other downloaded versions are kept. Disabled or removed repositories keep their last downloaded version.</source>
+        <translation>Choose one handler source for each game ID. The game's existing name is kept so saved paths and profiles continue to work. Other downloaded versions are kept. Disabled or removed repositories keep their last downloaded version.</translation>
+    </message>
+    <message>
+        <source>Use selected source</source>
+        <translation>Use selected source</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>{0} sources</source>
+        <translation>{0} sources</translation>
+    </message>
+    <message>
+        <source>No downloaded handlers. Close the repositories window to sync first.</source>
+        <translation>No downloaded handlers. Close the repositories window to sync first.</translation>
+    </message>
+    <message>
+        <source>Local definition</source>
+        <translation>Local definition</translation>
+    </message>
+    <message>
+        <source>Retained download; updates disabled</source>
+        <translation>Retained download; updates disabled</translation>
+    </message>
+    <message>
+        <source>Handler source selected.</source>
+        <translation>Handler source selected.</translation>
     </message>
 </context>
 <context>
@@ -8531,6 +8697,132 @@ Managed directory: {2}</translation>
     <message>
         <source>Copied ✓</source>
         <translation>Copied ✓</translation>
+    </message>
+</context>
+<context>
+    <name>LootReportOverlay</name>
+    <message>
+        <source>LOOT diagnostics</source>
+        <translation>LOOT diagnostics</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+</context>
+<context>
+    <name>LootReportView</name>
+    <message>
+        <source>LOOT has not run for this profile yet. Use Sort Plugins or Refresh to generate a report.</source>
+        <translation>LOOT has not run for this profile yet. Use Sort Plugins or Refresh to generate a report.</translation>
+    </message>
+    <message>
+        <source>Last LOOT run: {0}</source>
+        <translation>Last LOOT run: {0}</translation>
+    </message>
+    <message>
+        <source>{0} plugin(s) with metadata</source>
+        <translation>{0} plugin(s) with metadata</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Error</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>Warning</translation>
+    </message>
+    <message>
+        <source>Note</source>
+        <translation>Note</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>General</translation>
+    </message>
+    <message>
+        <source>The masterlist reported no general messages.</source>
+        <translation>The masterlist reported no general messages.</translation>
+    </message>
+    <message>
+        <source>The masterlist has no metadata for the loaded plugins.</source>
+        <translation>The masterlist has no metadata for the loaded plugins.</translation>
+    </message>
+    <message>
+        <source>Errors</source>
+        <translation>Errors</translation>
+    </message>
+    <message>
+        <source>Warnings</source>
+        <translation>Warnings</translation>
+    </message>
+    <message>
+        <source>Dirty plugins</source>
+        <translation>Dirty plugins</translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation>Notes</translation>
+    </message>
+    <message>
+        <source>Messages</source>
+        <translation>Messages</translation>
+    </message>
+    <message>
+        <source>Requirements</source>
+        <translation>Requirements</translation>
+    </message>
+    <message>
+        <source>Incompatibilities</source>
+        <translation>Incompatibilities</translation>
+    </message>
+    <message>
+        <source>Locations</source>
+        <translation>Locations</translation>
+    </message>
+    <message>
+        <source>Dirty edits</source>
+        <translation>Dirty edits</translation>
+    </message>
+    <message>
+        <source>Verified clean</source>
+        <translation>Verified clean</translation>
+    </message>
+    <message>
+        <source>Bash Tags</source>
+        <translation>Bash Tags</translation>
+    </message>
+    <message>
+        <source>{0} ITM</source>
+        <translation>{0} ITM</translation>
+    </message>
+    <message>
+        <source>{0} UDR</source>
+        <translation>{0} UDR</translation>
+    </message>
+    <message>
+        <source>{0} deleted navmesh</source>
+        <translation>{0} deleted navmesh</translation>
+    </message>
+    <message>
+        <source>CRC {0}</source>
+        <translation>CRC {0}</translation>
+    </message>
+    <message>
+        <source>clean with</source>
+        <translation>clean with</translation>
+    </message>
+    <message>
+        <source>Current</source>
+        <translation>Current</translation>
+    </message>
+    <message>
+        <source>Suggested (add)</source>
+        <translation>Suggested (add)</translation>
+    </message>
+    <message>
+        <source>Suggested (remove)</source>
+        <translation>Suggested (remove)</translation>
     </message>
 </context>
 <context>
@@ -9540,70 +9832,6 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Sync</translation>
     </message>
     <message>
-        <source>Match plugin load order to modlist priority</source>
-        <translation>Match plugin load order to modlist priority</translation>
-    </message>
-    <message>
-        <source>Groups</source>
-        <translation>Groups</translation>
-    </message>
-    <message>
-        <source>Plugin Rules</source>
-        <translation>Plugin Rules</translation>
-    </message>
-    <message>
-        <source>Search plugins…</source>
-        <translation>Search plugins…</translation>
-    </message>
-    <message>
-        <source>Pack BSA</source>
-        <translation>Pack BSA</translation>
-    </message>
-    <message>
-        <source>Unpack BSA</source>
-        <translation>Unpack BSA</translation>
-    </message>
-    <message>
-        <source>⊞ Expand all</source>
-        <translation>⊞ Expand all</translation>
-    </message>
-    <message>
-        <source>⊟ Collapse all</source>
-        <translation>⊟ Collapse all</translation>
-    </message>
-    <message>
-        <source>Install Selected</source>
-        <translation>Install Selected</translation>
-    </message>
-    <message>
-        <source>Move Selected</source>
-        <translation>Move Selected</translation>
-    </message>
-    <message>
-        <source>Hide Selected</source>
-        <translation>Hide Selected</translation>
-    </message>
-    <message>
-        <source>Unhide Selected</source>
-        <translation>Unhide Selected</translation>
-    </message>
-    <message>
-        <source>Remove Selected</source>
-        <translation>Remove Selected</translation>
-    </message>
-    <message>
-        <source>Locations</source>
-        <translation>Locations</translation>
-    </message>
-    <message>
-        <source>Search downloads…</source>
-        <translation>Search downloads…</translation>
-    </message>
-    <message>
-        <source>{0} ({1})</source>
-        <translation>{0} ({1})</translation>
-    </message>
-    <message>
         <source>Removed {0} archive(s)</source>
         <translation>Removed {0} archive(s)</translation>
     </message>
@@ -9626,30 +9854,6 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
     <message>
         <source>Moved {0} archive(s)</source>
         <translation>Moved {0} archive(s)</translation>
-    </message>
-    <message>
-        <source>Find in files:</source>
-        <translation>Find in files:</translation>
-    </message>
-    <message>
-        <source>Text to search for…</source>
-        <translation>Text to search for…</translation>
-    </message>
-    <message>
-        <source>Search</source>
-        <translation>Search</translation>
-    </message>
-    <message>
-        <source>Search Content</source>
-        <translation>Search Content</translation>
-    </message>
-    <message>
-        <source>Content: "{0}"</source>
-        <translation>Content: "{0}"</translation>
-    </message>
-    <message>
-        <source>Clear Content</source>
-        <translation>Clear Content</translation>
     </message>
     <message>
         <source>Add game…</source>
@@ -9912,28 +10116,8 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>Reset</translation>
     </message>
     <message>
-        <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
-        <translation>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</translation>
-    </message>
-    <message>
-        <source>Search files… (try !.dds)</source>
-        <translation>Search files… (try !.dds)</translation>
-    </message>
-    <message>
-        <source>Open folder</source>
-        <translation>Open folder</translation>
-    </message>
-    <message>
-        <source>Export</source>
-        <translation>Export</translation>
-    </message>
-    <message>
         <source>Import</source>
         <translation>Import</translation>
-    </message>
-    <message>
-        <source>Search saves… (try !.ess)</source>
-        <translation>Search saves… (try !.ess)</translation>
     </message>
     <message>
         <source>Remove archives</source>
@@ -10180,14 +10364,6 @@ The collection may not work correctly. You can still install it.</translation>
         <translation>Don't show again</translation>
     </message>
     <message>
-        <source>Refresh Plugins</source>
-        <translation>Refresh Plugins</translation>
-    </message>
-    <message>
-        <source>↻ Refresh</source>
-        <translation>↻ Refresh</translation>
-    </message>
-    <message>
         <source>Permanently delete {0} archive(s) from disk?</source>
         <translation>Permanently delete {0} archive(s) from disk?</translation>
     </message>
@@ -10198,10 +10374,6 @@ The collection may not work correctly. You can still install it.</translation>
     <message>
         <source>Updating handler…</source>
         <translation>Updating handler…</translation>
-    </message>
-    <message>
-        <source>Handler not found on the Resources branch.</source>
-        <translation>Handler not found on the Resources branch.</translation>
     </message>
     <message>
         <source>Handler is already up to date.</source>
@@ -11466,6 +11638,18 @@ Run Quick Update on all of them now?</translation>
         <translation> ({0})</translation>
     </message>
     <message>
+        <source>Handler not found in an enabled game repository.</source>
+        <translation>Handler not found in an enabled game repository.</translation>
+    </message>
+    <message>
+        <source>Select a configured game before opening a provider install link.</source>
+        <translation>Select a configured game before opening a provider install link.</translation>
+    </message>
+    <message>
+        <source>The install link requires exactly one enabled provider for the selected game.</source>
+        <translation>The install link requires exactly one enabled provider for the selected game.</translation>
+    </message>
+    <message>
         <source>Received a malformed MODL link.</source>
         <translation>Received a malformed MODL link.</translation>
     </message>
@@ -11786,6 +11970,14 @@ Run Quick Update on all of them now?</translation>
         <translation>mod.io update checking is disabled until its API path is added in the mod.io API Key tool.</translation>
     </message>
     <message>
+        <source>Mod providers: {0} updates</source>
+        <translation>Mod providers: {0} updates</translation>
+    </message>
+    <message>
+        <source>{0} provider checks failed; see log</source>
+        <translation>{0} provider checks failed; see log</translation>
+    </message>
+    <message>
         <source>Rolled back {0} of {1} mod(s).</source>
         <translation>Rolled back {0} of {1} mod(s).</translation>
     </message>
@@ -12030,6 +12222,10 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
         <translation>Waiting for profile updates…</translation>
     </message>
     <message>
+        <source>Finish the plugin store operation before closing Amethyst.</source>
+        <translation>Finish the plugin store operation before closing Amethyst.</translation>
+    </message>
+    <message>
         <source>Wait for Wabbajack list removal to finish before closing Amethyst.</source>
         <translation>Wait for Wabbajack list removal to finish before closing Amethyst.</translation>
     </message>
@@ -12046,6 +12242,14 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
         <translation>Extracting / Installing</translation>
     </message>
     <message>
+        <source>Deploy failed: {0}</source>
+        <translation>Deploy failed: {0}</translation>
+    </message>
+    <message>
+        <source>Deployment failed</source>
+        <translation>Deployment failed</translation>
+    </message>
+    <message>
         <source>Restore the game before changing the preferred OpenMW package.</source>
         <translation>Restore the game before changing the preferred OpenMW package.</translation>
     </message>
@@ -12056,6 +12260,46 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     <message>
         <source>Installing .NET Framework 4.8</source>
         <translation>Installing .NET Framework 4.8</translation>
+    </message>
+    <message>
+        <source>No plugins available</source>
+        <translation>No plugins available</translation>
+    </message>
+    <message>
+        <source>{0} (theme pack)</source>
+        <translation>{0} (theme pack)</translation>
+    </message>
+    <message>
+        <source>{0} (icon pack)</source>
+        <translation>{0} (icon pack)</translation>
+    </message>
+    <message>
+        <source>Some plugins could not be loaded…</source>
+        <translation>Some plugins could not be loaded…</translation>
+    </message>
+    <message>
+        <source>Browse plugins…</source>
+        <translation>Browse plugins…</translation>
+    </message>
+    <message>
+        <source>Open Plugins Folder…</source>
+        <translation>Open Plugins Folder…</translation>
+    </message>
+    <message>
+        <source>Plugin store</source>
+        <translation>Plugin store</translation>
+    </message>
+    <message>
+        <source>Wait for the current manager operation to finish.</source>
+        <translation>Wait for the current manager operation to finish.</translation>
+    </message>
+    <message>
+        <source>Wait for the mod list to finish refreshing.</source>
+        <translation>Wait for the mod list to finish refreshing.</translation>
+    </message>
+    <message>
+        <source>Could not open plugin: {0}</source>
+        <translation>Could not open plugin: {0}</translation>
     </message>
     <message>
         <source>Wizard Settings…</source>
@@ -12150,14 +12394,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>Modlist</source>
         <translation>Modlist</translation>
-    </message>
-    <message>
-        <source>Pack {0}</source>
-        <translation>Pack {0}</translation>
-    </message>
-    <message>
-        <source>Unpack {0}</source>
-        <translation>Unpack {0}</translation>
     </message>
     <message>
         <source>Reset Mod Files changes for {0}</source>
@@ -12260,6 +12496,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
         <translation>mod.io</translation>
     </message>
     <message>
+        <source>Mod providers</source>
+        <translation>Mod providers</translation>
+    </message>
+    <message>
         <source>None</source>
         <translation>None</translation>
     </message>
@@ -12282,14 +12522,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>{0} enabled of {1} mods</source>
         <translation>{0} enabled of {1} mods</translation>
-    </message>
-    <message>
-        <source>P:{0} / Non-ESL:{1}</source>
-        <translation>P:{0} / Non-ESL:{1}</translation>
-    </message>
-    <message>
-        <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
-        <translation>{0} plugins ({1} ESL, {2} non-ESL)</translation>
     </message>
     <message>
         <source>Removed {0} stale plugin(s)</source>
@@ -12772,6 +13004,77 @@ The profile and shared download archives will be kept.</translation>
     <message>
         <source>Could not start the AppImage update. Check that its folder is writable, or download the update from the releases page.</source>
         <translation>Could not start the AppImage update. Check that its folder is writable, or download the update from the releases page.</translation>
+    </message>
+</context>
+<context>
+    <name>ManagerPluginOverlay</name>
+    <message>
+        <source>Run only plugins you trust. Plugin scripts have the same file access as Amethyst.</source>
+        <translation>Run only plugins you trust. Plugin scripts have the same file access as Amethyst.</translation>
+    </message>
+    <message>
+        <source>Ready to run.</source>
+        <translation>Ready to run.</translation>
+    </message>
+    <message>
+        <source>Show requested API operation</source>
+        <translation>Show requested API operation</translation>
+    </message>
+    <message>
+        <source>Run</source>
+        <translation>Run</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>Apply</translation>
+    </message>
+    <message>
+        <source>Cancel changes</source>
+        <translation>Cancel changes</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Could not save plugin settings: {0}</source>
+        <translation>Could not save plugin settings: {0}</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>Running…</source>
+        <translation>Running…</translation>
+    </message>
+    <message>
+        <source>Review changes</source>
+        <translation>Review changes</translation>
+    </message>
+    <message>
+        <source>Applying changes…</source>
+        <translation>Applying changes…</translation>
+    </message>
+    <message>
+        <source>Cancelling changes…</source>
+        <translation>Cancelling changes…</translation>
+    </message>
+    <message>
+        <source>Plugin failed. See the log below.</source>
+        <translation>Plugin failed. See the log below.</translation>
+    </message>
+    <message>
+        <source>Stopped. Any completed changes remain applied.</source>
+        <translation>Stopped. Any completed changes remain applied.</translation>
+    </message>
+    <message>
+        <source>Plugin finished.</source>
+        <translation>Plugin finished.</translation>
+    </message>
+    <message>
+        <source>Stopping. Waiting for accepted manager operations to finish…</source>
+        <translation>Stopping. Waiting for accepted manager operations to finish…</translation>
     </message>
 </context>
 <context>
@@ -13836,6 +14139,10 @@ This cannot be undone.</translation>
         <source>Updated</source>
         <translation>Updated</translation>
     </message>
+    <message>
+        <source>Read-only entry managed by a plugin.</source>
+        <translation>Read-only entry managed by a plugin.</translation>
+    </message>
 </context>
 <context>
     <name>ModListView</name>
@@ -14000,6 +14307,10 @@ Click Done to close.</translation>
     <message>
         <source>Update available on Thunderstore</source>
         <translation>Update available on Thunderstore</translation>
+    </message>
+    <message>
+        <source>Update available from mod provider</source>
+        <translation>Update available from mod provider</translation>
     </message>
     <message>
         <source>Endorsed</source>
@@ -15976,8 +16287,8 @@ Daily: {1}</translation>
         <translation>Nexus link forwarding</translation>
     </message>
     <message>
-        <source>Choose which mod manager receives this game's Nexus links. The choice is remembered. Removing it restores Amethyst's normal handling.</source>
-        <translation>Choose which mod manager receives this game's Nexus links. The choice is remembered. Removing it restores Amethyst's normal handling.</translation>
+        <source>Choose which mod manager receives this game's Nexus links. The choice is remembered. Amethyst uses the matching configured game, or the current game for links from other domains.</source>
+        <translation>Choose which mod manager receives this game's Nexus links. The choice is remembered. Amethyst uses the matching configured game, or the current game for links from other domains.</translation>
     </message>
     <message>
         <source>Nexus game domain</source>
@@ -16915,6 +17226,25 @@ Re-scan to verify.</translation>
     </message>
 </context>
 <context>
+    <name>PluginCommands</name>
+    <message>
+        <source>The active game or profile changed. Run the command again.</source>
+        <translation>The active game or profile changed. Run the command again.</translation>
+    </message>
+    <message>
+        <source>The plugin changed. Run the command again.</source>
+        <translation>The plugin changed. Run the command again.</translation>
+    </message>
+    <message>
+        <source>This command does not match the current selection.</source>
+        <translation>This command does not match the current selection.</translation>
+    </message>
+    <message>
+        <source>A selected item is no longer available.</source>
+        <translation>A selected item is no longer available.</translation>
+    </message>
+</context>
+<context>
     <name>PluginCycleView</name>
     <message>
         <source>Plugins in cycle</source>
@@ -17131,6 +17461,25 @@ Re-scan to verify.</translation>
     </message>
 </context>
 <context>
+    <name>PluginMenuController</name>
+    <message>
+        <source>Plugins</source>
+        <translation>Plugins</translation>
+    </message>
+    <message>
+        <source>Preview with {0}</source>
+        <translation>Preview with {0}</translation>
+    </message>
+    <message>
+        <source>The active game or profile changed. Reopen the menu.</source>
+        <translation>The active game or profile changed. Reopen the menu.</translation>
+    </message>
+    <message>
+        <source>The plugin changed. Reopen the menu.</source>
+        <translation>The plugin changed. Reopen the menu.</translation>
+    </message>
+</context>
+<context>
     <name>PluginModel</name>
     <message>
         <source>Plugin Name</source>
@@ -17147,6 +17496,223 @@ Re-scan to verify.</translation>
     <message>
         <source>Index</source>
         <translation>Index</translation>
+    </message>
+</context>
+<context>
+    <name>PluginNotifications</name>
+    <message>
+        <source>Open report</source>
+        <translation>Open report</translation>
+    </message>
+    <message>
+        <source>{0}: {1} new or updated diagnostics</source>
+        <translation>{0}: {1} new or updated diagnostics</translation>
+    </message>
+    <message>
+        <source>Select the notification's game and profile before using this action.</source>
+        <translation>Select the notification's game and profile before using this action.</translation>
+    </message>
+    <message>
+        <source>This plugin changed or is no longer available.</source>
+        <translation>This plugin changed or is no longer available.</translation>
+    </message>
+    <message>
+        <source>An affected item is no longer available. Refresh the diagnostic.</source>
+        <translation>An affected item is no longer available. Refresh the diagnostic.</translation>
+    </message>
+    <message>
+        <source>The action no longer matches these items.</source>
+        <translation>The action no longer matches these items.</translation>
+    </message>
+</context>
+<context>
+    <name>PluginPanelControls</name>
+    <message>
+        <source>Sort Plugins</source>
+        <translation>Sort Plugins</translation>
+    </message>
+    <message>
+        <source>Refresh Plugins</source>
+        <translation>Refresh Plugins</translation>
+    </message>
+    <message>
+        <source>Sync</source>
+        <translation>Sync</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>Groups</translation>
+    </message>
+    <message>
+        <source>Plugin Rules</source>
+        <translation>Plugin Rules</translation>
+    </message>
+    <message>
+        <source>LOOT</source>
+        <translation>LOOT</translation>
+    </message>
+    <message>
+        <source>Show LOOT diagnostics</source>
+        <translation>Show LOOT diagnostics</translation>
+    </message>
+    <message>
+        <source>Match plugin load order to modlist priority</source>
+        <translation>Match plugin load order to modlist priority</translation>
+    </message>
+    <message>
+        <source>Search plugins…</source>
+        <translation>Search plugins…</translation>
+    </message>
+    <message>
+        <source>Pack BSA</source>
+        <translation>Pack BSA</translation>
+    </message>
+    <message>
+        <source>Unpack BSA</source>
+        <translation>Unpack BSA</translation>
+    </message>
+    <message>
+        <source>⊞ Expand all</source>
+        <translation>⊞ Expand all</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>Open</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Reset</translation>
+    </message>
+    <message>
+        <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
+        <translation>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</translation>
+    </message>
+    <message>
+        <source>Search files… (try !.dds)</source>
+        <translation>Search files… (try !.dds)</translation>
+    </message>
+    <message>
+        <source>Blacklist</source>
+        <translation>Blacklist</translation>
+    </message>
+    <message>
+        <source>Routing Rules</source>
+        <translation>Routing Rules</translation>
+    </message>
+    <message>
+        <source>⊟ Collapse all</source>
+        <translation>⊟ Collapse all</translation>
+    </message>
+    <message>
+        <source>↻ Refresh</source>
+        <translation>↻ Refresh</translation>
+    </message>
+    <message>
+        <source>Open folder</source>
+        <translation>Open folder</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Export</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Import</translation>
+    </message>
+    <message>
+        <source>Search saves… (try !.ess)</source>
+        <translation>Search saves… (try !.ess)</translation>
+    </message>
+    <message>
+        <source>Install Selected</source>
+        <translation>Install Selected</translation>
+    </message>
+    <message>
+        <source>Move Selected</source>
+        <translation>Move Selected</translation>
+    </message>
+    <message>
+        <source>Hide Selected</source>
+        <translation>Hide Selected</translation>
+    </message>
+    <message>
+        <source>Remove Selected</source>
+        <translation>Remove Selected</translation>
+    </message>
+    <message>
+        <source>Locations</source>
+        <translation>Locations</translation>
+    </message>
+    <message>
+        <source>Search downloads…</source>
+        <translation>Search downloads…</translation>
+    </message>
+    <message>
+        <source>Unhide Selected</source>
+        <translation>Unhide Selected</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>Find in files:</source>
+        <translation>Find in files:</translation>
+    </message>
+    <message>
+        <source>Text to search for…</source>
+        <translation>Text to search for…</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message>
+        <source>Search Content</source>
+        <translation>Search Content</translation>
+    </message>
+    <message>
+        <source>Content: "{0}"</source>
+        <translation>Content: "{0}"</translation>
+    </message>
+    <message>
+        <source>Clear Content</source>
+        <translation>Clear Content</translation>
+    </message>
+    <message>
+        <source>Pack {0}</source>
+        <translation>Pack {0}</translation>
+    </message>
+    <message>
+        <source>Unpack {0}</source>
+        <translation>Unpack {0}</translation>
+    </message>
+    <message>
+        <source>File location</source>
+        <translation>File location</translation>
+    </message>
+    <message>
+        <source>P:{0} / Non-ESL:{1}</source>
+        <translation>P:{0} / Non-ESL:{1}</translation>
+    </message>
+    <message>
+        <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
+        <translation>{0} plugins ({1} ESL, {2} non-ESL)</translation>
+    </message>
+</context>
+<context>
+    <name>PluginRepositoriesOverlay</name>
+    <message>
+        <source>Plugin repositories</source>
+        <translation>Plugin repositories</translation>
+    </message>
+    <message>
+        <source>Choose a folder containing plugin subfolders, or a single plugin's folder. Blank branch uses the default branch; blank folder uses the repository root.</source>
+        <translation>Choose a folder containing plugin subfolders, or a single plugin's folder. Blank branch uses the default branch; blank folder uses the repository root.</translation>
+    </message>
+    <message>
+        <source>Repository removed. Installed plugins are kept.</source>
+        <translation>Repository removed. Installed plugins are kept.</translation>
     </message>
 </context>
 <context>
@@ -17185,6 +17751,371 @@ Drag a plugin from the left pane to add a rule.</translation>
     </message>
 </context>
 <context>
+    <name>PluginSettingsOverlay</name>
+    <message>
+        <source>{0} settings</source>
+        <translation>{0} settings</translation>
+    </message>
+    <message>
+        <source>Icon changes take effect after restarting Amethyst.</source>
+        <translation>Icon changes take effect after restarting Amethyst.</translation>
+    </message>
+    <message>
+        <source>Settings are used on the plugin's next run or refresh.</source>
+        <translation>Settings are used on the plugin's next run or refresh.</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>Restore defaults</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Plugin settings could not be read: {0}</source>
+        <translation>Plugin settings could not be read: {0}</translation>
+    </message>
+    <message>
+        <source>Reset damaged settings</source>
+        <translation>Reset damaged settings</translation>
+    </message>
+    <message>
+        <source>Could not save plugin settings: {0}</source>
+        <translation>Could not save plugin settings: {0}</translation>
+    </message>
+    <message>
+        <source>Could not reset plugin settings: {0}</source>
+        <translation>Could not reset plugin settings: {0}</translation>
+    </message>
+    <message>
+        <source>Settings reset. Original settings saved to {0}.</source>
+        <translation>Settings reset. Original settings saved to {0}.</translation>
+    </message>
+    <message>
+        <source>Settings reset.</source>
+        <translation>Settings reset.</translation>
+    </message>
+</context>
+<context>
+    <name>PluginStoreView</name>
+    <message>
+        <source>Plugin store</source>
+        <translation>Plugin store</translation>
+    </message>
+    <message>
+        <source>Plugins run Python with the same file access as Amethyst. Install only plugins you trust.</source>
+        <translation>Plugins run Python with the same file access as Amethyst. Install only plugins you trust.</translation>
+    </message>
+    <message>
+        <source>Search plugins</source>
+        <translation>Search plugins</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>Repositories…</source>
+        <translation>Repositories…</translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation>Details</translation>
+    </message>
+    <message>
+        <source>README</source>
+        <translation>README</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Remove</translation>
+    </message>
+    <message>
+        <source>Disable</source>
+        <translation>Disable</translation>
+    </message>
+    <message>
+        <source>Settings…</source>
+        <translation>Settings…</translation>
+    </message>
+    <message>
+        <source>Cancel pending change</source>
+        <translation>Cancel pending change</translation>
+    </message>
+    <message>
+        <source>Restart manager</source>
+        <translation>Restart manager</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Enabled</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <source>Pending change</source>
+        <translation>Pending change</translation>
+    </message>
+    <message>
+        <source>Installed locally · source unknown</source>
+        <translation>Installed locally · source unknown</translation>
+    </message>
+    <message>
+        <source>Version {0}</source>
+        <translation>Version {0}</translation>
+    </message>
+    <message>
+        <source>Version unknown</source>
+        <translation>Version unknown</translation>
+    </message>
+    <message>
+        <source>Not installed</source>
+        <translation>Not installed</translation>
+    </message>
+    <message>
+        <source>{0} change(s) waiting for restart. Changes apply on the next manager launch.</source>
+        <translation>{0} change(s) waiting for restart. Changes apply on the next manager launch.</translation>
+    </message>
+    <message>
+        <source>Plugin changes take effect after restarting Amethyst.</source>
+        <translation>Plugin changes take effect after restarting Amethyst.</translation>
+    </message>
+    <message>
+        <source>No plugins found.</source>
+        <translation>No plugins found.</translation>
+    </message>
+    <message>
+        <source>Installed locally · version unknown</source>
+        <translation>Installed locally · version unknown</translation>
+    </message>
+    <message>
+        <source>Author: {0}</source>
+        <translation>Author: {0}</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
+        <source>Available version: {0}</source>
+        <translation>Available version: {0}</translation>
+    </message>
+    <message>
+        <source>Not in the current catalogue</source>
+        <translation>Not in the current catalogue</translation>
+    </message>
+    <message>
+        <source>Installed version: {0}</source>
+        <translation>Installed version: {0}</translation>
+    </message>
+    <message>
+        <source>Minimum manager version: {0}</source>
+        <translation>Minimum manager version: {0}</translation>
+    </message>
+    <message>
+        <source>Not specified</source>
+        <translation>Not specified</translation>
+    </message>
+    <message>
+        <source>Repository: {0}</source>
+        <translation>Repository: {0}</translation>
+    </message>
+    <message>
+        <source>Branch: {0}</source>
+        <translation>Branch: {0}</translation>
+    </message>
+    <message>
+        <source>Default branch</source>
+        <translation>Default branch</translation>
+    </message>
+    <message>
+        <source>Folder: {0}</source>
+        <translation>Folder: {0}</translation>
+    </message>
+    <message>
+        <source>State: {0}</source>
+        <translation>State: {0}</translation>
+    </message>
+    <message>
+        <source>Installed from: {0} [{1}:{2}]</source>
+        <translation>Installed from: {0} [{1}:{2}]</translation>
+    </message>
+    <message>
+        <source>default</source>
+        <translation>default</translation>
+    </message>
+    <message>
+        <source>Installed source: Unknown</source>
+        <translation>Installed source: Unknown</translation>
+    </message>
+    <message>
+        <source>Update</source>
+        <translation>Update</translation>
+    </message>
+    <message>
+        <source>Replace from this repository…</source>
+        <translation>Replace from this repository…</translation>
+    </message>
+    <message>
+        <source>Replace with store version</source>
+        <translation>Replace with store version</translation>
+    </message>
+    <message>
+        <source>The installed plugin is up to date or newer.</source>
+        <translation>The installed plugin is up to date or newer.</translation>
+    </message>
+    <message>
+        <source>Duplicate installed plugin id. Resolve the duplicate folders first.</source>
+        <translation>Duplicate installed plugin id. Resolve the duplicate folders first.</translation>
+    </message>
+    <message>
+        <source>Removal</source>
+        <translation>Removal</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>Enable</translation>
+    </message>
+    <message>
+        <source>Install version {0}</source>
+        <translation>Install version {0}</translation>
+    </message>
+    <message>
+        <source>Pending: {0}</source>
+        <translation>Pending: {0}</translation>
+    </message>
+    <message>
+        <source>Pending repository: {0}</source>
+        <translation>Pending repository: {0}</translation>
+    </message>
+    <message>
+        <source>Plugin dependencies: {0}</source>
+        <translation>Plugin dependencies: {0}</translation>
+    </message>
+    <message>
+        <source>Plugin conflicts: {0}</source>
+        <translation>Plugin conflicts: {0}</translation>
+    </message>
+    <message>
+        <source>Loading README…</source>
+        <translation>Loading README…</translation>
+    </message>
+    <message>
+        <source>Could not load README: {0}</source>
+        <translation>Could not load README: {0}</translation>
+    </message>
+    <message>
+        <source>Change saved. Restart Amethyst to apply it.</source>
+        <translation>Change saved. Restart Amethyst to apply it.</translation>
+    </message>
+    <message>
+        <source>Loading plugin catalogue…</source>
+        <translation>Loading plugin catalogue…</translation>
+    </message>
+    <message>
+        <source>Catalogue loaded.</source>
+        <translation>Catalogue loaded.</translation>
+    </message>
+    <message>
+        <source>Replace</source>
+        <translation>Replace</translation>
+    </message>
+    <message>
+        <source>Delete saved data</source>
+        <translation>Delete saved data</translation>
+    </message>
+    <message>
+        <source>Downloading and validating plugin…</source>
+        <translation>Downloading and validating plugin…</translation>
+    </message>
+    <message>
+        <source>Replace plugin from this repository?</source>
+        <translation>Replace plugin from this repository?</translation>
+    </message>
+    <message>
+        <source>Replace {0} with version {1} from {2} after restart? Saved settings and data will be preserved, and the old folder backed up.</source>
+        <translation>Replace {0} with version {1} from {2} after restart? Saved settings and data will be preserved, and the old folder backed up.</translation>
+    </message>
+    <message>
+        <source>Remove plugin?</source>
+        <translation>Remove plugin?</translation>
+    </message>
+    <message>
+        <source>Remove {0} after restart? Saved data is kept for reinstalling unless you choose to delete it. Deletion also removes this plugin's store backups.</source>
+        <translation>Remove {0} after restart? Saved data is kept for reinstalling unless you choose to delete it. Deletion also removes this plugin's store backups.</translation>
+    </message>
+    <message>
+        <source>Queuing plugin removal…</source>
+        <translation>Queuing plugin removal…</translation>
+    </message>
+    <message>
+        <source>Cancelling pending change…</source>
+        <translation>Cancelling pending change…</translation>
+    </message>
+    <message>
+        <source>Pending change cancelled.</source>
+        <translation>Pending change cancelled.</translation>
+    </message>
+    <message>
+        <source>Queuing plugin enablement change…</source>
+        <translation>Queuing plugin enablement change…</translation>
+    </message>
+    <message>
+        <source>Settings saved. Restart Amethyst to apply icon changes.</source>
+        <translation>Settings saved. Restart Amethyst to apply icon changes.</translation>
+    </message>
+    <message>
+        <source>Settings saved.</source>
+        <translation>Settings saved.</translation>
+    </message>
+    <message>
+        <source>Wait for current manager operations to finish before restarting.</source>
+        <translation>Wait for current manager operations to finish before restarting.</translation>
+    </message>
+</context>
+<context>
+    <name>PluginUIController</name>
+    <message>
+        <source>More plugin controls</source>
+        <translation>More plugin controls</translation>
+    </message>
+    <message>
+        <source>Commands…</source>
+        <translation>Commands…</translation>
+    </message>
+    <message>
+        <source>Some interface elements could not be loaded…</source>
+        <translation>Some interface elements could not be loaded…</translation>
+    </message>
+    <message>
+        <source>Plugin interface</source>
+        <translation>Plugin interface</translation>
+    </message>
+    <message>
+        <source>Some plugin services could not be loaded…</source>
+        <translation>Some plugin services could not be loaded…</translation>
+    </message>
+    <message>
+        <source>Plugin services</source>
+        <translation>Plugin services</translation>
+    </message>
+</context>
+<context>
     <name>PluginView</name>
     <message>
         <source>Show / Hide columns</source>
@@ -17197,6 +18128,10 @@ Drag a plugin from the left pane to add a rule.</translation>
     <message>
         <source>Clear all filters</source>
         <translation>Clear all filters</translation>
+    </message>
+    <message>
+        <source>Open as tab</source>
+        <translation>Open as tab</translation>
     </message>
 </context>
 <context>
@@ -17333,8 +18268,8 @@ Drag a plugin from the left pane to add a rule.</translation>
         <translation>Manage Prefixes</translation>
     </message>
     <message>
-        <source>Wizard tools each run in their own Wine prefix (created next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</source>
-        <translation>Wizard tools each run in their own Wine prefix (created next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</translation>
+        <source>Wizard tools each run in their own Wine prefix (created in Applications, next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</source>
+        <translation>Wizard tools each run in their own Wine prefix (created in Applications, next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</translation>
     </message>
     <message>
         <source>Scanning for prefixes…</source>
@@ -17578,6 +18513,83 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     </message>
 </context>
 <context>
+    <name>ProfileSavesTransfer</name>
+    <message>
+        <source>Could not resolve save folders.</source>
+        <translation>Could not resolve save folders.</translation>
+    </message>
+    <message>
+        <source>No save folders found for this game.</source>
+        <translation>No save folders found for this game.</translation>
+    </message>
+    <message>
+        <source> [profile saves]</source>
+        <translation> [profile saves]</translation>
+    </message>
+    <message>
+        <source>Choose save folder to import into</source>
+        <translation>Choose save folder to import into</translation>
+    </message>
+    <message>
+        <source>Choose save folder to export</source>
+        <translation>Choose save folder to export</translation>
+    </message>
+    <message>
+        <source>Select</source>
+        <translation>Select</translation>
+    </message>
+    <message>
+        <source>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</source>
+        <translation>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</translation>
+    </message>
+    <message>
+        <source>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</source>
+        <translation>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</translation>
+    </message>
+    <message>
+        <source>Import bundled saves?</source>
+        <translation>Import bundled saves?</translation>
+    </message>
+    <message>
+        <source>This profile includes a saves archive.
+
+Extract it into
+{0}
+
+{1}</source>
+        <translation>This profile includes a saves archive.
+
+Extract it into
+{0}
+
+{1}</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Import</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>Skip</translation>
+    </message>
+    <message>
+        <source>Extracting saves…</source>
+        <translation>Extracting saves…</translation>
+    </message>
+    <message>
+        <source>Imported {0} save file(s) ({1}).</source>
+        <translation>Imported {0} save file(s) ({1}).</translation>
+    </message>
+    <message>
+        <source>Save import failed: {0}</source>
+        <translation>Save import failed: {0}</translation>
+    </message>
+    <message>
+        <source>Save import failed.</source>
+        <translation>Save import failed.</translation>
+    </message>
+</context>
+<context>
     <name>ProfileSettingsView</name>
     <message>
         <source>Profile Settings</source>
@@ -17710,10 +18722,6 @@ This removes the entire collection profile, including its personal mods and appe
         <translation>Each version gets its own prefix; dependencies are installed into it automatically on the next step.</translation>
     </message>
     <message>
-        <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
-        <translation>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</translation>
-    </message>
-    <message>
         <source>Prefer discrete GPU (hybrid systems)</source>
         <translation>Prefer discrete GPU (hybrid systems)</translation>
     </message>
@@ -17740,6 +18748,10 @@ This removes the entire collection profile, including its personal mods and appe
     <message>
         <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
         <translation>The saved game prefix is unavailable. Choose another prefix setting.</translation>
+    </message>
+    <message>
+        <source>{0} runs in its own Wine prefix, separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
+        <translation>{0} runs in its own Wine prefix, separate from the game's prefix, so you can pick any Proton version without affecting the game.</translation>
     </message>
     <message>
         <source>Use 64-bit version</source>
@@ -17892,6 +18904,57 @@ has issues - it is recreated automatically on the next step.</translation>
     <message>
         <source>Could not delete prefix: {0}</source>
         <translation>Could not delete prefix: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>ProviderOverlay</name>
+    <message>
+        <source>Loading provider details…</source>
+        <translation>Loading provider details…</translation>
+    </message>
+    <message>
+        <source>Install selected version</source>
+        <translation>Install selected version</translation>
+    </message>
+    <message>
+        <source>Download and install</source>
+        <translation>Download and install</translation>
+    </message>
+    <message>
+        <source>Apply selected action</source>
+        <translation>Apply selected action</translation>
+    </message>
+    <message>
+        <source>Open website</source>
+        <translation>Open website</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Update listed mods</source>
+        <translation>Update listed mods</translation>
+    </message>
+    <message>
+        <source>Review the proposed provider updates below.</source>
+        <translation>Review the proposed provider updates below.</translation>
+    </message>
+    <message>
+        <source>Choose a version or repository action. Installation replaces the selected mod.</source>
+        <translation>Choose a version or repository action. Installation replaces the selected mod.</translation>
+    </message>
+    <message>
+        <source>Review the downloads and dependencies below, then choose Download and install.</source>
+        <translation>Review the downloads and dependencies below, then choose Download and install.</translation>
+    </message>
+    <message>
+        <source>Operation completed.</source>
+        <translation>Operation completed.</translation>
+    </message>
+    <message>
+        <source>Waiting for the active operation to finish…</source>
+        <translation>Waiting for the active operation to finish…</translation>
     </message>
 </context>
 <context>
@@ -18100,6 +19163,10 @@ If the game is still broken, verify the game files via Steam.</translation>
         <translation>Skipped (renamed/removed upstream): {0}</translation>
     </message>
     <message>
+        <source>Shader packs: {0}/{1}</source>
+        <translation>Shader packs: {0}/{1}</translation>
+    </message>
+    <message>
         <source>Trimmed shaders to {0} preset effect(s).</source>
         <translation>Trimmed shaders to {0} preset effect(s).</translation>
     </message>
@@ -18291,14 +19358,6 @@ Proton prefix: {2}</translation>
         <translation>Retry</translation>
     </message>
     <message>
-        <source>This game has no Bethesda registry name; nothing to do.</source>
-        <translation>This game has no Bethesda registry name; nothing to do.</translation>
-    </message>
-    <message>
-        <source>Game path or Proton prefix not available.</source>
-        <translation>Game path or Proton prefix not available.</translation>
-    </message>
-    <message>
         <source>Prefix: {0}</source>
         <translation>Prefix: {0}</translation>
     </message>
@@ -18439,6 +19498,72 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
         <source>Remove</source>
         <translation>Remove</translation>
+    </message>
+</context>
+<context>
+    <name>ReportOverlay</name>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+</context>
+<context>
+    <name>RepositoriesOverlay</name>
+    <message>
+        <source>Default branch</source>
+        <translation>Default branch</translation>
+    </message>
+    <message>
+        <source>Repository root</source>
+        <translation>Repository root</translation>
+    </message>
+    <message>
+        <source>Repository URL</source>
+        <translation>Repository URL</translation>
+    </message>
+    <message>
+        <source>Branch</source>
+        <translation>Branch</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>Folder</translation>
+    </message>
+    <message>
+        <source>Enable this repository</source>
+        <translation>Enable this repository</translation>
+    </message>
+    <message>
+        <source>New</source>
+        <translation>New</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Remove</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Enabled</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <source>Built-in</source>
+        <translation>Built-in</translation>
+    </message>
+    <message>
+        <source>Repository saved.</source>
+        <translation>Repository saved.</translation>
     </message>
 </context>
 <context>
@@ -19631,6 +20756,17 @@ Please restart the wizard and install Script Merger first.</translation>
     </message>
 </context>
 <context>
+    <name>SettingField</name>
+    <message>
+        <source>Browse…</source>
+        <translation>Browse…</translation>
+    </message>
+    <message>
+        <source>Select path</source>
+        <translation>Select path</translation>
+    </message>
+</context>
+<context>
     <name>SettingsView</name>
     <message>
         <source>Settings</source>
@@ -20713,6 +21849,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>None</translation>
     </message>
     <message>
+        <source>Unassigned</source>
+        <translation>Unassigned</translation>
+    </message>
+    <message>
         <source>Reset {0} to {1}</source>
         <translation>Reset {0} to {1}</translation>
     </message>
@@ -20743,86 +21883,6 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Shortcuts reset to defaults.</source>
         <translation>Shortcuts reset to defaults.</translation>
-    </message>
-    <message>
-        <source>Rename selected mod or separator</source>
-        <translation>Rename selected mod or separator</translation>
-    </message>
-    <message>
-        <source>Refresh mod list</source>
-        <translation>Refresh mod list</translation>
-    </message>
-    <message>
-        <source>Deploy mods</source>
-        <translation>Deploy mods</translation>
-    </message>
-    <message>
-        <source>Install a mod</source>
-        <translation>Install a mod</translation>
-    </message>
-    <message>
-        <source>Create an empty mod</source>
-        <translation>Create an empty mod</translation>
-    </message>
-    <message>
-        <source>Restore game files</source>
-        <translation>Restore game files</translation>
-    </message>
-    <message>
-        <source>Open Settings</source>
-        <translation>Open Settings</translation>
-    </message>
-    <message>
-        <source>Focus search</source>
-        <translation>Focus search</translation>
-    </message>
-    <message>
-        <source>Select all in the active group</source>
-        <translation>Select all in the active group</translation>
-    </message>
-    <message>
-        <source>Move selection up</source>
-        <translation>Move selection up</translation>
-    </message>
-    <message>
-        <source>Move selection down</source>
-        <translation>Move selection down</translation>
-    </message>
-    <message>
-        <source>Remove selected mods</source>
-        <translation>Remove selected mods</translation>
-    </message>
-    <message>
-        <source>Enable or disable selection</source>
-        <translation>Enable or disable selection</translation>
-    </message>
-    <message>
-        <source>Scroll active list to the top</source>
-        <translation>Scroll active list to the top</translation>
-    </message>
-    <message>
-        <source>Scroll active list to the bottom</source>
-        <translation>Scroll active list to the bottom</translation>
-    </message>
-    <message>
-        <source>Expand or collapse all separators</source>
-        <translation>Expand or collapse all separators</translation>
-    </message>
-    <message>
-        <source>Show or hide active filters</source>
-        <translation>Show or hide active filters</translation>
-    </message>
-    <message>
-        <source>Open a mod's source page</source>
-        <translation>Open a mod's source page</translation>
-    </message>
-    <message>
-        <source>Browser back</source>
-        <translation>Browser back</translation>
-    </message>
-    <message>
-        <source>Browser forward</source>
-        <translation>Browser forward</translation>
     </message>
 </context>
 <context>
@@ -21414,28 +22474,12 @@ Continue with {0}?</translation>
         <translation>Launch Synthesis</translation>
     </message>
     <message>
-        <source>Game path is not configured; aborting.</source>
-        <translation>Game path is not configured; aborting.</translation>
-    </message>
-    <message>
-        <source>Game path not configured.</source>
-        <translation>Game path not configured.</translation>
-    </message>
-    <message>
         <source>No Proton selected; aborting.</source>
         <translation>No Proton selected; aborting.</translation>
     </message>
     <message>
-        <source>Synthesis dir: {0}</source>
-        <translation>Synthesis dir: {0}</translation>
-    </message>
-    <message>
         <source>Proton: {0}</source>
         <translation>Proton: {0}</translation>
-    </message>
-    <message>
-        <source>Game path: {0}</source>
-        <translation>Game path: {0}</translation>
     </message>
     <message>
         <source>Prefix setup raised: {0}</source>
@@ -24539,10 +25583,6 @@ Prefix: {1}</translation>
         <translation>Update Game (YeetPatch)</translation>
     </message>
     <message>
-        <source>Install Steam Workshop Mod</source>
-        <translation>Install Steam Workshop Mod</translation>
-    </message>
-    <message>
         <source>mod.io API Key</source>
         <translation>mod.io API Key</translation>
     </message>
@@ -24789,10 +25829,6 @@ Prefix: {1}</translation>
     <message>
         <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
         <translation>Download YeetPatch and update Voices of the Void in a terminal.</translation>
-    </message>
-    <message>
-        <source>Download a Steam Workshop item and install it into this profile.</source>
-        <translation>Download a Steam Workshop item and install it into this profile.</translation>
     </message>
     <message>
         <source>Enter a mod.io key to enable update checks for manually-installed mod.io mods.</source>
@@ -25301,149 +26337,6 @@ Reopen this wizard.</translation>
     </message>
 </context>
 <context>
-    <name>WorkshopView</name>
-    <message>
-        <source>Install Steam Workshop Mod</source>
-        <translation>Install Steam Workshop Mod</translation>
-    </message>
-    <message>
-        <source>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</source>
-        <translation>Download an individual public Workshop mod into this profile. Required Workshop items must be installed separately.</translation>
-    </message>
-    <message>
-        <source>Item ID or Steam Workshop URL</source>
-        <translation>Item ID or Steam Workshop URL</translation>
-    </message>
-    <message>
-        <source>Workshop item</source>
-        <translation>Workshop item</translation>
-    </message>
-    <message>
-        <source>{0} · App ID {1}</source>
-        <translation>{0} · App ID {1}</translation>
-    </message>
-    <message>
-        <source>Install into</source>
-        <translation>Install into</translation>
-    </message>
-    <message>
-        <source>QR code (Steam mobile app)</source>
-        <translation>QR code (Steam mobile app)</translation>
-    </message>
-    <message>
-        <source>Steam account and password</source>
-        <translation>Steam account and password</translation>
-    </message>
-    <message>
-        <source>Saved account</source>
-        <translation>Saved account</translation>
-    </message>
-    <message>
-        <source>Anonymous (where supported)</source>
-        <translation>Anonymous (where supported)</translation>
-    </message>
-    <message>
-        <source>Sign in</source>
-        <translation>Sign in</translation>
-    </message>
-    <message>
-        <source>Steam account name, not display name</source>
-        <translation>Steam account name, not display name</translation>
-    </message>
-    <message>
-        <source>Account name</source>
-        <translation>Account name</translation>
-    </message>
-    <message>
-        <source>Remember this account</source>
-        <translation>Remember this account</translation>
-    </message>
-    <message>
-        <source>Keep the Steam session on this device. Enter the account name to use it for later downloads.</source>
-        <translation>Keep the Steam session on this device. Enter the account name to use it for later downloads.</translation>
-    </message>
-    <message>
-        <source>Forget saved account</source>
-        <translation>Forget saved account</translation>
-    </message>
-    <message>
-        <source>Open Workshop page</source>
-        <translation>Open Workshop page</translation>
-    </message>
-    <message>
-        <source>Continue sign-in</source>
-        <translation>Continue sign-in</translation>
-    </message>
-    <message>
-        <source>Install downloaded files</source>
-        <translation>Install downloaded files</translation>
-    </message>
-    <message>
-        <source>Cancel download</source>
-        <translation>Cancel download</translation>
-    </message>
-    <message>
-        <source>Download and install</source>
-        <translation>Download and install</translation>
-    </message>
-    <message>
-        <source>Cancel the download before closing.</source>
-        <translation>Cancel the download before closing.</translation>
-    </message>
-    <message>
-        <source>Enter your Steam account name.</source>
-        <translation>Enter your Steam account name.</translation>
-    </message>
-    <message>
-        <source>The mod installer is unavailable.</source>
-        <translation>The mod installer is unavailable.</translation>
-    </message>
-    <message>
-        <source>Looking up Workshop item…</source>
-        <translation>Looking up Workshop item…</translation>
-    </message>
-    <message>
-        <source>Signed in. Downloading Workshop files…</source>
-        <translation>Signed in. Downloading Workshop files…</translation>
-    </message>
-    <message>
-        <source>Steam account password</source>
-        <translation>Steam account password</translation>
-    </message>
-    <message>
-        <source>Steam Guard code from your email or authenticator</source>
-        <translation>Steam Guard code from your email or authenticator</translation>
-    </message>
-    <message>
-        <source>Download cancelled. Nothing was installed.</source>
-        <translation>Download cancelled. Nothing was installed.</translation>
-    </message>
-    <message>
-        <source>Installed: {0}</source>
-        <translation>Installed: {0}</translation>
-    </message>
-    <message>
-        <source>Complete the mod installer tab to finish installation.</source>
-        <translation>Complete the mod installer tab to finish installation.</translation>
-    </message>
-    <message>
-        <source>Installation did not complete. The download is kept so you can try again.</source>
-        <translation>Installation did not complete. The download is kept so you can try again.</translation>
-    </message>
-    <message>
-        <source>Cancelling download…</source>
-        <translation>Cancelling download…</translation>
-    </message>
-    <message>
-        <source>Installing the downloaded mod…</source>
-        <translation>Installing the downloaded mod…</translation>
-    </message>
-    <message>
-        <source>Saved Steam account removed from Amethyst.</source>
-        <translation>Saved Steam account removed from Amethyst.</translation>
-    </message>
-</context>
-<context>
     <name>WryeBashView</name>
     <message>
         <source>Run Wrye Bash - {0}</source>
@@ -25490,14 +26383,6 @@ Please restart the wizard to reinstall Wrye Bash.</translation>
     <message>
         <source>Wrye Bash is preparing or running.</source>
         <translation>Wrye Bash is preparing or running.</translation>
-    </message>
-    <message>
-        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
     </message>
     <message>
         <source>Wrye Bash is running.
@@ -25619,12 +26504,6 @@ or use Browse to select it manually.</translation>
         <translation>Extracting {0}…</translation>
     </message>
     <message>
-        <source>{0} not found after extraction.
-Check that the archive contains {0}.</source>
-        <translation>{0} not found after extraction.
-Check that the archive contains {0}.</translation>
-    </message>
-    <message>
         <source>Extracted {0} file(s).</source>
         <translation>Extracted {0} file(s).</translation>
     </message>
@@ -25683,14 +26562,6 @@ Please restart the wizard and install {1} first.</translation>
         <translation>QAC All</translation>
     </message>
     <message>
-        <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-        <translation>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</translation>
-    </message>
-    <message>
-        <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
-        <translation>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</translation>
-    </message>
-    <message>
         <source>{0} is running - close it to continue.</source>
         <translation>{0} is running - close it to continue.</translation>
     </message>
@@ -25747,14 +26618,6 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Launching {0}…</source>
         <translation>Launching {0}…</translation>
-    </message>
-    <message>
-        <source>Game path not configured.</source>
-        <translation>Game path not configured.</translation>
-    </message>
-    <message>
-        <source>{0} finished.</source>
-        <translation>{0} finished.</translation>
     </message>
     <message>
         <source>Launch error: {0}</source>
@@ -26005,8 +26868,19 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
         <translation>Click here, then press a keyboard key, Mouse 3, or a side button. Escape cancels; left and right click are reserved.</translation>
     </message>
     <message>
+        <source>Unassigned</source>
+        <translation>Unassigned</translation>
+    </message>
+    <message>
         <source>Press key</source>
         <translation>Press key</translation>
+    </message>
+</context>
+<context>
+    <name>_DownloadMenuButton</name>
+    <message>
+        <source>Downloads</source>
+        <translation>Downloads</translation>
     </message>
 </context>
 <context>
@@ -26142,6 +27016,13 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     <message>
         <source>Apply</source>
         <translation>Apply</translation>
+    </message>
+</context>
+<context>
+    <name>_Popover</name>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
     </message>
 </context>
 <context>
@@ -26315,6 +27196,14 @@ Publishing makes this revision the one users install. It cannot be un-published,
         <translation>Download package from Thunderstore</translation>
     </message>
     <message>
+        <source>Mod provider</source>
+        <translation>Mod provider</translation>
+    </message>
+    <message>
+        <source>Download the pinned archive using its installed plugin</source>
+        <translation>Download the pinned archive using its installed plugin</translation>
+    </message>
+    <message>
         <source>Browse page</source>
         <translation>Browse page</translation>
     </message>
@@ -26401,6 +27290,13 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
 </context>
 <context>
+    <name>app</name>
+    <message>
+        <source>Applying plugin changes…</source>
+        <translation>Applying plugin changes…</translation>
+    </message>
+</context>
+<context>
     <name>parent_view</name>
     <message>
         <source>Enable this rule</source>
@@ -26421,6 +27317,13 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Remove this rule</source>
         <translation>Remove this rule</translation>
+    </message>
+</context>
+<context>
+    <name>self.host</name>
+    <message>
+        <source>Filters</source>
+        <translation>Filters</translation>
     </message>
 </context>
 <context>
@@ -26451,6 +27354,50 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Remove this variable</source>
         <translation>Remove this variable</translation>
+    </message>
+    <message>
+        <source>Plugin filters and saved views</source>
+        <translation>Plugin filters and saved views</translation>
+    </message>
+    <message>
+        <source>Plugin filters</source>
+        <translation>Plugin filters</translation>
+    </message>
+    <message>
+        <source>Include matches</source>
+        <translation>Include matches</translation>
+    </message>
+    <message>
+        <source>Exclude matches</source>
+        <translation>Exclude matches</translation>
+    </message>
+    <message>
+        <source>At most 64 saved views are supported.</source>
+        <translation>At most 64 saved views are supported.</translation>
+    </message>
+    <message>
+        <source>Saved views</source>
+        <translation>Saved views</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>Apply</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Save view</source>
+        <translation>Save view</translation>
+    </message>
+    <message>
+        <source>View name:</source>
+        <translation>View name:</translation>
+    </message>
+    <message>
+        <source>Save current view…</source>
+        <translation>Save current view…</translation>
     </message>
 </context>
 <context>
