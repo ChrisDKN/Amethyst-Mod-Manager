@@ -3,23 +3,29 @@
 from __future__ import annotations
 
 import platform
-import shutil
 from pathlib import Path
+
+from Utils.launchers.host import find_host_program
 
 
 def wrap_nixos_command(command: list[str], *, env: dict | None = None) -> list[str]:
-    if Path("/.flatpak-info").is_file():
-        return command
     try:
-        if platform.freedesktop_os_release().get("ID") != "nixos":
+        if Path("/.flatpak-info").is_file():
+            lines = Path("/run/host/os-release").read_text(encoding="utf-8").splitlines()
+            os_id = next((line.partition("=")[2].strip().strip("\"'")
+                          for line in lines if line.startswith("ID=")), "")
+        else:
+            os_id = platform.freedesktop_os_release().get("ID")
+        if os_id != "nixos":
             return command
     except OSError:
         return command
     if command and Path(command[0]).name == "steam-run":
         return command
-    steam_run = shutil.which("steam-run", path=env.get("PATH") if env is not None else None)
+    steam_run = find_host_program("steam-run", env=env)
     if steam_run is None:
         raise RuntimeError(
             "NixOS: steam-run is required to run the selected Wine/Proton runner. "
-            "Install the steam-run package and make it available on PATH.")
+            "Install the steam-run package on the host and make it available "
+            "on the desktop session's PATH, then restart Amethyst.")
     return [steam_run, *command]

@@ -6,6 +6,7 @@ py.install_sources(
   'faugus.py',
   'handoff.py',
   'heroic.py',
+  'host.py',
   'installed.py',
   'lutris.py',
   'nixos.py',

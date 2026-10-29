@@ -584,6 +584,15 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         except OSError:
             return []
 
+    @staticmethod
+    def _redmod_cache_needs_deploy(root: Path) -> bool:
+        cache = root / "r6/cache/modded"
+        if not os.path.lexists(cache):
+            return False
+        if cache.is_symlink() or not cache.is_dir():
+            return True
+        return next(cache.iterdir(), None) is not None
+
     def validate_deployment_plan(self, plan, *, root_folder_enabled=True) -> None:
         if self._game_path is None:
             return
@@ -592,7 +601,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
 
         needs_redmod = (
             any((self._game_path / "mods").glob("*/info.json"))
-            or os.path.lexists(self._game_path / "r6/cache/modded")
+            or self._redmod_cache_needs_deploy(self._game_path)
         )
         tool_planned = False
         target_roots = {}
@@ -606,30 +615,25 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             parts = relative.lower().split("/")
             if len(parts) == 3 and parts[0] == "mods" and parts[2] == "info.json":
                 needs_redmod = True
+            if len(parts) > 3 and parts[:3] == ["r6", "cache", "modded"]:
+                needs_redmod = True
             if relative.lower() == _REDMOD_TOOL.as_posix().lower():
                 source = entry.source_path
                 tool_planned = source is not None and source.is_file()
         if (needs_redmod and not tool_planned
                 and resolve_file_ci(self._game_path, _REDMOD_TOOL) is None):
             raise RuntimeError(_REDMOD_MISSING)
+        if needs_redmod:
+            from Utils.launchers.steam import proton_run_command
+            proton, env = self._redmod_runtime(read_only=True)
+            proton_run_command(
+                proton, "runinprefix", env=env, host_cwd=self._game_path)
 
-    def _run_redmod_deploy(self, root: Path, *, private: bool,
-                           log_fn) -> None:
-        mods = sorted(p.parent.name for p in (root / "mods").glob("*/info.json"))
-        cache = root / "r6" / "cache" / "modded"
-        if not mods and not os.path.lexists(cache):
-            return
-
-        from Utils.games.frameworks import resolve_file_ci
-        tool = resolve_file_ci(root, _REDMOD_TOOL)
-        if tool is None:
-            raise RuntimeError(_REDMOD_MISSING)
-
+    def _redmod_runtime(self, *, read_only=False):
         from Utils.wine.protontricks import (
             build_proton_env_for_game, prefix_downgrade_warning,
-            run_prefix_installer,
         )
-        proton, env = build_proton_env_for_game(self)
+        proton, env = build_proton_env_for_game(self, read_only=read_only)
         if proton is None or env is None:
             raise RuntimeError(
                 "REDmod could not find the game's Proton prefix and runner. "
@@ -639,6 +643,21 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             proton, env.get("STEAM_COMPAT_DATA_PATH"))
         if mismatch:
             raise RuntimeError(f"REDmod cannot use this Proton prefix: {mismatch}")
+        return proton, env
+
+    def _run_redmod_deploy(self, root: Path, *, private: bool,
+                           log_fn) -> None:
+        mods = sorted(p.parent.name for p in (root / "mods").glob("*/info.json"))
+        cache = root / "r6" / "cache" / "modded"
+        if not mods and not self._redmod_cache_needs_deploy(root):
+            return
+
+        from Utils.games.frameworks import resolve_file_ci
+        tool = resolve_file_ci(root, _REDMOD_TOOL)
+        if tool is None:
+            raise RuntimeError(_REDMOD_MISSING)
+
+        proton, env = self._redmod_runtime()
 
         if private:
             for path in (root / "r6", root / "r6" / "cache", cache):
@@ -662,6 +681,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             f"-root={windows_root}", env=env, host_cwd=root,
         )
         log_fn(f"REDmod: deploying {len(mods)} mod(s) in {root} ...")
+        from Utils.wine.protontricks import run_prefix_installer
         rc, output = run_prefix_installer(
             cmd, env, root, label="REDmod deploy", log_fn=log_fn,
             timeout=600, proton_script=proton,

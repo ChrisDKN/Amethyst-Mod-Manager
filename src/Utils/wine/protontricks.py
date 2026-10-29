@@ -796,13 +796,14 @@ def _download_vcredist(cache_path: Path, log_fn: Callable[[str], None]) -> None:
             pass
 
 
-def build_proton_env_for_game(game) -> "tuple[Path, dict] | tuple[None, None]":
+def build_proton_env_for_game(game, *, read_only=False) -> "tuple[Path, dict] | tuple[None, None]":
     """Resolve the Proton script + environment for running an installer in a
     game's prefix, mirroring the Proton Tools menu (gui.dialogs._get_proton_env).
 
     Returns (proton_script, env) on success or (None, None) when no usable
     Proton install / prefix can be found. The env is suitable for
     ``python3 <proton_script> run <installer.exe> …``.
+    ``read_only`` skips registry edits and Bottles setup.
     """
     from Utils.launchers.steam import (
         find_any_installed_proton,
@@ -819,8 +820,9 @@ def build_proton_env_for_game(game) -> "tuple[Path, dict] | tuple[None, None]":
     # winecfg's "Show dot files", matching the other prefix-env resolvers so
     # installers run from here get file dialogs that can see the manager's
     # dot-dirs. Applied before anything is launched into the prefix.
-    from Utils.deployment.wine_dll import set_show_dot_files
-    set_show_dot_files(prefix_path)
+    if not read_only:
+        from Utils.deployment.wine_dll import set_show_dot_files
+        set_show_dot_files(prefix_path)
 
     # Classic lutris-wine prefixes run the installer with the Lutris runner's
     # own wine binary (proton_run_command handles the wine-binary form).
@@ -832,7 +834,7 @@ def build_proton_env_for_game(game) -> "tuple[Path, dict] | tuple[None, None]":
     from Utils.launchers.bottles import is_bottles_prefix
     if is_bottles_prefix(prefix_path):
         from Utils.wine.proton import resolve_proton_env
-        return resolve_proton_env(game, allow_fallback=False)
+        return resolve_proton_env(game, allow_fallback=False, read_only=read_only)
 
     steam_id = game_steam_id(game)
     proton_script = find_proton_for_game(steam_id) if steam_id else None
