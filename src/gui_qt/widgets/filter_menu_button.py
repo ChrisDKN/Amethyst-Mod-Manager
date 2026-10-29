@@ -129,6 +129,9 @@ class FilterMenuButton(QToolButton):
         clear.setEnabled(not callable(self.any_active) or self.any_active())
         clear.triggered.connect(self._clear)
         menu.addAction(clear)
+        open_tab = getattr(self, "on_open_as_tab", None)
+        if callable(open_tab):
+            menu.addAction(self.tr("Open as tab"), open_tab)
         menu.exec(self.mapToGlobal(self.rect().bottomLeft()))
 
     def _fill_scroll_section(self, sub, entries):

@@ -34,8 +34,9 @@ class DataView(QWidget):
     scan_status_changed = Signal(bool)         # True = build running
     _data_ready = Signal(int, object, object)  # gen, projection result, contested
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, selection_source_id=None):
         super().__init__(parent)
+        self._selection_source_id = selection_source_id
         self._scan_gen = 0                  # bumped per build → drops stale
         self._scanning = False
         self.game = None

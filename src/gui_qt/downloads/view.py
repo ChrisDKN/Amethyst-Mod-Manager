@@ -39,8 +39,9 @@ class DownloadsView(QWidget):
     selection_changed = Signal()      # checked count changed (update footer)
     filetypes_changed = Signal()      # ext/location lists changed (filter panel)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, selection_source_id=None):
         super().__init__(parent)
+        self._selection_source_id = selection_source_id
         self.game = None
         self.profile_dir = None
         self.game_name_getter = None      # callable -> active game name | None
@@ -419,6 +420,8 @@ class DownloadsView(QWidget):
         self._save_column_visibility()
 
     def _save_column_visibility(self):
+        if self._selection_source_id is not None:
+            return
         from gui_qt.widgets import column_state
         hidden = {
             COLUMNS[col] for col in _TOGGLEABLE_COLUMNS

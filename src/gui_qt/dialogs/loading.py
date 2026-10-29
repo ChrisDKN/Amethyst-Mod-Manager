@@ -73,7 +73,7 @@ class LoadingOverlay(QWidget):
         self.raise_()
         self.show()
         from PySide6.QtCore import QTimer
-        QTimer.singleShot(0, self._resize_to_parent)
+        QTimer.singleShot(0, self, self._resize_to_parent)
 
     def hide_overlay(self) -> None:
         self.hide()

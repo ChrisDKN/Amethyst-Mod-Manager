@@ -88,7 +88,9 @@ class PluginFilters(PluginFlags):
         super().update(plugins)
         host = self.controller.host
         for view, (panel, key) in list(self.views.items()):
-            if key == "modlist_tab":
+            if getattr(view, "panel_filters", None) is not None:
+                native = view.panel_filters
+            elif key == "modlist_tab":
                 native = host._modlist_tab.filters
             else:
                 native = getattr(host, "_modlist_filter_panel" if panel == "modlist" else "_plugin_filter_panel", None)
@@ -131,6 +133,10 @@ class PluginFilters(PluginFlags):
                 tab.filter_button.setProperty("active", active)
                 tab.filter_button.style().unpolish(tab.filter_button)
                 tab.filter_button.style().polish(tab.filter_button)
+        elif key == "plugins_tab":
+            tab = getattr(host, "_plugin_panel_tabs", {}).get(0)
+            if tab is not None:
+                tab._sync_filters_btn()
         elif hasattr(host, "_sync_filters_btn"):
             host._sync_filters_btn("_modlist_filters_btn" if panel == "modlist" else "_plugin_filters_btn")
 

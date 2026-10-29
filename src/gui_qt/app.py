@@ -21,6 +21,7 @@ _MODULE_STARTUP_TIMING = _perftrace.startup_timeline()
 _startup_import_started = _startup_time.perf_counter()
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QT_TRANSLATE_NOOP
 from PySide6.QtGui import QSurfaceFormat, QTextCursor
+from shiboken6 import isValid
 from PySide6.QtWidgets import (
     QMainWindow, QToolButton, QWidget, QSplitter, QApplication,
     QLabel, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QTextBrowser,
@@ -54,6 +55,7 @@ _startup_import_started = _startup_time.perf_counter()
 from gui_qt.widgets.selector_button import SelectorButton, SplitPressHighlighter
 from gui_qt.i18n import (profile_display, is_reserved_profile_name,
                          DEFAULT_PROFILE)
+from gui_qt.plugins.panel_controls import PluginPanelControls
 from gui_qt.widgets.flow_layout import FlowLayout
 from gui_qt.game_state import GameState
 from gui_qt.widgets.detachable_tabs import DetachableTabWidget
@@ -286,7 +288,7 @@ class _InstalledRoot:
         self.file_size = 0
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow, PluginPanelControls):
     _LOG_BATCH_SIZE = 1000
     _LOG_FLUSH_INTERVAL_MS = 16
     _LOG_DISPLAY_LIMIT = 20000
@@ -1602,7 +1604,7 @@ class MainWindow(QMainWindow):
         mod_view = self._selected_modlist_view()
         rows = mod_view.selectionModel().selectedRows()
         if len(rows) != 1:
-            mv.show_mod(None)
+            self._update_plugin_panel_views("_mod_files_view", "show_mod", None)
             return
         e = mod_view.model().entry(rows[0].row())
         from gui_qt.modlist.model import _BOUNDARY_NAMES
@@ -1610,9 +1612,9 @@ class MainWindow(QMainWindow):
         # so they show their files in the Mod Files tab like a mod. Only true
         # (user) separators show nothing.
         if external(e) or e.is_group_header or (e.is_separator and e.name not in _BOUNDARY_NAMES):
-            mv.show_mod(None)
+            self._update_plugin_panel_views("_mod_files_view", "show_mod", None)
         else:
-            mv.show_mod(e.name)
+            self._update_plugin_panel_views("_mod_files_view", "show_mod", e.name)
 
     def _open_settings_modal(self):
         """Open one centered in-window Settings modal over the main window."""
@@ -2028,10 +2030,10 @@ class MainWindow(QMainWindow):
     def _on_text_editor_saved(self):
         # File content changed on disk → the Text Files content search may shift.
         if hasattr(self, "_text_files_view"):
-            self._text_files_view.mark_dirty()
+            self._update_plugin_panel_views("_text_files_view", "mark_dirty")
         # A save-folder .txt edited from the Saves tab changes its size/date.
         if hasattr(self, "_saves_view"):
-            self._saves_view.mark_dirty()
+            self._update_plugin_panel_views("_saves_view", "mark_dirty")
         self._notify(self.tr("Saved"), "success")
 
     def _on_mod_files_changed(self, mod_name=None):
@@ -2044,7 +2046,7 @@ class MainWindow(QMainWindow):
         # pak disabled in Mod Files shows unchecked there). Re-reads from disk,
         # so an Overrides-originated toggle just refreshes to the same state.
         if hasattr(self, "_overrides_view"):
-            self._overrides_view.mark_dirty()
+            self._update_plugin_panel_views("_overrides_view", "mark_dirty")
         mod_name = str(mod_name) if mod_name else None
         if mod_name is None:
             self._rebuild_conflicts_async(rescan_index=True)
@@ -2053,12 +2055,12 @@ class MainWindow(QMainWindow):
         edit_ctx, _ = ensure_timeline(("mod_files", (mod_name,)))
         self._rebuild_conflicts_async(edit_ctx=edit_ctx)
 
-    def _on_plugin_selection_changed(self):
+    def _on_plugin_selection_changed(self, view=None):
         if self._suppress_xpanel():
             return
         self._xpanel_busy = True
         try:
-            mv, pv = self._modlist_view, self._plugin_view
+            mv, pv = self._modlist_view, view or self._plugin_view
             owner = (self._conflict_data.plugin_owner
                      if self._conflict_data else {})
             mods = pv.selected_owner_mods(owner)
@@ -2070,23 +2072,24 @@ class MainWindow(QMainWindow):
             mv.clearSelection()
             # Green-tick the selected plugin's masters in the plugin marker
             # strip (Tk parity).
-            pv.set_master_highlight(self._selected_plugin_masters())
+            pv.set_master_highlight(self._selected_plugin_masters(pv))
         finally:
             self._xpanel_busy = False
         # Follow the selection in the open Plugin Rules tab (Tk parity:
         # _on_plugin_row_selected_cb → set_selected_plugin).
         if self._tabs.has_key("plugin_rules"):
             rules_view = getattr(self, "_plugin_rules_view", None)
-            sel = self._plugin_view.selectionModel().selectedRows()
+            pv = view or self._plugin_view
+            sel = pv.selectionModel().selectedRows()
             if rules_view is not None and sel:
                 rules_view.set_selected_plugin(
-                    self._plugin_model.row(sel[0].row()).name)
+                    pv.model().row(sel[0].row()).name)
 
-    def _selected_plugin_masters(self) -> set:
+    def _selected_plugin_masters(self, view=None) -> set:
         """Lowercase master filenames of the currently-selected plugin(s), read
         from each plugin's resolved on-disk path. Empty if nothing selected or
         paths are unavailable."""
-        pv = self._plugin_view
+        pv = view or self._plugin_view
         rows = pv.selectionModel().selectedRows()
         if not rows:
             return set()
@@ -2096,7 +2099,7 @@ class MainWindow(QMainWindow):
         from Utils.plugins.parser import read_masters
         masters: set = set()
         for idx in rows:
-            r = self._plugin_model.row(idx.row())
+            r = pv.model().row(idx.row())
             p = paths.get(r.name.lower())
             if p is None:
                 continue
@@ -2146,7 +2149,7 @@ class MainWindow(QMainWindow):
                 self._modlist_view.scrollTo(
                     idx, QAbstractItemView.PositionAtCenter)
             self._select_plugin_tab(1)
-            self._mod_files_view.show_mod(mod_name)
+            self._update_plugin_panel_views("_mod_files_view", "show_mod", mod_name)
         except Exception as exc:
             self._append_log(f"[wizard] show mod files failed: {exc}")
 
@@ -2258,198 +2261,6 @@ class MainWindow(QMainWindow):
         if controller is not None:
             controller.attach_footer(location, layout)
 
-    def _plugins_footer(self) -> QWidget:
-        """Plugin tools + search, under the plugins."""
-        bar = QWidget()
-        bar.setObjectName("HeaderBar")
-        v = QVBoxLayout(bar)
-        v.setContentsMargins(8, 6, 8, 6)
-        v.setSpacing(6)
-
-        btns = FlowLayout(spacing=4, center=True)
-        _made = {}
-        self._plugin_footer_btns: list = []
-        for label, disp in [
-            ("Sort Plugins", self.tr("Sort Plugins")),
-            ("Refresh Plugins", self.tr("Refresh Plugins")),
-            ("Sync", self.tr("Sync")),
-            ("Groups", self.tr("Groups")),
-            ("Plugin Rules", self.tr("Plugin Rules")),
-            ("LOOT", self.tr("LOOT")),
-        ]:
-            if label == "Sort Plugins":
-                b = self._color_button(disp, _c(self._pal, "ACCENT"), compact=True)
-            elif label == "LOOT":
-                b = self._action_button("", "loot.png", compact=True)
-                b.setToolButtonStyle(Qt.ToolButtonIconOnly)
-                b.setFixedSize(self._FOOT_BTN_H, self._FOOT_BTN_H)
-                px = self._FOOT_BTN_H - 4
-                b.setIcon(icon("loot.png", px))
-                b.setIconSize(QSize(px, px))
-                b.setStyleSheet("QToolButton#FooterButton { padding: 1px; }")
-                b.setAccessibleName(disp)
-            else:
-                b = self._text_button(disp, compact=True)
-            b.setFixedHeight(self._FOOT_BTN_H)
-            btns.addWidget(b)
-            _made[label] = b
-            self._plugin_footer_btns.append(b)
-        v.addLayout(btns)
-        self._register_plugin_footer("plugins_footer", btns)
-        self._plugin_sort_btn = _made["Sort Plugins"]
-        self._plugin_refresh_btn = _made["Refresh Plugins"]
-        self._plugin_loot_btn = _made["LOOT"]
-        self._plugin_loot_btn.setToolTip(self.tr("Show LOOT diagnostics"))
-        self._plugin_sync_btn = _made["Sync"]
-        self._plugin_sync_btn.setToolTip(
-            self.tr("Match plugin load order to modlist priority"))
-        self._plugin_groups_btn = _made["Groups"]
-        self._plugin_rules_btn = _made["Plugin Rules"]
-        self._plugin_filters_btn = self._filters_button()
-        self._plugin_footer_btns.append(self._plugin_filters_btn)
-        self._plugin_sort_btn.clicked.connect(self._on_sort_plugins)
-        self._plugin_refresh_btn.clicked.connect(self._on_refresh_plugins)
-        self._plugin_loot_btn.clicked.connect(self._open_loot_report)
-        self._plugin_sync_btn.clicked.connect(self._on_sync_plugins)
-        self._plugin_groups_btn.clicked.connect(self._open_plugin_groups_tab)
-        self._plugin_rules_btn.clicked.connect(self._open_plugin_rules_tab)
-        self._plugin_filters_btn.clicked.connect(self._toggle_plugin_filters)
-
-        # Search row: an active / non-ESL count label (accent outline) to the left
-        # of a full-width search box, mirroring the modlist footer.
-        search_row = QHBoxLayout()
-        search_row.setContentsMargins(0, 0, 0, 0)
-        search_row.setSpacing(6)
-
-        count = QLabel("…")
-        count.setObjectName("PluginCountLabel")
-        count.setAlignment(Qt.AlignCenter)
-        count.setStyleSheet(
-            "QLabel#PluginCountLabel {"
-            f" color: {_c(self._pal, 'TEXT_MAIN')};"
-            f" border: 1px solid {_c(self._pal, 'ACCENT')};"
-            " border-radius: 4px; padding: 2px 8px; }")
-        self._plugin_count = count
-        search_row.addWidget(count)
-        search_row.addWidget(self._plugin_filters_btn)
-        search_row.addWidget(self._search_icon_label())
-
-        search = QLineEdit()
-        search.setPlaceholderText(self.tr("Search plugins…"))
-        search.setClearButtonEnabled(True)
-        search.textChanged.connect(self._on_plugin_search)
-        self._plugins_search = search
-        search.textChanged.connect(
-            lambda _t, a="_plugin_filters_btn": self._sync_filters_btn(a))
-        search_row.addWidget(search, 1)
-        v.addLayout(search_row)
-        return bar
-
-    def _mod_files_footer(self) -> QWidget:
-        """Pack/Unpack BSA + Filters buttons + search, shown under the plugins
-        column when the Mod Files sub-tab is active (replaces the plugin tools)."""
-        bar = QWidget()
-        bar.setObjectName("HeaderBar")
-        v = QVBoxLayout(bar)
-        v.setContentsMargins(8, 6, 8, 6)
-        v.setSpacing(6)
-
-        btns = FlowLayout(spacing=4, center=True)
-        self._mf_pack_btn = self._text_button(
-            self.tr("Pack BSA"), compact=True)
-        self._mf_pack_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._mf_pack_btn.setEnabled(False)
-        self._mf_pack_btn.clicked.connect(self._on_pack_bsa)
-        self._mf_unpack_btn = self._text_button(
-            self.tr("Unpack BSA"), compact=True)
-        self._mf_unpack_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._mf_unpack_btn.setEnabled(False)
-        self._mf_unpack_btn.clicked.connect(self._on_unpack_bsa)
-        self._mf_filters_btn = self._filters_button()
-        self._mf_filters_btn.clicked.connect(self._toggle_mod_files_filters)
-        self._mf_expand_btn = self._text_button(self.tr("⊞ Expand all"), compact=True)
-        self._mf_expand_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._mf_expand_btn.clicked.connect(self._on_mf_expand_clicked)
-        self._mf_open_btn = self._text_button(self.tr("Open"), compact=True)
-        self._mf_open_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._mf_open_btn.setEnabled(False)
-        self._mf_open_btn.clicked.connect(self._on_mf_open_clicked)
-        self._mf_reset_btn = self._text_button(self.tr("Reset"), compact=True)
-        self._mf_reset_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._mf_reset_btn.setEnabled(False)
-        self._mf_reset_btn.setToolTip(
-            self.tr("Undo this mod's Mod Files changes (Top Level, Root, "
-                    "Disable). Mod files themselves are not touched."))
-        self._mf_reset_btn.clicked.connect(self._on_mf_reset_clicked)
-        self._equalize_button_widths(self._mf_pack_btn, self._mf_unpack_btn)
-        btns.addWidget(self._mf_expand_btn)
-        btns.addWidget(self._mf_open_btn)
-        btns.addWidget(self._mf_reset_btn)
-        btns.addWidget(self._mf_pack_btn)
-        btns.addWidget(self._mf_unpack_btn)
-        v.addLayout(btns)
-        self._register_plugin_footer("mod_files_footer", btns)
-
-        search_row = QHBoxLayout()
-        search_row.setContentsMargins(0, 0, 0, 0)
-        search_row.setSpacing(6)
-        search_row.addWidget(self._mf_filters_btn)
-        search_row.addWidget(self._search_icon_label())
-        search = QLineEdit()
-        search.setPlaceholderText(self.tr("Search files… (try !.dds)"))
-        search.setClearButtonEnabled(True)
-        search.textChanged.connect(
-            lambda t: self._mod_files_view._on_search(t))
-        search_row.addWidget(search, 1)
-        v.addLayout(search_row)
-        self._mod_files_search = search
-        search.textChanged.connect(
-            lambda _t, a="_mf_filters_btn": self._sync_filters_btn(a))
-        return bar
-
-    def _data_footer(self) -> QWidget:
-        """Filters + Expand-all + search, shown under the plugins column when the
-        Data sub-tab is active (no Pack/Unpack - Data is read-only)."""
-        bar = QWidget()
-        bar.setObjectName("HeaderBar")
-        v = QVBoxLayout(bar)
-        v.setContentsMargins(8, 6, 8, 6)
-        v.setSpacing(6)
-
-        btns = FlowLayout(spacing=4, center=True)
-        self._data_filters_btn = self._filters_button()
-        self._data_filters_btn.clicked.connect(self._toggle_data_filters)
-        self._data_expand_btn = self._text_button(self.tr("⊞ Expand all"), compact=True)
-        self._data_expand_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._data_expand_btn.clicked.connect(self._on_data_expand_clicked)
-        btns.addWidget(self._data_expand_btn)
-        self._data_blacklist_btn = self._text_button(self.tr("Blacklist"), compact=True)
-        self._data_blacklist_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._data_blacklist_btn.clicked.connect(self._open_data_blacklist)
-        btns.addWidget(self._data_blacklist_btn)
-        self._data_routing_btn = self._text_button(self.tr("Routing Rules"), compact=True)
-        self._data_routing_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._data_routing_btn.clicked.connect(self._open_data_routing_rules)
-        btns.addWidget(self._data_routing_btn)
-        v.addLayout(btns)
-        self._register_plugin_footer("data_footer", btns)
-
-        search_row = QHBoxLayout()
-        search_row.setContentsMargins(0, 0, 0, 0)
-        search_row.setSpacing(6)
-        search_row.addWidget(self._data_filters_btn)
-        search_row.addWidget(self._search_icon_label())
-        search = QLineEdit()
-        search.setPlaceholderText(self.tr("Search files… (try !.dds)"))
-        search.setClearButtonEnabled(True)
-        search.textChanged.connect(lambda t: self._data_view._on_search(t))
-        search_row.addWidget(search, 1)
-        v.addLayout(search_row)
-        self._data_search = search
-        search.textChanged.connect(
-            lambda _t, a="_data_filters_btn": self._sync_filters_btn(a))
-        return bar
-
     def _blacklist_edit_error(self, game) -> str:
         if game is None or self._gs.game is not game:
             return self.tr("Select a game before editing its blacklist.")
@@ -2491,10 +2302,6 @@ class MainWindow(QMainWindow):
 
         BlacklistOverlay(self.window(), game, initial, save)
 
-    def _on_data_expand_clicked(self):
-        expanded = self._data_view._toggle_expand_all()
-        self._data_expand_btn.setText(self.tr("⊟ Collapse all") if expanded
-                                      else self.tr("⊞ Expand all"))
 
     def _open_data_routing_rules(self):
         from Utils.games.routing_rules import load_entries, save_entries
@@ -2529,194 +2336,20 @@ class MainWindow(QMainWindow):
 
         RoutingRulesOverlay(self.window(), game, initial, save)
 
-    def _overrides_footer(self) -> QWidget:
-        """Refresh, shown under the plugins column when the Overrides sub-tab
-        is active (BG3 override paks)."""
-        bar = QWidget()
-        bar.setObjectName("HeaderBar")
-        v = QVBoxLayout(bar)
-        v.setContentsMargins(8, 6, 8, 6)
-        v.setSpacing(6)
-        btns = FlowLayout(spacing=4, center=True)
-        refresh = self._text_button(self.tr("↻ Refresh"), compact=True)
-        refresh.setFixedHeight(self._FOOT_BTN_H)
-        refresh.clicked.connect(lambda: self._overrides_view.mark_dirty())
-        btns.addWidget(refresh)
-        v.addLayout(btns)
-        self._register_plugin_footer("overrides_footer", btns)
-        return bar
-
-    def _saves_footer(self) -> QWidget:
-        """Refresh / Open folder + a location summary, Filters and search, shown
-        under the plugins column when the Saves sub-tab is active."""
-        bar = QWidget()
-        bar.setObjectName("HeaderBar")
-        v = QVBoxLayout(bar)
-        v.setContentsMargins(8, 6, 8, 6)
-        v.setSpacing(6)
-        btns = FlowLayout(spacing=4, center=True)
-        refresh = self._text_button(self.tr("↻ Refresh"), compact=True)
-        refresh.setFixedHeight(self._FOOT_BTN_H)
-        refresh.clicked.connect(lambda: self._saves_view.mark_dirty())
-        btns.addWidget(refresh)
-        self._saves_open_btn = self._text_button(
-            self.tr("Open folder"), compact=True)
-        self._saves_open_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._saves_open_btn.setEnabled(False)
-        self._saves_open_btn.clicked.connect(lambda: self._saves_view.open_folder())
-        btns.addWidget(self._saves_open_btn)
-        # Export packs the save folder into a zip; Import puts one back (after
-        # moving the current contents aside).
-        self._saves_export_btn = self._text_button(
-            self.tr("Export"), compact=True)
-        self._saves_export_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._saves_export_btn.setEnabled(False)
-        self._saves_export_btn.clicked.connect(lambda: self._saves_view.start_export())
-        btns.addWidget(self._saves_export_btn)
-        self._saves_import_btn = self._text_button(
-            self.tr("Import"), compact=True)
-        self._saves_import_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._saves_import_btn.setEnabled(False)
-        self._saves_import_btn.clicked.connect(lambda: self._saves_view.start_import())
-        btns.addWidget(self._saves_import_btn)
-        self._saves_status = QLabel("")
-        self._saves_status.setStyleSheet(f"color:{_c(self._pal,'TEXT_DIM')};")
-        btns.addWidget(self._saves_status)
-        v.addLayout(btns)
-        self._register_plugin_footer("saves_footer", btns)
-
-        self._saves_filters_btn = self._filters_button()
-        self._saves_filters_btn.clicked.connect(self._toggle_saves_filters)
-        search_row = QHBoxLayout()
-        search_row.setContentsMargins(0, 0, 0, 0)
-        search_row.setSpacing(6)
-        search_row.addWidget(self._saves_filters_btn)
-        search_row.addWidget(self._search_icon_label())
-        search = QLineEdit()
-        search.setPlaceholderText(self.tr("Search saves… (try !.ess)"))
-        search.setClearButtonEnabled(True)
-        search.textChanged.connect(lambda t: self._saves_view._on_search(t))
-        search_row.addWidget(search, 1)
-        v.addLayout(search_row)
-        self._saves_search = search
-        search.textChanged.connect(
-            lambda _t, a="_saves_filters_btn": self._sync_filters_btn(a))
-
-        self._saves_view.status_changed.connect(self._saves_status.setText)
-        # Open folder falls back to the save location itself, and Export/Import
-        # need a single unambiguous folder - so all three follow the view's
-        # state rather than the selection alone (and never run mid-transfer).
-        for sig in (self._saves_view.selection_changed,
-                    self._saves_view.busy_changed):
-            sig.connect(lambda *_: self._sync_saves_buttons())
-        self._saves_view.notify.connect(self._on_saves_notify)
-        return bar
-
-    def _sync_saves_buttons(self):
-        """Sync the Saves footer buttons to what the tab can currently do."""
-        can = self._saves_view.can_transfer()
-        self._saves_export_btn.setEnabled(can)
-        self._saves_import_btn.setEnabled(can)
-        self._saves_open_btn.setEnabled(self._saves_view.can_open())
-
-    def _on_saves_notify(self, message: str, kind: str):
-        """Progress/result line from a save export or import."""
-        self._saves_status.setText(message)
-        if kind in ("success", "error"):
-            self._notify(message, kind)
-
-    def _downloads_footer(self) -> QWidget:
-        """Downloads actions, locations, filters, and search."""
-        bar = QWidget()
-        bar.setObjectName("HeaderBar")
-        v = QVBoxLayout(bar)
-        v.setContentsMargins(8, 6, 8, 6)
-        v.setSpacing(6)
-
-        btns = FlowLayout(spacing=4, center=True)
-        self._dl_install_btn = self._color_button(
-            self.tr("Install Selected"), _c(self._pal, "ACCENT"), compact=True)
-        self._dl_install_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._dl_install_btn.setEnabled(False)
-        self._dl_install_btn.clicked.connect(
-            lambda: self._downloads_view.install_selected())
-        self._dl_move_btn = self._text_button(
-            self.tr("Move Selected"), compact=True)
-        self._dl_move_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._dl_move_btn.setEnabled(False)
-        self._dl_move_btn.clicked.connect(lambda: self._on_downloads_move())
-        self._dl_hide_btn = self._text_button(
-            self.tr("Hide Selected"), compact=True)
-        self._dl_hide_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._dl_hide_btn.setEnabled(False)
-        self._dl_hide_btn.clicked.connect(lambda: self._on_downloads_toggle_hidden())
-        self._dl_remove_btn = self._color_button(
-            self.tr("Remove Selected"), _c(self._pal, "BTN_DANGER"), compact=True)
-        self._dl_remove_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._dl_remove_btn.setEnabled(False)
-        self._dl_remove_btn.clicked.connect(lambda: self._on_downloads_remove())
-        self._dl_locations_btn = self._text_button(
-            self.tr("Locations"), compact=True)
-        self._dl_locations_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._dl_locations_btn.clicked.connect(self._on_downloads_locations)
-        self._dl_filters_btn = self._filters_button()
-        self._dl_filters_btn.clicked.connect(self._toggle_downloads_filters)
-        self._equalize_button_widths(
-            self._dl_install_btn, self._dl_move_btn, self._dl_hide_btn,
-            self._dl_remove_btn)
-        btns.addWidget(self._dl_install_btn)
-        btns.addWidget(self._dl_move_btn)
-        btns.addWidget(self._dl_hide_btn)
-        btns.addWidget(self._dl_remove_btn)
-        btns.addWidget(self._dl_locations_btn)
-        v.addLayout(btns)
-        self._register_plugin_footer("downloads_footer", btns)
-
-        search_row = QHBoxLayout()
-        search_row.setContentsMargins(0, 0, 0, 0)
-        search_row.setSpacing(6)
-        search_row.addWidget(self._dl_filters_btn)
-        search_row.addWidget(self._search_icon_label())
-        search = QLineEdit()
-        search.setPlaceholderText(self.tr("Search downloads…"))
-        search.setClearButtonEnabled(True)
-        search.textChanged.connect(lambda t: self._downloads_view._on_search(t))
-        search_row.addWidget(search, 1)
-        v.addLayout(search_row)
-        self._dl_search = search
-        search.textChanged.connect(
-            lambda _t, a="_dl_filters_btn": self._sync_filters_btn(a))
-        return bar
-
-    def _update_downloads_footer(self):
-        n = self._downloads_view.checked_count()
-        hide_label = (self.tr("Unhide Selected")
-                      if n and self._downloads_view.selected_all_hidden()
-                      else self.tr("Hide Selected"))
-        for attr, label in (("_dl_install_btn", self.tr("Install Selected")),
-                            ("_dl_move_btn", self.tr("Move Selected")),
-                            ("_dl_hide_btn", hide_label),
-                            ("_dl_remove_btn", self.tr("Remove Selected"))):
-            b = getattr(self, attr, None)
-            if b is not None:
-                b.setEnabled(n > 0)
-                b.setText(self.tr("{0} ({1})").format(label, n) if n else label)
-        stack = getattr(self, "_plugin_footer_stack", None)
-        if stack is not None:
-            stack.clamp_to_current()
-
-    def _on_downloads_toggle_hidden(self, paths=None, hidden=None):
-        paths = self._downloads_view.checked_paths() if paths is None else paths
-        make_hidden = (not self._downloads_view.selected_all_hidden(paths)
+    def _on_downloads_toggle_hidden(self, paths=None, hidden=None, *, view=None):
+        view = view or self._downloads_view
+        paths = view.checked_paths() if paths is None else paths
+        make_hidden = (not view.selected_all_hidden(paths)
                        if hidden is None else hidden)
         try:
-            changed = self._downloads_view.set_selected_hidden(make_hidden, paths)
+            changed = view.set_selected_hidden(make_hidden, paths)
         except OSError as exc:
             self._notify(
                 self.tr("Could not update hidden archives: {0}").format(exc),
                 "error")
             return
         if changed:
+            self._update_plugin_panel_views("_downloads_view", "refresh")
             message = (self.tr("Hidden {0} archive(s)") if make_hidden
                        else self.tr("Made {0} archive(s) visible"))
             self._notify(message.format(changed), "info")
@@ -2725,7 +2358,7 @@ class MainWindow(QMainWindow):
         from gui_qt.downloads.locations_overlay import DownloadLocationsOverlay
         DownloadLocationsOverlay.show_over(
             self,
-            lambda saved: self._downloads_view.refresh() if saved else None)
+            lambda saved: self._update_plugin_panel_views("_downloads_view", "refresh") if saved else None)
 
     def _cancel_downloads_nexus_lookup(self):
         job = self._downloads_nexus_job
@@ -2814,8 +2447,9 @@ class MainWindow(QMainWindow):
                 self, self.tr("Choose a Nexus mod page"), items, open_page,
                 select_label=self.tr("Open page"))
 
-    def _on_downloads_remove(self, paths=None):
-        paths = self._downloads_view.checked_paths() if paths is None else paths
+    def _on_downloads_remove(self, paths=None, *, view=None):
+        view = view or self._downloads_view
+        paths = view.checked_paths() if paths is None else paths
         if not paths:
             return
         names = [Path(p).name for p in paths]
@@ -2831,8 +2465,9 @@ class MainWindow(QMainWindow):
                 except OSError as exc:
                     print(f"[gui_qt] remove failed: {p}: {exc}", flush=True)
             self._notify(self.tr("Removed {0} archive(s)").format(removed), "info")
-            self._downloads_view.clear_checks()
-            self._downloads_view.refresh()
+            if isValid(view):
+                view.clear_checks()
+            self._update_plugin_panel_views("_downloads_view", "refresh")
 
         from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_over(
@@ -2840,20 +2475,22 @@ class MainWindow(QMainWindow):
             self.tr("Permanently delete {0} archive(s) from disk?").format(len(paths)),
             _confirmed, confirm_label=self.tr("Delete"), list_items=names)
 
-    def _on_downloads_move(self, paths=None):
+    def _on_downloads_move(self, paths=None, *, view=None):
         """Move the checked archives between the *configured* download locations.
         Opens a borderless overlay listing those locations (Downloads / Mod
         Manager cache / extras) rather than a native folder browser."""
-        paths = self._downloads_view.checked_paths() if paths is None else paths
+        view = view or self._downloads_view
+        paths = view.checked_paths() if paths is None else paths
         if not paths:
             return
         game_name = getattr(self._gs, "game_name", None)
         from gui_qt.downloads.move_overlay import MoveDownloadsOverlay
         MoveDownloadsOverlay.show_over(
             self, len(paths), game_name,
-            lambda dest: self._move_downloads_to(paths, dest))
+            lambda dest: self._move_downloads_to(paths, dest, view=view))
 
-    def _move_downloads_to(self, paths, dest):
+    def _move_downloads_to(self, paths, dest, *, view=None):
+        view = view or self._downloads_view
         if not dest or not paths:
             return
         dest_dir = Path(dest)
@@ -2888,8 +2525,9 @@ class MainWindow(QMainWindow):
                 except OSError as exc:
                     print(f"[gui_qt] move failed: {p} -> {target}: {exc}", flush=True)
             self._notify(self.tr("Moved {0} archive(s)").format(moved), "info")
-            self._downloads_view.clear_checks()
-            self._downloads_view.refresh()
+            if isValid(view):
+                view.clear_checks()
+            self._update_plugin_panel_views("_downloads_view", "refresh")
 
         if clashes:
             names = "\n".join(Path(p).name for p in clashes[:20])
@@ -2903,130 +2541,6 @@ class MainWindow(QMainWindow):
                 confirm_label=self.tr("Overwrite"))
         else:
             _do_move()
-
-    def _text_files_footer(self) -> QWidget:
-        """Search Content / Filters + search, shown under the plugins column when
-        the Text Files sub-tab is active (read-only - no Pack/Install)."""
-        bar = QWidget()
-        bar.setObjectName("HeaderBar")
-        v = QVBoxLayout(bar)
-        v.setContentsMargins(8, 6, 8, 6)
-        v.setSpacing(6)
-
-        # Inline content-search popup (hidden until "Search Content" is clicked).
-        self._tf_content_bar = QWidget()
-        cbl = QHBoxLayout(self._tf_content_bar)
-        cbl.setContentsMargins(0, 0, 0, 0)
-        cbl.setSpacing(4)
-        lbl = QLabel(self.tr("Find in files:"))
-        lbl.setStyleSheet(f"color:{_c(self._pal,'TEXT_DIM')};")
-        cbl.addWidget(lbl)
-        self._tf_content_input = QLineEdit()
-        self._tf_content_input.setPlaceholderText(self.tr("Text to search for…"))
-        self._tf_content_input.setClearButtonEnabled(True)
-        self._tf_content_input.returnPressed.connect(self._run_tf_content_search)
-        cbl.addWidget(self._tf_content_input, 1)
-        go = self._color_button(
-            self.tr("Search"), _c(self._pal, "ACCENT"), compact=True)
-        go.setFixedHeight(self._FOOT_BTN_H)
-        go.clicked.connect(self._run_tf_content_search)
-        cbl.addWidget(go)
-        close = self._text_button("✕", compact=True)
-        close.setFixedHeight(self._FOOT_BTN_H)
-        close.clicked.connect(self._close_tf_content_bar)
-        cbl.addWidget(close)
-        self._tf_content_bar.setVisible(False)
-        v.addWidget(self._tf_content_bar)
-
-        btns = FlowLayout(spacing=4, center=True)
-        self._tf_content_btn = self._text_button(
-            self.tr("Search Content"), compact=True)
-        self._tf_content_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._tf_content_btn.clicked.connect(self._on_text_files_content_search)
-        self._tf_filters_btn = self._filters_button()
-        self._tf_filters_btn.clicked.connect(self._toggle_text_files_filters)
-        self._tf_expand_btn = self._text_button(
-            self.tr("⊞ Expand all"), compact=True)
-        self._tf_expand_btn.setFixedHeight(self._FOOT_BTN_H)
-        self._tf_expand_btn.clicked.connect(self._on_tf_expand_clicked)
-        btns.addWidget(self._tf_expand_btn)
-        btns.addWidget(self._tf_content_btn)
-        # A dim status label showing the active content-search keyword.
-        self._tf_content_status = QLabel("")
-        self._tf_content_status.setStyleSheet(
-            f"color:{_c(self._pal,'TEXT_DIM')};")
-        btns.addWidget(self._tf_content_status)
-        v.addLayout(btns)
-        self._register_plugin_footer("text_files_footer", btns)
-        self._text_files_view.content_status_changed.connect(
-            self._on_tf_content_status)
-
-        search_row = QHBoxLayout()
-        search_row.setContentsMargins(0, 0, 0, 0)
-        search_row.setSpacing(6)
-        search_row.addWidget(self._tf_filters_btn)
-        search_row.addWidget(self._search_icon_label())
-        search = QLineEdit()
-        search.setPlaceholderText(self.tr("Search files… (try !.dds)"))
-        search.setClearButtonEnabled(True)
-        search.textChanged.connect(lambda t: self._text_files_view._on_search(t))
-        search_row.addWidget(search, 1)
-        v.addLayout(search_row)
-        self._tf_search = search
-        search.textChanged.connect(
-            lambda _t, a="_tf_filters_btn": self._sync_filters_btn(a))
-        return bar
-
-    def _set_tf_content_bar_visible(self, visible: bool):
-        """Show/hide the inline find-in-files bar, then re-clamp the footer
-        stack: its max height is pinned to the current page's height (see
-        _CurrentPageStack), so the page growing a row would otherwise be
-        squashed into the old clamped height."""
-        self._tf_content_bar.setVisible(visible)
-        self._plugin_footer_stack.clamp_to_current()
-
-    def _on_text_files_content_search(self):
-        """Toggle the inline content-search bar. When a search is active, this
-        clears it; otherwise it opens the input bar above the footer + focuses it."""
-        if self._text_files_view._content_keyword:
-            self._text_files_view.clear_content_search()
-            self._tf_content_input.clear()
-            self._set_tf_content_bar_visible(False)
-            return
-        showing = not self._tf_content_bar.isVisible()
-        self._set_tf_content_bar_visible(showing)
-        if showing:
-            self._tf_content_input.setFocus()
-            self._tf_content_input.selectAll()
-
-    def _on_tf_expand_clicked(self):
-        expanded = self._text_files_view._toggle_expand_all()
-        self._tf_expand_btn.setText(self.tr("⊟ Collapse all") if expanded
-                                    else self.tr("⊞ Expand all"))
-
-    def _run_tf_content_search(self):
-        kw = self._tf_content_input.text().strip()
-        if kw:
-            self._text_files_view.run_content_search(kw)
-        else:
-            self._text_files_view.clear_content_search()
-
-    def _close_tf_content_bar(self):
-        self._set_tf_content_bar_visible(False)
-        self._tf_content_input.clear()
-        if self._text_files_view._content_keyword:
-            self._text_files_view.clear_content_search()
-
-    def _on_tf_content_status(self, keyword):
-        if keyword:
-            self._tf_content_status.setText(self.tr('Content: "{0}"').format(keyword))
-            self._tf_content_btn.setText(self.tr("Clear Content"))
-        else:
-            self._tf_content_status.setText("")
-            self._tf_content_btn.setText(self.tr("Search Content"))
-        self._tf_content_btn.setProperty("active", bool(keyword))
-        self._tf_content_btn.style().unpolish(self._tf_content_btn)
-        self._tf_content_btn.style().polish(self._tf_content_btn)
 
     def _left_header(self) -> QWidget:
         # Single row: game/profile selectors, then the mod-action buttons. As a
@@ -4594,9 +4108,7 @@ class MainWindow(QMainWindow):
             self._apply_plugins_supported()
         except Exception:
             pass
-        view = getattr(self, "_saves_view", None)
-        if view is not None:
-            view.mark_dirty()
+        self._update_plugin_panel_views("_saves_view", "mark_dirty")
 
     def _on_languages_synced(self):
         """A background/manual language sync wrote new/updated .qm files into the
@@ -8264,7 +7776,7 @@ class MainWindow(QMainWindow):
             if isinstance(payload, dict) and payload.get("no_profile"):
                 # Download-only: the switch below would yank the active profile.
                 if hasattr(self, "_downloads_view"):
-                    self._downloads_view.mark_dirty()
+                    self._update_plugin_panel_views("_downloads_view", "mark_dirty")
                 self._notify(self.tr("Collection download cancelled - the archives "
                                      "already fetched are in the Downloads tab."),
                              "info")
@@ -8343,7 +7855,7 @@ class MainWindow(QMainWindow):
                     installed, total))
                 QTimer.singleShot(1500, self._dismiss_col_overlay)
             if hasattr(self, "_downloads_view"):
-                self._downloads_view.mark_dirty()
+                self._update_plugin_panel_views("_downloads_view", "mark_dirty")
             msg = self.tr("Collection downloaded - {0}/{1} archive(s). Install them "
                           "from the Downloads tab.").format(installed, total)
             if skipped_n:
@@ -8483,7 +7995,7 @@ class MainWindow(QMainWindow):
 
             def refreshed():
                 if hasattr(self, "_saves_view"):
-                    self._saves_view.mark_dirty()
+                    self._update_plugin_panel_views("_saves_view", "mark_dirty")
 
             ProfileSavesTransfer(self, game, target_profile,
                                  self._notify, self._append_log,
@@ -10563,7 +10075,7 @@ class MainWindow(QMainWindow):
                 self._append_log(f"[download-only] kept '{Path(p).name}' in the "
                                  f"cache - update install skipped.")
             if hasattr(self, "_downloads_view"):
-                self._downloads_view.mark_dirty()
+                self._update_plugin_panel_views("_downloads_view", "mark_dirty")
             self._quick_updating = False
             self._qu_skipped = []
             self._append_log(
@@ -12092,9 +11604,7 @@ class MainWindow(QMainWindow):
                 e["resume"] = resume
         self._sync_active_download_rows()
         if total < 0:
-            view = getattr(self, "_downloads_view", None)
-            if view is not None:
-                view.mark_dirty()
+            self._update_plugin_panel_views("_downloads_view", "mark_dirty")
             return
         e = dls[key]
         nm = e.get("name") or self.tr("Download")
@@ -12117,7 +11627,7 @@ class MainWindow(QMainWindow):
     def _sync_active_download_rows(self):
         view = getattr(self, "_downloads_view", None)
         if view is not None:
-            view.set_active_downloads(self._active_download_rows())
+            self._update_plugin_panel_views("_downloads_view", "set_active_downloads", self._active_download_rows())
 
     def _active_download_rows(self):
         return [
@@ -12167,7 +11677,7 @@ class MainWindow(QMainWindow):
             from Nexus.nexus_download import discard_resumable_download
             metadata_path = Path(key[5:])
             discard_resumable_download(metadata_path)
-            self._downloads_view.mark_dirty()
+            self._update_plugin_panel_views("_downloads_view", "mark_dirty")
             return
         entry = self._active_downloads.get(key)
         if (entry is None or entry.get("cancelling")
@@ -12188,7 +11698,7 @@ class MainWindow(QMainWindow):
         from Utils.downloads.control import DownloadControl
         item = get_resumable_download(metadata_path)
         if item is None:
-            self._downloads_view.mark_dirty()
+            self._update_plugin_panel_views("_downloads_view", "mark_dirty")
             return
         api = self._ensure_nexus_api()
         if api is None:
@@ -12197,7 +11707,7 @@ class MainWindow(QMainWindow):
 
         control = DownloadControl()
         dl_key = self._new_dl_key()
-        self._downloads_view.hide_interrupted_download(metadata_path)
+        self._update_plugin_panel_views("_downloads_view", "hide_interrupted_download", metadata_path)
         self._nexus_download_progress(
             dl_key, item.file_name, item.downloaded, item.total,
             cancel=control.cancel, pause=control.pause, resume=control.resume)
@@ -12253,7 +11763,7 @@ class MainWindow(QMainWindow):
             discard_resumable_download(item.metadata_path)
             getattr(self, "_nxm_resume_links", {}).pop(
                 (item.game_domain, item.mod_id, item.file_id), None)
-            self._downloads_view.mark_dirty()
+            self._update_plugin_panel_views("_downloads_view", "mark_dirty")
             self._notify(self.tr("Download completed: {0}").format(
                 item.file_name), "success")
         elif "cancel" not in (result.error or "").lower():
@@ -16002,7 +15512,7 @@ class MainWindow(QMainWindow):
                     self._update_deployed_profile_highlight()
                     self._refresh_installed_collections()
                     if getattr(self, "_downloads_view", None) is not None:
-                        self._downloads_view.refresh()
+                        self._update_plugin_panel_views("_downloads_view", "refresh")
                 elif changed:
                     game.load_paths()
                     profiles = self._gs.profiles()
@@ -16442,7 +15952,7 @@ class MainWindow(QMainWindow):
             self._append_log(
                 f"[download-only] kept '{n}' in the cache - install skipped.")
         if hasattr(self, "_downloads_view"):
-            self._downloads_view.mark_dirty()
+            self._update_plugin_panel_views("_downloads_view", "mark_dirty")
         if notify:
             if len(names) == 1:
                 self._notify(self.tr("Downloaded '{0}' - install it from the "
@@ -17645,7 +17155,7 @@ class MainWindow(QMainWindow):
         if self._progress_popup is not None:
             self._schedule_op_clear(1200)
         if hasattr(self, "_downloads_view"):
-            self._downloads_view.mark_dirty()
+            self._update_plugin_panel_views("_downloads_view", "mark_dirty")
 
         def _drain_next():
             # Another wizard may have finished while this one staged, and an
@@ -18308,7 +17818,7 @@ class MainWindow(QMainWindow):
             self._reload_plugins()
         # Re-flag Reinstall in the Downloads tab now that meta.ini changed.
         if hasattr(self, "_downloads_view"):
-            self._downloads_view.mark_dirty()
+            self._update_plugin_panel_views("_downloads_view", "mark_dirty")
         # A failed Change Version install never reaches the per-item retarget -
         # don't leave the tab's "Installing…" notice up forever.
         chv = getattr(self, "_change_version_view", None)
@@ -18440,12 +17950,12 @@ class MainWindow(QMainWindow):
         if tab is None:
             from gui_qt.modlist.tab import ModListTab
             from gui_qt.modlist.drag import ModListDrag
-            from gui_qt.runtime.shortcuts import register_modlist_tab_shortcuts
+            from gui_qt.runtime.shortcuts import register_panel_tab_shortcuts
             position = self._modlist_view.capture_position()
             tab = ModListTab(self)
             self._modlist_tab = tab
             tab.drag = ModListDrag([self._modlist_view, tab.view], tab)
-            register_modlist_tab_shortcuts(self, tab.view)
+            register_panel_tab_shortcuts(self, tab.view)
             self._right_col.show()
             self._tabs.open_scoped_tab(tab, self.tr("Modlist"),
                                        self._plugins_panel_stack, key="modlist")
@@ -18739,6 +18249,10 @@ class MainWindow(QMainWindow):
                 continue
             btn = self._install_filter_menu_button(
                 view._tree, panel_attr, spec, dyn, sync)
+            tab_idx = {"_mod_files_filter_panel": 1, "_text_files_filter_panel": 2,
+                       "_data_filter_panel": 3, "_downloads_filter_panel": 4,
+                       "_saves_filter_panel": 6}[panel_attr]
+            btn.on_open_as_tab = lambda idx=tab_idx: self._open_plugin_panel_tab(idx)
             btn.columns_fn = getattr(view, "column_menu_items", None)
             btn.on_column_toggle = getattr(view, "set_column_visible", None)
             installed.add(id(view))
@@ -19077,61 +18591,15 @@ class MainWindow(QMainWindow):
         panel.set_dynamic_items(
             "filetypes", self._mod_files_view.filetype_items())
 
-    def _update_mf_footer_buttons(self):
-        import Utils.bsa.pack as ops
-        pack_btn = getattr(self, "_mf_pack_btn", None)
-        unpack_btn = getattr(self, "_mf_unpack_btn", None)
-        if pack_btn is None or unpack_btn is None:
-            return
-        mv = self._mod_files_view
-        open_btn = getattr(self, "_mf_open_btn", None)
-        if open_btn is not None:
-            mod_dir = mv._mod_root_dir() if mv.has_mod() else None
-            open_btn.setEnabled(mod_dir is not None and mod_dir.is_dir())
-        # Reset first - it applies to every game, including ones we can't
-        # pack for (which return early below).
-        reset_btn = getattr(self, "_mf_reset_btn", None)
-        if reset_btn is not None:
-            reset_btn.setEnabled(mv.has_mod() and mv.has_changes() and not self._bsa_op_running)
-        kind = ops.archive_kind_for_game(getattr(mv, "game", None))
-        # Hide both buttons entirely on games we can't pack for (Tk parity).
-        if kind is None:
-            pack_btn.setVisible(False)
-            unpack_btn.setVisible(False)
-            return
-        upper = kind.upper()
-        pack_btn.setVisible(True)
-        unpack_btn.setVisible(True)
-        pack_btn.setText(self.tr("Pack {0}").format(upper))
-        unpack_btn.setText(self.tr("Unpack {0}").format(upper))
-        # Pack: any normal mod. Unpack: also needs a matching archive on disk.
-        is_normal = (not self._bsa_op_running and mv.has_mod()
-                     and ops.is_packable_mod(getattr(mv, "_mod_name", None)))
-        pack_btn.setEnabled(is_normal)
-        has_archive = False
-        if is_normal:
-            mod_dir = self._bsa_mod_dir()
-            has_archive = mod_dir is not None and ops.mod_has_archive(mod_dir, kind)
-        unpack_btn.setEnabled(has_archive)
-
-    def _on_mf_expand_clicked(self):
-        expanded = self._mod_files_view._toggle_expand_all()
-        self._mf_expand_btn.setText(self.tr("⊟ Collapse all") if expanded
-                                    else self.tr("⊞ Expand all"))
-
-    def _on_mf_open_clicked(self):
-        self._open_folder_path(
-            self._mod_files_view._mod_root_dir(), self.tr("File location"))
-
-    def _on_mf_reset_clicked(self):
+    def _on_mf_reset_clicked(self, view=None):
         """Undo every Mod Files edit for the shown mod (files are untouched)."""
-        mv = self._mod_files_view
+        mv = view or self._mod_files_view
         mod_name = getattr(mv, "_mod_name", None)
         if not mod_name or not mv.has_changes():
             return
 
         def _confirmed(ok):
-            if not ok or self._bsa_op_running:
+            if not ok or self._bsa_op_running or not isValid(mv):
                 return
             if getattr(mv, "_mod_name", None) != mod_name:
                 return   # selection moved on while the confirm was up
@@ -19150,23 +18618,7 @@ class MainWindow(QMainWindow):
             _confirmed, confirm_label=self.tr("Reset"))
 
     # -- BSA / BA2 pack + unpack -------------------------------------------
-    def _bsa_mod_dir(self):
-        """Resolve the on-disk staging folder for the Mod Files tab's mod."""
-        mv = self._mod_files_view
-        game = getattr(mv, "game", None)
-        mod_name = getattr(mv, "_mod_name", None)
-        if game is None or not mod_name:
-            return None
-        try:
-            base = Path(game.get_effective_mod_staging_path())
-        except Exception:
-            return None
-        d = base / mod_name
-        return d if d.is_dir() else None
 
-    def _bsa_plugin_exts(self):
-        game = getattr(self._mod_files_view, "game", None)
-        return getattr(game, "plugin_extensions", None) or (".esp", ".esm", ".esl")
 
     def _archive_operation_error(self, game, profile_dir):
         import Utils.bsa.pack as ops
@@ -19184,10 +18636,10 @@ class MainWindow(QMainWindow):
             return self.tr("These mod folders are deployed. Run Restore before packing or unpacking.")
         return ""
 
-    def _on_pack_bsa(self):
+    def _on_pack_bsa(self, view=None):
         import Utils.bsa.pack as ops
         from gui_qt.files.bsa_pack import BsaPackOverlay
-        mv = self._mod_files_view
+        mv = view or self._mod_files_view
         game = getattr(mv, "game", None)
         profile_dir = getattr(mv, "profile_dir", None)
         error = self._archive_operation_error(game, profile_dir)
@@ -19196,10 +18648,10 @@ class MainWindow(QMainWindow):
             return
         mod_name = getattr(mv, "_mod_name", None)
         kind = ops.archive_kind_for_game(game)
-        mod_dir = self._bsa_mod_dir()
+        mod_dir = self._bsa_mod_dir(mv)
         if kind is None or not ops.is_packable_mod(mod_name) or mod_dir is None:
             return
-        plan = ops.plan_pack(game, mod_dir, mod_name, kind, self._bsa_plugin_exts())
+        plan = ops.plan_pack(game, mod_dir, mod_name, kind, self._bsa_plugin_exts(mv))
         profile_name = profile_dir.name
         BsaPackOverlay.show_over(
             self, archive_name=plan.archive_path.name, existing=plan.existing_any,
@@ -19214,10 +18666,10 @@ class MainWindow(QMainWindow):
             "staging": str(plan.mod_dir.parent), "options": opts,
         })
 
-    def _on_unpack_bsa(self):
+    def _on_unpack_bsa(self, view=None):
         import Utils.bsa.pack as ops
         from gui_qt.files.bsa_unpack import BsaUnpackOverlay
-        mv = self._mod_files_view
+        mv = view or self._mod_files_view
         game = getattr(mv, "game", None)
         profile_dir = getattr(mv, "profile_dir", None)
         error = self._archive_operation_error(game, profile_dir)
@@ -19225,13 +18677,13 @@ class MainWindow(QMainWindow):
             self._notify(error, "warning")
             return
         mod_name = getattr(mv, "_mod_name", None)
-        mod_dir = self._bsa_mod_dir()
+        mod_dir = self._bsa_mod_dir(mv)
         if ops.archive_kind_for_game(game) is None or not ops.is_packable_mod(mod_name) or mod_dir is None:
             return
         profile_name = profile_dir.name
         BsaUnpackOverlay.show_over(
             self, mod_name=mod_name, mod_dir=mod_dir,
-            plugin_exts=self._bsa_plugin_exts(),
+            plugin_exts=self._bsa_plugin_exts(mv),
             on_done=lambda archives: self._start_unpack_bsa(
                 mod_dir, archives, game=game, profile_name=profile_name) if archives else None)
 
@@ -19291,6 +18743,11 @@ class MainWindow(QMainWindow):
                     continue
                 self._bsa_widgets.append((view, view.isEnabled()))
                 view.setEnabled(False)
+            tab = getattr(self, "_plugin_panel_tabs", {}).get(1)
+            if tab is not None:
+                self._bsa_widgets.append((tab.view, tab.view.isEnabled()))
+                tab.view.setEnabled(False)
+                tab._update_mf_footer_buttons()
             self._set_tool_lock("archive-operation", self.tr("Archive operation"), True)
             self._update_mf_footer_buttons()
             self._op_title = self.tr("Pack archives") if request["action"] == "pack" else self.tr("Unpack archives")
@@ -19316,6 +18773,9 @@ class MainWindow(QMainWindow):
             view.setEnabled(enabled)
         self._bsa_widgets = []
         self._update_mf_footer_buttons()
+        tab = getattr(self, "_plugin_panel_tabs", {}).get(1)
+        if tab is not None:
+            tab._update_mf_footer_buttons()
         if self._pending_install_batches:
             QTimer.singleShot(0, self._drain_pending_installs)
         if self._staged_finish_queue:
@@ -20278,7 +19738,7 @@ class MainWindow(QMainWindow):
         self._refresh_modlist_tab(reset_view=context_changed)
         # Point the Mod Files tab at this game/profile.
         if hasattr(self, "_mod_files_view"):
-            self._mod_files_view.configure(
+            self._update_plugin_panel_views("_mod_files_view", "configure",
                 self._gs.game, self._gs.profile_dir())
             # Re-show the previously selected mod on a same-context refresh (it
             # updates against the freshly-scanned files); blank otherwise. The
@@ -20288,28 +19748,28 @@ class MainWindow(QMainWindow):
             still_present = keep_mod_files is not None and (
                 keep_mod_files in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
                 or any(e.name == keep_mod_files for e in entries))
-            self._mod_files_view.show_mod(
+            self._update_plugin_panel_views("_mod_files_view", "show_mod",
                 keep_mod_files if still_present else None)
         # Point the Data tab at this game/profile.
         if hasattr(self, "_data_view"):
-            self._data_view.configure(
+            self._update_plugin_panel_views("_data_view", "configure",
                 self._gs.game, self._gs.profile_dir())
         # Point the Downloads tab at this game (game-name getter for cache dir).
         if hasattr(self, "_downloads_view"):
-            self._downloads_view.configure(
+            self._update_plugin_panel_views("_downloads_view", "configure",
                 self._gs.game, lambda: self._gs.game_name,
                 self._gs.profile_dir())
         # Point the Overrides tab (BG3) at this game/profile.
         if hasattr(self, "_overrides_view"):
-            self._overrides_view.configure(
+            self._update_plugin_panel_views("_overrides_view", "configure",
                 self._gs.profile_dir(), staging, ml_path)
         # Point the Text Files tab at this game/profile.
         if hasattr(self, "_text_files_view"):
-            self._text_files_view.configure(
+            self._update_plugin_panel_views("_text_files_view", "configure",
                 self._gs.game, self._gs.profile_dir())
         # Point the Saves tab at this game/profile (saves can be per-profile).
         if hasattr(self, "_saves_view"):
-            self._saves_view.configure(self._gs.game, self._gs.profile or "")
+            self._update_plugin_panel_views("_saves_view", "configure", self._gs.game, self._gs.profile or "")
         loot_report = getattr(self, "_loot_report_overlay", None)
         if loot_report is not None:
             loot_report.view.configure(self._gs.game, self._gs.profile_dir())
@@ -20333,13 +19793,13 @@ class MainWindow(QMainWindow):
         # changes with the profile), so refresh it on every reload - even for an
         # empty profile, where the conflict rebuild below is skipped.
         if hasattr(self, "_data_view"):
-            self._data_view.mark_dirty()
+            self._update_plugin_panel_views("_data_view", "mark_dirty")
         if hasattr(self, "_downloads_view"):
-            self._downloads_view.mark_dirty()
+            self._update_plugin_panel_views("_downloads_view", "mark_dirty")
         if hasattr(self, "_text_files_view"):
-            self._text_files_view.mark_dirty()
+            self._update_plugin_panel_views("_text_files_view", "mark_dirty")
         if hasattr(self, "_overrides_view"):
-            self._overrides_view.mark_dirty()
+            self._update_plugin_panel_views("_overrides_view", "mark_dirty")
         # The Nexus browser (if open) shows Install/Reinstall per the active
         # profile's installed mods - refresh on every modlist reload (covers
         # profile/game change AND post-install).
@@ -20927,18 +20387,6 @@ class MainWindow(QMainWindow):
         except Exception:
             return {}
 
-    def _refresh_plugin_stats(self):
-        """Update the plugins footer count label: active plugins / non-ESL. All
-        the data is in-memory on the plugin model, so this is instant."""
-        lbl = getattr(self, "_plugin_count", None)
-        if lbl is None:
-            return
-        from gui_qt.modlist.data import compute_plugin_stats
-        s = compute_plugin_stats(self._plugin_model._rows)
-        lbl.setText(self.tr("P:{0} / Non-ESL:{1}").format(
-            s['total'], s['non_esl']))
-        lbl.setToolTip(self.tr("{0} plugins ({1} ESL, {2} non-ESL)").format(
-            s["total"], s["esl"], s["non_esl"]))
 
     @staticmethod
     def _plugin_projection_signature(snapshot):
@@ -21269,7 +20717,7 @@ class MainWindow(QMainWindow):
         # The Saves details pane flags plugins a save was made with that are no
         # longer in the load order - reuse the list we just loaded.
         if hasattr(self, "_saves_view"):
-            self._saves_view.set_known_plugins([r.name for r in rows])
+            self._update_plugin_panel_views("_saves_view", "set_known_plugins", [r.name for r in rows])
         self._apply_plugin_search()
         # Persistent red marker-strip ticks for plugins with missing masters
         # (Tk parity) - recomputed from the freshly-loaded PF_MISSING flags.
@@ -21330,6 +20778,7 @@ class MainWindow(QMainWindow):
             "_plugin_filter_panel")
         self._plugin_view.on_clear_filters = lambda: self._clear_panel_filters(
             "_plugin_filter_panel")
+        self._refresh_plugin_panel_tabs()
         if timing is not None:
             timing.mark("Plugins userlist state and actions applied",
                         phase_started=phase_started)
@@ -21682,7 +21131,7 @@ class MainWindow(QMainWindow):
                                    self._modlist_panel_stack,
                                    key="plugin_groups")
 
-    def _open_plugin_rules_tab(self):
+    def _open_plugin_rules_tab(self, view=None):
         """Footer 'Plugin Rules' button → per-plugin rules tab over the
         modlist panel. Follows the plugins-panel selection while open."""
         ul_path = self._userlist_path()
@@ -21693,8 +21142,9 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("plugin_rules"):
             self._tabs.close_tab("plugin_rules")
         plugin_names = [r.name for r in self._plugin_model.natural_rows()]
-        sel_rows = self._plugin_view.selectionModel().selectedRows()
-        sel_name = (self._plugin_model.row(sel_rows[0].row()).name
+        plugin_view = view or self._plugin_view
+        sel_rows = plugin_view.selectionModel().selectedRows()
+        sel_name = (plugin_view.model().row(sel_rows[0].row()).name
                     if sel_rows else "")
         from gui_qt.plugins.rules import PluginRulesView
         view = PluginRulesView(
@@ -21995,6 +21445,7 @@ class MainWindow(QMainWindow):
                 self._sort_ctx["cancel_event"].set()
                 self._plugin_sort_btn.setText(self.tr("Cancelling…"))
                 self._plugin_sort_btn.setEnabled(False)
+            self._refresh_plugin_panel_tabs()
             return
         from LOOT.loot_sorter import is_available, unavailable_reason
         if not is_available():
@@ -22091,6 +21542,7 @@ class MainWindow(QMainWindow):
             self._plugin_refresh_btn.setEnabled(False)
         if hasattr(self, "_plugin_sync_btn"):
             self._plugin_sync_btn.setEnabled(False)
+        self._refresh_plugin_panel_tabs()
         if refresh:
             self._notify(
                 self.tr("Refreshing LOOT metadata for {0} plugins…").format(
@@ -22123,6 +21575,7 @@ class MainWindow(QMainWindow):
             self._plugin_refresh_btn.setEnabled(True)
         if hasattr(self, "_plugin_sync_btn"):
             self._plugin_sync_btn.setEnabled(True)
+        self._refresh_plugin_panel_tabs()
         ctx = getattr(self, "_sort_ctx", None) or {}
         self._sort_ctx = None
         is_refresh = bool(ctx.get("refresh"))
@@ -22358,6 +21811,11 @@ class MainWindow(QMainWindow):
         # for titles the Ludusavi manifest doesn't know (server-side saves).
         saves = self._saves_supported()
         self._plugin_tab_labels[self._SAVES_TAB_IDX].setVisible(saves)
+        for idx, available, key in ((0, supported, "plugins"),
+                                    (self._OVERRIDES_TAB_IDX, overrides, "overrides"),
+                                    (self._SAVES_TAB_IDX, saves, "saves")):
+            if not available and idx in getattr(self, "_plugin_panel_tabs", {}):
+                self._tabs.close_tab(f"panel:{key}")
         if not saves and self._plugin_stack.currentIndex() == self._SAVES_TAB_IDX:
             self._select_plugin_tab(0)
         if not saves:
@@ -23063,6 +22521,7 @@ class MainWindow(QMainWindow):
                     resolution_delta.changed_plugin_owners)
             else:
                 self._plugin_view.set_plugin_owner(data.plugin_owner)
+            self._refresh_plugin_panel_tabs()
             # Rebuild the filter data + repopulate the filter panel's dynamic lists,
             # then reapply whatever filters are currently active.
             if incremental_delta:
@@ -23078,14 +22537,14 @@ class MainWindow(QMainWindow):
             phase_started = timing.now() if timing is not None else None
             if hasattr(self, "_data_view"):
                 if incremental_delta:
-                    self._data_view.apply_resolution_delta(
+                    self._update_plugin_panel_views("_data_view", "apply_resolution_delta",
                         data.snapshot, resolution_delta)
                 else:
-                    self._data_view.set_snapshot(data.snapshot)
+                    self._update_plugin_panel_views("_data_view", "set_snapshot", data.snapshot)
             if hasattr(self, "_mod_files_view"):
-                self._mod_files_view.set_snapshot(data.snapshot)
+                self._update_plugin_panel_views("_mod_files_view", "set_snapshot", data.snapshot)
             if hasattr(self, "_text_files_view"):
-                self._text_files_view.set_snapshot(data.snapshot)
+                self._update_plugin_panel_views("_text_files_view", "set_snapshot", data.snapshot)
             conflicts_view = self._tabs.content_for_key("show_conflicts")
             if conflicts_view is not None and self._gs.game is not None:
                 conflicts_view.set_context(self._show_conflicts_context(
@@ -23096,7 +22555,7 @@ class MainWindow(QMainWindow):
             # A mod may have been added/removed → re-evaluate Install vs Reinstall.
             phase_started = timing.now() if timing is not None else None
             if not toggle_only and hasattr(self, "_downloads_view"):
-                self._downloads_view.mark_dirty()
+                self._update_plugin_panel_views("_downloads_view", "mark_dirty")
             # A mod may have been removed/added → re-evaluate the Nexus browser's
             # Install/Reinstall buttons (remove goes through save()→conflict rebuild,
             # which is the only signal the Nexus tab gets for a removal).
@@ -23297,6 +22756,7 @@ class MainWindow(QMainWindow):
         v.setSpacing(6)
 
         # Sub-tab strip - switches the stacked pages below.
+        self._plugin_panel_tabs = {}
         self._plugin_tab_names = [self.tr("Plugins"), self.tr("Mod Files"),
                                   self.tr("Text Files"), self.tr("Data"),
                                   self.tr("Downloads"), self.tr("Overrides"),
@@ -23325,6 +22785,7 @@ class MainWindow(QMainWindow):
         self._plugin_model.save_failed.connect(
             lambda msg: self._notify(msg, "error"))
         self._plugin_view = PluginView(self._plugin_model)
+        self._plugin_view.on_open_as_tab = lambda: self._open_plugin_panel_tab(0)
         self._plugin_model.missing_flags_changed.connect(
             self._plugin_view.refresh_missing_marker)
         self._plugin_model.missing_flags_changed.connect(
@@ -23375,6 +22836,9 @@ class MainWindow(QMainWindow):
             lbl.setFocusPolicy(Qt.NoFocus)
             lbl.clicked.connect(
                 lambda _checked=False, idx=i: self._select_plugin_tab(idx))
+            lbl.setContextMenuPolicy(Qt.CustomContextMenu)
+            lbl.customContextMenuRequested.connect(
+                lambda pos, idx=i, button=lbl: self._plugin_panel_tab_menu(idx, button, pos))
             self._plugin_tab_labels.append(lbl)
         # Layout in display order: the Overrides label leads the strip (where
         # Plugins sits - the two are never visible together), and Saves sits
@@ -23398,6 +22862,41 @@ class MainWindow(QMainWindow):
                 "Assemble plugin sub-tab strip",
                 phase_started=phase_started, category="UI")
         return frame
+
+    def _plugin_panel_tab_menu(self, idx, button, pos):
+        menu = QMenu(button)
+        menu.addAction(self.tr("Open as tab"),
+                       lambda: self._open_plugin_panel_tab(idx))
+        menu.exec(button.mapToGlobal(pos))
+        menu.deleteLater()
+
+    def _open_plugin_panel_tab(self, idx):
+        from gui_qt.plugins.panel_tab import PluginPanelTab, PANEL_KEYS
+        key = f"panel:{PANEL_KEYS[idx]}"
+        if self._tabs.has_key(key):
+            self._tabs.focus_key(key)
+            return
+        self._ensure_plugin_tab(idx)
+        tab = PluginPanelTab(self, idx)
+        self._plugin_panel_tabs[idx] = tab
+        self._tabs.open_scoped_tab(tab, self._plugin_tab_names[idx],
+                                  self._modlist_panel_stack, key=key)
+
+    def _update_plugin_panel_views(self, attr, method, *args, **kwargs):
+        view = getattr(self, attr, None)
+        if view is not None:
+            getattr(view, method)(*args, **kwargs)
+        for tab in list(getattr(self, "_plugin_panel_tabs", {}).values()):
+            if tab.panel_attr != attr:
+                continue
+            getattr(tab.view, method)(*args, **kwargs)
+            if tab.index == 1:
+                tab._update_mf_footer_buttons()
+
+    def _refresh_plugin_panel_tabs(self):
+        tab = getattr(self, "_plugin_panel_tabs", {}).get(0)
+        if tab is not None:
+            tab.refresh_plugins()
 
     def _add_plugin_panel_tab(self, widget, label, key):
         if key in self._plugin_extra_tabs:
@@ -23437,6 +22936,78 @@ class MainWindow(QMainWindow):
         placeholder.deleteLater()
         stack.insertWidget(footer_idx, page)
 
+    def _on_saves_busy(self, view, ready):
+        if not ready:
+            self._active_saves_view = view
+        elif getattr(self, "_active_saves_view", None) is view:
+            self._active_saves_view = None
+        if hasattr(self, "_saves_export_btn"):
+            self._sync_saves_buttons()
+        tab = getattr(self, "_plugin_panel_tabs", {}).get(6)
+        if tab is not None:
+            tab._sync_saves_buttons()
+
+    def _create_plugin_panel_view(self, idx: int, *, selection_source_id=None):
+        if idx == 1:
+            from gui_qt.files.mod_files_view import ModFilesView
+            view = ModFilesView(selection_source_id=selection_source_id)
+            view.changed.connect(self._on_mod_files_changed)
+            view.on_open_image = self._open_image_preview_tab
+            view.on_open_video = self._open_video_preview_tab
+            view.on_open_archive = self._open_bsa_preview_tab
+            view.on_open_nif = self._open_nif_preview_tab
+            view.on_open_text = self._open_text_editor_tab
+            view.on_open_path = self._open_disk_path
+            view.mod_changed.connect(lambda _n: self._update_mf_footer_buttons())
+        elif idx == 2:
+            from gui_qt.files.text_files_view import TextFilesView
+            view = TextFilesView(selection_source_id=selection_source_id)
+            view.on_open_file = self._open_text_editor_tab
+        elif idx == 3:
+            from gui_qt.files.data_view import DataView
+            view = DataView(selection_source_id=selection_source_id)
+            view.on_select_mod = self._on_data_select_mod
+            view.on_open_file_browser = lambda folder: self._open_folder_path(
+                folder, self.tr("File location"))
+            view.on_open_text = self._open_text_editor_tab
+            view.on_open_nif = self._open_nif_preview_tab
+            view.on_open_video = self._open_video_preview_tab
+            view.on_open_archive = self._open_bsa_preview_tab
+        elif idx == 4:
+            from gui_qt.downloads.view import DownloadsView
+            view = DownloadsView(selection_source_id=selection_source_id)
+            view.archive_drop_target = self._modlist_view
+            view.on_install = lambda paths: self._install_paths(
+                paths, clear_archives=False)
+            view.on_move = self._on_downloads_move
+            view.on_toggle_hidden = self._on_downloads_toggle_hidden
+            view.on_remove = self._on_downloads_remove
+            view.on_inspect = self._open_download_archive_tab
+            view.on_nexus_page = self._on_downloads_nexus_page
+            view.on_cancel_download = self._cancel_download
+            view.on_pause_download = self._pause_download
+            view.on_resume_download = self._resume_download
+            view.set_active_downloads(self._active_download_rows())
+            view.selection_changed.connect(self._update_downloads_footer)
+        elif idx == 5:
+            from gui_qt.files.overrides import OverridesView
+            view = OverridesView()
+            view.changed.connect(self._on_mod_files_changed)
+            view.on_select_mod = self._on_data_select_mod
+        elif idx == 6:
+            from gui_qt.saves.view import SavesView
+            view = SavesView(log_fn=self._append_log, selection_source_id=selection_source_id)
+            view.other_transfer_busy = lambda: getattr(self, "_active_saves_view", None) is not None
+            view.busy_changed.connect(lambda ready: self._on_saves_busy(view, ready))
+            view.notify.connect(lambda _message, kind: self._update_plugin_panel_views(
+                "_saves_view", "mark_dirty") if kind == "success" else None)
+            view.on_open_image = self._open_image_preview_tab
+            view.on_open_text = self._open_text_editor_tab
+        else:
+            raise ValueError(f"Unknown plugin panel: {idx}")
+
+        return view
+
     def _ensure_plugin_tab(self, idx: int):
         placeholders = getattr(self, "_plugin_page_placeholders", {})
         placeholder = placeholders.get(idx)
@@ -23453,67 +23024,10 @@ class MainWindow(QMainWindow):
                     self._install_tab_filter_menus()
             return view
 
-        if idx == 1:
-            from gui_qt.files.mod_files_view import ModFilesView
-            view = ModFilesView()
-            attr = "_mod_files_view"
-            view.changed.connect(self._on_mod_files_changed)
-            view.on_open_image = self._open_image_preview_tab
-            view.on_open_video = self._open_video_preview_tab
-            view.on_open_archive = self._open_bsa_preview_tab
-            view.on_open_nif = self._open_nif_preview_tab
-            view.on_open_text = self._open_text_editor_tab
-            view.on_open_path = self._open_disk_path
-            view.mod_changed.connect(lambda _n: self._update_mf_footer_buttons())
-        elif idx == 2:
-            from gui_qt.files.text_files_view import TextFilesView
-            view = TextFilesView()
-            attr = "_text_files_view"
-            view.on_open_file = self._open_text_editor_tab
-        elif idx == 3:
-            from gui_qt.files.data_view import DataView
-            view = DataView()
-            attr = "_data_view"
-            view.on_select_mod = self._on_data_select_mod
-            view.on_open_file_browser = lambda folder: self._open_folder_path(
-                folder, self.tr("File location"))
-            view.on_open_text = self._open_text_editor_tab
-            view.on_open_nif = self._open_nif_preview_tab
-            view.on_open_video = self._open_video_preview_tab
-            view.on_open_archive = self._open_bsa_preview_tab
-        elif idx == 4:
-            from gui_qt.downloads.view import DownloadsView
-            view = DownloadsView()
-            view.archive_drop_target = self._modlist_view
-            attr = "_downloads_view"
-            view.on_install = lambda paths: self._install_paths(
-                paths, clear_archives=False)
-            view.on_move = self._on_downloads_move
-            view.on_toggle_hidden = self._on_downloads_toggle_hidden
-            view.on_remove = self._on_downloads_remove
-            view.on_inspect = self._open_download_archive_tab
-            view.on_nexus_page = self._on_downloads_nexus_page
-            view.on_cancel_download = self._cancel_download
-            view.on_pause_download = self._pause_download
-            view.on_resume_download = self._resume_download
-            view.set_active_downloads(self._active_download_rows())
-            view.selection_changed.connect(self._update_downloads_footer)
-        elif idx == 5:
-            from gui_qt.files.overrides import OverridesView
-            view = OverridesView()
-            attr = "_overrides_view"
-            view.changed.connect(self._on_mod_files_changed)
-            view.on_select_mod = self._on_data_select_mod
-        elif idx == 6:
-            from gui_qt.saves.view import SavesView
-            view = SavesView(log_fn=self._append_log)
-            attr = "_saves_view"
-            view.on_open_image = self._open_image_preview_tab
-            view.on_open_text = self._open_text_editor_tab
-        else:
-            placeholders[idx] = placeholder
-            return None
-
+        attr = {1: "_mod_files_view", 2: "_text_files_view",
+                3: "_data_view", 4: "_downloads_view",
+                5: "_overrides_view", 6: "_saves_view"}[idx]
+        view = self._create_plugin_panel_view(idx)
         setattr(self, attr, view)
         placeholders.pop(idx, None)
         self._plugin_stack.removeWidget(placeholder)

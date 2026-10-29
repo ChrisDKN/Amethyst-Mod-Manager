@@ -515,11 +515,12 @@ class PluginView(QTreeView):
             self._restoring = False
         self._fit_name_to_width()
 
-    def __init__(self, model: PluginModel, parent=None):
+    def __init__(self, model: PluginModel, parent=None, *, persist_view=True):
         super().__init__(parent)
+        self._persist_view = persist_view
         self.setModel(model)
         from gui_qt.runtime.plugin_selection import bind_selection
-        bind_selection(self, self, "plugins")
+        bind_selection(self, self, "plugins", "plugins" if persist_view else "plugins_tab")
         model.plugin_columns_changed.connect(self._refresh_plugin_columns)
         self.setItemDelegate(PluginDelegate(self))
         self.setRootIsDecorated(False)
@@ -766,6 +767,9 @@ class PluginView(QTreeView):
         clear.setEnabled(self._any_filters_active())
         clear.triggered.connect(self._on_clear_filters)
         menu.addAction(clear)
+        open_tab = getattr(self, "on_open_as_tab", None)
+        if callable(open_tab):
+            menu.addAction(self.tr("Open as tab"), open_tab)
         btn = self._col_menu_btn
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
 
@@ -811,7 +815,7 @@ class PluginView(QTreeView):
 
     # ---- column-state persistence (keyed by logical column name) ----------
     def _schedule_save(self):
-        if not self._restoring:
+        if self._persist_view and not self._restoring:
             self._save_timer.start()
 
     def _save_column_state(self):

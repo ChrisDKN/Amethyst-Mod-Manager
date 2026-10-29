@@ -33,8 +33,9 @@ class TextFilesView(QWidget):
     scan_status_changed = Signal(bool)        # True = scan running
     _scan_ready = Signal(int, object, object, object)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, selection_source_id=None):
         super().__init__(parent)
+        self._selection_source_id = selection_source_id
         self.game = None
         self.profile_dir: Path | None = None
         self._snapshot = None

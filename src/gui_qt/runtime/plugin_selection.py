@@ -17,7 +17,8 @@ LOCATIONS = frozenset({"modlist", "plugins", "mod_files", "text_files", "data",
 
 
 def bind_selection(source, tree, location, source_id=None):
-    source._amethyst_selection_binding = (tree, location, source_id or location)
+    source._amethyst_selection_binding = (
+        tree, location, source_id or getattr(source, "_selection_source_id", None) or location)
     runtime = getattr(QApplication.instance(), "_amethyst_plugin_selection", None)
     if runtime is not None:
         runtime.attach(source)

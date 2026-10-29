@@ -92,8 +92,9 @@ class ModFilesView(QWidget):
     _files_ready = Signal(int, object, object)
     _tree_ready = Signal(int, object, object)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, selection_source_id=None):
         super().__init__(parent)
+        self._selection_source_id = selection_source_id
         # Host-provided context (set via configure()).
         self.game = None
         self.profile_dir: Path | None = None

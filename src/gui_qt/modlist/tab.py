@@ -102,6 +102,7 @@ class ModListTab(QWidget):
     def eventFilter(self, watched, event):
         if event.type() in (QEvent.FocusIn, QEvent.MouseButtonPress):
             self.window._last_list_panel = "mod"
+            self.window._last_plugin_panel_tab = None
             self.window._last_modlist_view = self.view
         return False
 
@@ -298,10 +299,10 @@ class ModListTab(QWidget):
         if getattr(self, "_closing", False):
             return
         self._closing = True
-        from gui_qt.runtime.shortcuts import unregister_modlist_tab_shortcuts
+        from gui_qt.runtime.shortcuts import unregister_panel_tab_shortcuts
         self.drag.dispose()
         self.dispose()
-        unregister_modlist_tab_shortcuts(self.window, self.view)
+        unregister_panel_tab_shortcuts(self.window, self.view)
         if getattr(self.window, "_last_modlist_view", None) is self.view:
             self.window._last_modlist_view = self.window._modlist_view
         if getattr(self.window, "_modlist_tab", None) is self:

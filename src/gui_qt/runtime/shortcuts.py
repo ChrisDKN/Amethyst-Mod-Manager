@@ -281,8 +281,11 @@ class _PanelTracker(QObject):
             if mv is not None and (obj is mv or obj is mv.viewport()):
                 win._last_list_panel = "mod"
                 win._last_modlist_view = mv
+                win._last_plugin_panel_tab = None
             elif pv is not None and (obj is pv or obj is pv.viewport()):
                 win._last_list_panel = "plugin"
+                win._last_plugin_view = pv
+                win._last_plugin_panel_tab = None
         return False
 
 
@@ -379,8 +382,15 @@ def _toggle_selected(win):
     m.set_rows_enabled(rows, target)
 
 
+def _active_plugin_view(win):
+    view = getattr(win, "_last_plugin_view", None)
+    if view is not None and view.isVisible():
+        return view
+    return getattr(win, "_plugin_view", None)
+
+
 def _toggle_selected_plugins(win):
-    view = getattr(win, "_plugin_view", None)
+    view = _active_plugin_view(win)
     if view is None:
         return
     m = view.model()
@@ -444,6 +454,13 @@ def _toggle_all_seps(win):
 
 
 def _toggle_filters(win):
+    panel = getattr(win, "_last_plugin_panel_tab", None)
+    focus = QApplication.focusWidget()
+    if (panel is not None and panel.isVisible()
+            and (focus is None or focus is panel or panel.isAncestorOf(focus))):
+        if panel.filters is not None:
+            panel._toggle_filters()
+        return
     tab = getattr(win, "_modlist_tab", None)
     if _active_panel(win) == "mod" and tab is not None and _active_modlist_view(win) is tab.view:
         tab.toggle_filters()
@@ -457,6 +474,13 @@ def _toggle_filters(win):
 
 
 def _focus_search(win):
+    panel = getattr(win, "_last_plugin_panel_tab", None)
+    focus = QApplication.focusWidget()
+    if (panel is not None and panel.isVisible() and panel.search is not None
+            and (focus is None or focus is panel or panel.isAncestorOf(focus))):
+        panel.search.setFocus()
+        panel.search.selectAll()
+        return
     edit = None
     if _active_panel(win) == "plugin":
         pe = getattr(win, "_plugins_search", None)
@@ -474,7 +498,7 @@ def _focus_search(win):
 
 def _active_view(win):
     if _active_panel(win) == "plugin":
-        return getattr(win, "_plugin_view", None)
+        return _active_plugin_view(win)
     return _active_modlist_view(win)
 
 
@@ -513,7 +537,7 @@ def _apply_row_selection(view, rows) -> None:
 
 def _select_all(win):
     if _active_panel(win) == "plugin":
-        view = getattr(win, "_plugin_view", None)
+        view = _active_plugin_view(win)
         if view is None:
             return
         _apply_row_selection(view, view._visible_rows())
@@ -659,7 +683,7 @@ def _move_modlist(win, direction: int):
 
 
 def _move_plugins(win, direction: int):
-    view = getattr(win, "_plugin_view", None)
+    view = _active_plugin_view(win)
     if view is None:
         return
     m = view.model()
@@ -719,6 +743,13 @@ class _MouseShortcutDispatcher(QObject):
 
     def _track_panel(self, watched: QWidget) -> None:
         win = self._win
+        for panel in getattr(win, "_plugin_panel_tabs", {}).values():
+            if watched is panel or panel.isAncestorOf(watched):
+                win._last_plugin_panel_tab = panel
+                if panel.index == 0:
+                    win._last_list_panel = "plugin"
+                    win._last_plugin_view = panel.view
+                return
         tab = getattr(win, "_modlist_tab", None)
         if tab is not None and (watched is tab.view or tab.view.isAncestorOf(watched)):
             win._last_list_panel = "mod"
@@ -730,8 +761,11 @@ class _MouseShortcutDispatcher(QObject):
             if (view is not None
                     and (watched is view or view.isAncestorOf(watched))):
                 win._last_list_panel = panel
+                win._last_plugin_panel_tab = None
                 if panel == "mod":
                     win._last_modlist_view = view
+                else:
+                    win._last_plugin_view = view
                 return
 
     def eventFilter(self, watched, event):
@@ -870,11 +904,12 @@ def register_shortcuts(win) -> None:
               "critical path.", file=sys.stderr)
 
 
-class _ModlistTabShortcutScope(QObject):
-    def __init__(self, win, view):
+class _PanelTabShortcutScope(QObject):
+    def __init__(self, win, view, panel="mod"):
         super().__init__(view)
         self._win = win
         self._view = view
+        self._panel_kind = panel
         self.panel = view.parentWidget()
         self.shortcuts = []
         self.panel.installEventFilter(self)
@@ -885,8 +920,16 @@ class _ModlistTabShortcutScope(QObject):
             shortcut.setEnabled(detached)
 
     def activate(self, original):
-        self._win._last_list_panel = "mod"
-        self._win._last_modlist_view = self._view
+        if self._panel_kind in ("mod", "plugin"):
+            self._win._last_list_panel = self._panel_kind
+        if self._panel_kind == "plugin":
+            self._win._last_plugin_view = self._view
+            self._win._last_plugin_panel_tab = self.panel
+        elif self._panel_kind == "mod":
+            self._win._last_modlist_view = self._view
+            self._win._last_plugin_panel_tab = None
+        else:
+            self._win._last_plugin_panel_tab = self.panel
         original.activated.emit()
 
     def eventFilter(self, watched, event):
@@ -895,10 +938,12 @@ class _ModlistTabShortcutScope(QObject):
         return False
 
 
-def register_modlist_tab_shortcuts(win, view):
+def register_panel_tab_shortcuts(win, view, *, panel="mod"):
     view._tab_shortcuts = []
-    scope = view._tab_shortcut_scope = _ModlistTabShortcutScope(win, view)
+    scope = view._tab_shortcut_scope = _PanelTabShortcutScope(win, view, panel)
     for action, bindings in list(win._shortcut_bindings.items()):
+        if panel == "files" and action not in {"focus_search", "toggle_filters", "refresh"}:
+            continue
         for original, variant in list(bindings):
             if original.context() != Qt.WindowShortcut:
                 continue
@@ -911,8 +956,11 @@ def register_modlist_tab_shortcuts(win, view):
             view._tab_shortcuts.append(shortcut)
     scope.sync()
     values = getattr(win, "_active_shortcut_keys", None) or current_shortcuts()
-    for action, callback in (("toggle_selected", _toggle_selected),
-                             ("open_mod_page", _open_selected_mod_page)):
+    actions = {"plugin": (("toggle_selected", _toggle_selected_plugins),),
+               "files": (),
+               "mod": (("toggle_selected", _toggle_selected),
+                       ("open_mod_page", _open_selected_mod_page))}[panel]
+    for action, callback in actions:
         keys = _binding_sequences(action, values[action])
         for variant in range(2 if action == "toggle_selected" else 1):
             key = keys[variant] if variant < len(keys) else ""
@@ -924,7 +972,7 @@ def register_modlist_tab_shortcuts(win, view):
             view._tab_shortcuts.append(shortcut)
 
 
-def unregister_modlist_tab_shortcuts(win, view):
+def unregister_panel_tab_shortcuts(win, view):
     for bindings in getattr(win, "_shortcut_bindings", {}).values():
         bindings[:] = [(shortcut, variant) for shortcut, variant in bindings
                        if shortcut not in view._tab_shortcuts]

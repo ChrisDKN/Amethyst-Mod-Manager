@@ -213,8 +213,9 @@ class SavesView(QWidget):
     #: The listed file types changed, so the Filters panel can restock its list.
     filetypes_changed = Signal()
 
-    def __init__(self, log_fn=None):
+    def __init__(self, log_fn=None, *, selection_source_id=None):
         super().__init__()
+        self._selection_source_id = selection_source_id
         self._log = log_fn or (lambda _m: None)
         self._game = None
         self._profile_name = ""
@@ -222,6 +223,7 @@ class SavesView(QWidget):
         self._is_visible = False
         self._scanning = False
         self._busy = False
+        self.other_transfer_busy = None
         self._last_pct = -1
         # Last scan result, so export/import know which folder a row belongs to.
         self._scanned: list[dict] = []
@@ -981,7 +983,7 @@ class SavesView(QWidget):
             menu.addSeparator()
             self._menu_action(menu, self.tr("Delete…"),
                               lambda: self._confirm_delete(path),
-                              enabled=not self._busy)
+                              enabled=not self._transfer_busy())
         from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
         add_plugin_actions(menu, self, "saves", menu_item(
             "directory" if item.data(0, _DIR_ROLE) or is_location else "save", path.name, path))
@@ -1017,7 +1019,7 @@ class SavesView(QWidget):
         """False for the folder the save already sits in -with profile saves
         deployed the game's save location IS that folder, so most rows are
         already there and the item would be a no-op."""
-        if self._busy:
+        if self._transfer_busy():
             return False
         try:
             return os.path.realpath(path.parent) != os.path.realpath(folder)
@@ -1028,7 +1030,7 @@ class SavesView(QWidget):
                               move: bool):
         """Copy/move one save into a profile saves folder, asking first when
         that would replace a save already there."""
-        if self._busy:
+        if self._transfer_busy():
             return
         dest = Path(dest_dir) / path.name
         if dest.exists() or dest.is_symlink():
@@ -1047,6 +1049,8 @@ class SavesView(QWidget):
 
     def _do_entry_transfer(self, path: Path, dest_dir: Path, profile: str,
                            move: bool, overwrite: bool):
+        if self._transfer_busy():
+            return
         self._set_busy(True)
         self.notify.emit(self.tr("Moving {0}…").format(path.name) if move
                          else self.tr("Copying {0}…").format(path.name), "info")
@@ -1075,7 +1079,7 @@ class SavesView(QWidget):
         return True, template.format(src.name, fmt_size(size), profile)
 
     def _confirm_delete(self, path: Path):
-        if self._busy:
+        if self._transfer_busy():
             return
         if path.is_dir() and not path.is_symlink():
             body = self.tr("Delete the folder {0} and everything in it?\n{1}\n\n"
@@ -1090,6 +1094,8 @@ class SavesView(QWidget):
             confirm_label=self.tr("Delete"))
 
     def _do_delete(self, path: Path):
+        if self._transfer_busy():
+            return
         self._set_busy(True)
         self.notify.emit(self.tr("Deleting {0}…").format(path.name), "info")
         run_in_worker(lambda: self._delete_worker(path), self.transfer_done,
@@ -1130,7 +1136,10 @@ class SavesView(QWidget):
 
     def can_transfer(self) -> bool:
         """Whether Export/Import have an unambiguous folder to work on."""
-        return not self._busy and self.target_location() is not None
+        return not self._transfer_busy() and self.target_location() is not None
+
+    def _transfer_busy(self):
+        return self._busy or bool(self.other_transfer_busy and self.other_transfer_busy())
 
     def _set_busy(self, busy: bool):
         self._busy = busy
@@ -1163,6 +1172,8 @@ class SavesView(QWidget):
         dest = Path(path)
         if dest.suffix.lower() != ".zip":
             dest = dest.with_name(dest.name + ".zip")
+        if self._transfer_busy():
+            return
         self._set_busy(True)
         self.notify.emit(self.tr("Packing saves…"), "info")
         run_in_worker(lambda: self._export_worker(source, dest, patterns),
@@ -1218,6 +1229,8 @@ class SavesView(QWidget):
             confirm_label=self.tr("Import"))
 
     def _do_import(self, src: Path, location: Path, patterns=()):
+        if self._transfer_busy():
+            return
         self._set_busy(True)
         self.notify.emit(self.tr("Extracting saves…"), "info")
         run_in_worker(lambda: self._import_worker(src, location, patterns),
