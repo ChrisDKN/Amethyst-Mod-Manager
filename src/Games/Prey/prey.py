@@ -41,7 +41,7 @@ _DEFINITION = {
     # mods would otherwise be stripped up to the top and taken for a mod.
     "mod_required_top_level_folders": [
         "GameSDK", "Whiplash", "Engine", "Binaries", "Localization", "Data",
-        "ChairloaderPatch",
+        "ChairloaderPatch", "Levels",
     ],
     "mod_required_file_types": [".pak"],
     "mod_auto_strip_until_required": True,
@@ -49,21 +49,20 @@ _DEFINITION = {
     "restore_before_deploy": True,
     "normalize_folder_case": True,
     "filemap_casing": "upper",
-    # ReShade-based mods (Luma, ReShade presets) load as dxgi.dll from the
-    # executable folder.
-    "wine_dll_overrides": {"dxgi": "native,builtin"},
+    "wine_dll_overrides": {"dxgi": "native,builtin", "mswsock": "native,builtin"},
     "restore_whitelist": [],
     "custom_frameworks": {},
     "editable": False,
 }
 
 
-def _move_staged_files_into(dest_root: Path, folder: Path) -> None:
+def _move_staged_files_into(dest_root: Path, folder: Path,
+                           source_root: Path | None = None) -> None:
     """Move everything a mod staged into *folder*, inside the same mod."""
     target = dest_root / folder
     target.mkdir(parents=True, exist_ok=True)
     top = dest_root / folder.parts[0]
-    for entry in list(dest_root.iterdir()):
+    for entry in list((source_root or dest_root).iterdir()):
         # meta.ini is Amethyst's own record, written before install hooks run.
         if entry.name.lower() == "meta.ini" or entry == top:
             continue
@@ -82,18 +81,34 @@ def _stage_chairloader_framework_in_own_folder(dest_root: Path, mod_name: str, l
 def _stage_chairloader_mod_under_mods(dest_root: Path, mod_name: str, log_fn) -> None:
     """Move a staged Chairloader mod into Mods/<modName>/, the only place
     ChairManager looks for it; it rejects a folder not named after ModInfo.xml."""
-    mod_info = next((p for p in dest_root.iterdir() if p.name.lower() == "modinfo.xml"), None)
-    if mod_info is None:
-        return
+    source_root = dest_root
+    protected = {name.lower() for name in _DEFINITION["mod_required_top_level_folders"]}
+    protected.update({"mods", "chairloader"})
+    while True:
+        entries = list(source_root.iterdir())
+        mod_info = next((p for p in entries
+                         if p.is_file() and p.name.lower() == "modinfo.xml"), None)
+        if mod_info is not None:
+            break
+        folders = [p for p in entries if p.is_dir() and not p.is_symlink()]
+        if len(folders) != 1 or folders[0].name.lower() in protected:
+            return
+        source_root = folders[0]
     try:
         chairloader_name = ET.parse(mod_info).getroot().get("modName", "")
     except ET.ParseError as exc:
         log_fn(f"{mod_name}: unreadable ModInfo.xml ({exc}); left in place.")
         return
-    if not _CHAIRLOADER_MOD_NAME.fullmatch(chairloader_name):
+    if chairloader_name in {".", ".."} or not _CHAIRLOADER_MOD_NAME.fullmatch(chairloader_name):
         log_fn(f"{mod_name}: ModInfo.xml has no valid modName; left in place.")
         return
-    _move_staged_files_into(dest_root, Path("Mods") / chairloader_name)
+    _move_staged_files_into(dest_root, Path("Mods") / chairloader_name, source_root)
+    while source_root != dest_root:
+        try:
+            source_root.rmdir()
+        except OSError:
+            break
+        source_root = source_root.parent
     log_fn(f"{mod_name}: Chairloader mod staged as Mods/{chairloader_name}; "
            "enable it in ChairManager.")
 
