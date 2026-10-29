@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import fnmatch
 import hashlib
 import json
@@ -17,6 +18,33 @@ import zipfile
 
 
 _runner_lock = threading.Lock()
+
+
+def _inside_flatpak():
+    return Path("/.flatpak-info").is_file()
+
+
+def _host_launcher():
+    spawn = shutil.which("flatpak-spawn")
+    if spawn is None:
+        raise RuntimeError("Legacy installers require flatpak-spawn with host access inside Flatpak.")
+    return [spawn, "--host", "--watch-bus", "--directory=/"]
+
+
+def _host_path(path):
+    path = Path(path)
+    if _inside_flatpak() and path.is_relative_to("/run/host"):
+        return Path("/") / path.relative_to("/run/host")
+    return path
+
+
+def _host_visible(path):
+    info = Path(path).stat()
+    probe = subprocess.run([*_host_launcher(), "stat", "--format=%d:%i", "--", str(_host_path(path))],
+                           capture_output=True, text=True, timeout=10)
+    if probe.returncode and "stat:" not in probe.stderr:
+        raise RuntimeError("Flatpak host access failed: " + probe.stderr.strip()[-1000:])
+    return probe.returncode == 0 and probe.stdout.strip() == f"{info.st_dev}:{info.st_ino}"
 
 
 def detect_omods(archive, extracted, files):
@@ -272,24 +300,31 @@ def _copy_file(source, target):
 
 
 def _sandbox(runner, helper, work, environment, arguments, *, source=None):
-    sandbox = shutil.which("bwrap")
-    if sandbox is None:
-        raise RuntimeError("Legacy installers require bubblewrap (bwrap) on Linux.")
-    command = [sandbox, "--die-with-parent", "--unshare-net", "--unshare-pid",
+    flatpak = _inside_flatpak()
+    if flatpak:
+        command = [*_host_launcher(), "bwrap"]
+    else:
+        sandbox = shutil.which("bwrap")
+        if sandbox is None:
+            raise RuntimeError("Legacy installers require bubblewrap (bwrap) on Linux.")
+        command = [sandbox]
+    command += ["--die-with-parent", "--unshare-net", "--unshare-pid",
                "--unshare-ipc", "--new-session", "--cap-drop", "ALL", "--tmpfs", "/tmp",
-               "--dev", "/dev", "--proc", "/proc"]
+               "--dev", "/dev", "--proc", "/proc", "--clearenv", "--chdir", str(work)]
+    for key, value in environment.items():
+        command += ["--setenv", key, value]
     for path in ("/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64"):
-        if Path(path).exists():
-            command += ["--ro-bind", path, path]
+        if flatpak or Path(path).exists():
+            command += ["--ro-bind-try" if flatpak else "--ro-bind", path, path]
     for path in ("/etc/ld.so.cache", "/etc/localtime", "/etc/passwd", "/etc/group",
                  "/etc/nsswitch.conf", "/etc/fonts", "/etc/alternatives", "/etc/vulkan",
                  "/sys/devices/system/cpu", "/sys/devices/system/node"):
-        if Path(path).exists():
-            command += ["--ro-bind", path, path]
+        if flatpak or Path(path).exists():
+            command += ["--ro-bind-try" if flatpak else "--ro-bind", path, path]
     for path in dict.fromkeys((runner.parent.parent, helper.parent, source)):
         if path is not None:
-            command += ["--ro-bind", str(path), str(path)]
-    command += ["--bind", str(work), str(work)]
+            command += ["--ro-bind", str(_host_path(path)), str(path)]
+    command += ["--bind", str(_host_path(work)), str(work)]
     machine_id = work / "machine-id"
     if not machine_id.exists():
         machine_id.write_text(hashlib.sha256(str(work).encode()).hexdigest()[:32] + "\n")
@@ -305,8 +340,8 @@ def _sandbox(runner, helper, work, environment, arguments, *, source=None):
         number = display[1:].split(".", 1)[0]
         if number.isdigit():
             socket = Path("/tmp/.X11-unix") / ("X" + number)
-            if socket.exists():
-                command += ["--ro-bind", str(socket), str(socket)]
+            if flatpak or socket.exists():
+                command += ["--ro-bind-try" if flatpak else "--ro-bind", str(socket), str(socket)]
     return command + ["--", *map(str, arguments)]
 
 
@@ -315,7 +350,8 @@ def _wait_process(command, environment, work, log_path, cancel, *, timeout=120):
     started = time.monotonic()
     with log_path.open("ab") as errors:
         process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=errors,
-                                   stderr=errors, env=environment, cwd=work, start_new_session=True)
+                                   stderr=errors, env=os.environ.copy() if _inside_flatpak() else environment,
+                                   cwd=work, start_new_session=True)
         try:
             while process.poll() is None:
                 if cancel is not None and cancel.is_set():
@@ -344,6 +380,8 @@ def _prepare_prefix(runner, helper, work, environment, log, cancel):
                 Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) /
                 "AmethystModManager" / "legacy-installers")
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if _inside_flatpak() and not _host_visible(root):
+        raise RuntimeError("Set AMETHYST_LEGACY_CACHE to a directory accessible from the Flatpak and host.")
     if root.is_symlink() or root.stat().st_uid != os.getuid():
         raise RuntimeError("The legacy installer cache must be owned by the current user.")
     root.chmod(0o700)
@@ -405,8 +443,7 @@ def _command(game, work, request, log, cancel=None):
     runner = runner or shutil.which("wine64") or shutil.which("wine")
     if runner is None:
         raise RuntimeError("Install Wine or Proton to run legacy mod installers.")
-    sandbox = shutil.which("bwrap")
-    if sandbox is None:
+    if not _inside_flatpak() and shutil.which("bwrap") is None:
         raise RuntimeError("Legacy installers require bubblewrap (bwrap) on Linux.")
     prefix = work / "prefix"
     prefix.mkdir()
@@ -415,6 +452,12 @@ def _command(game, work, request, log, cancel=None):
     runner = Path(runner).resolve()
     environment = {key: value for key, value in environment.items()
                    if key in {"DISPLAY", "XAUTHORITY", "LANG", "TZ"} or key.startswith("LC_")}
+    authority = environment.get("XAUTHORITY")
+    if _inside_flatpak() and authority and Path(authority).is_file():
+        target = work / "Xauthority"
+        _copy_file(authority, target)
+        target.chmod(0o600)
+        environment["XAUTHORITY"] = str(target)
     (work / "runtime").mkdir(mode=0o700)
     environment.update(PATH=str(runner.parent) + ":/usr/bin:/bin", WINEPREFIX=str(prefix),
                        WINEARCH="win64", WINEDEBUG="-all", WINEDLLOVERRIDES="mshtml=;winemenubuilder.exe=",
@@ -422,11 +465,49 @@ def _command(game, work, request, log, cancel=None):
                        HOME=str(work / "home"), TMPDIR=str(work / "tmp"),
                        XDG_CACHE_HOME=str(work / "cache"), XDG_RUNTIME_DIR=str(work / "runtime"))
     _prepare_prefix(runner, helper, work, environment, log, cancel)
-    return _sandbox(runner, helper, work, environment, [runner, helper, to_wine_path(request)],
-                    source=work.parent), environment
+    command = _sandbox(runner, helper, work, environment, [runner, helper, to_wine_path(request)],
+                       source=work.parent)
+    return command, os.environ.copy() if _inside_flatpak() else environment
 
 
 def run_installer(prepared, *, log, cancel=None, work=None):
+    work = work or prepared.extract_dir / ".plugin-install"
+    work.mkdir(exist_ok=True)
+    if not _inside_flatpak() or (_host_visible(prepared.extract_dir) and _host_visible(work)):
+        return _run_installer(prepared, log=log, cancel=cancel, work=work)
+    cache = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "AmethystModManager/legacy-installers/sessions"
+    cache.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not _host_visible(cache):
+        raise RuntimeError("Legacy installers need a Flatpak cache directory accessible from the host.")
+    log("Copying installer inputs from Flatpak temporary storage to the shared cache…")
+    with tempfile.TemporaryDirectory(prefix="install-", dir=cache) as temporary:
+        shared = Path(temporary)
+        source_root = shared / "source"
+        source_root.mkdir()
+        subprocess.run(["cp", "-a", "--reflink=auto", "--", str(prepared.extract_dir) + "/.", str(source_root)], check=True)
+        relocated = copy.copy(prepared)
+        relocated.extract_dir = source_root
+        kind, source, script = prepared.legacy_installer
+        if source.is_relative_to(prepared.extract_dir):
+            source = source_root / source.relative_to(prepared.extract_dir)
+        relocated.legacy_installer = (kind, source,
+            source_root / script.relative_to(prepared.extract_dir) if script else None)
+        relocated.legacy_packages = [source_root / path.relative_to(prepared.extract_dir)
+                                     for path in getattr(prepared, "legacy_packages", ())]
+        shared_work = source_root / ".plugin-install"
+        try:
+            output, files, edits, plugins, reader = _run_installer(relocated, log=log, cancel=cancel, work=shared_work)
+            shutil.copytree(output, work / "output")
+            reader.work = work
+            return work / "output", files, edits, plugins, reader
+        finally:
+            for name in ("runner.log", "result.json"):
+                path = shared_work / name
+                if path.is_file():
+                    shutil.copy2(path, work / name)
+
+
+def _run_installer(prepared, *, log, cancel=None, work=None):
     from Utils.operations import OperationCancelled
     from Utils.wine.paths import to_wine_path
     work = work or prepared.extract_dir / ".plugin-install"

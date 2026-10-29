@@ -13,7 +13,14 @@ Requested game INI edits appear in a confirmation dialog before installation;
 Cancel is selected by default. Failed installation rolls back applied settings.
 The helper uses a disposable Wine prefix rather than changing the game's prefix.
 
-Linux requires Wine/Proton and bubblewrap (`bwrap`). The .NET runtime is included;
+Linux requires Wine/Proton and bubblewrap (`bwrap`). Flatpak installations use
+these host tools through `flatpak-spawn`, with the installer's own sandbox kept
+in place. The standard Amethyst Flatpak already grants the required host access.
+Install bubblewrap on the host if it is missing; adding it inside Flatpak is not
+required. Inputs in Flatpak's private temporary storage use a shared cache during
+installation and are cleaned up afterwards.
+
+The .NET runtime is included;
 no separate .NET installation is needed. On first use, the helper is unpacked
 and verified under `~/.cache/AmethystModManager/legacy-installers/helpers/`
 (or `$XDG_CACHE_HOME`). Later installs reuse it. Allow about 123 MiB for this
@@ -32,7 +39,7 @@ Disabling the plugin leaves installed mods in place.
 
 This plugin and linked helper are GPL-3.0-only. See LICENSE, NOTICE,
 THIRD-PARTY-NOTICES.txt and licenses/ for dependency notices.
-[Download the matching source and build instructions](../../Sources/legacy_installers/Legacy-Scripted-Installers-1.1.3-source.zip).
+[Download the matching source and build instructions](../../Sources/legacy_installers/Legacy-Scripted-Installers-1.1.4-source.zip).
 
 OBMM scripts support comma-separated arguments, quoted escapes, and the built-in
 `%NewLine%` and `%Tab%` variables, including selection descriptions.

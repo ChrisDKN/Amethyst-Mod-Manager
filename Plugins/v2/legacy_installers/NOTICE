@@ -1,13 +1,13 @@
-Legacy Scripted Installers 1.1.3
+Legacy Scripted Installers 1.1.4
 Copyright (C) 2026 ChrisDKN
 Licensed under GPL-3.0-only; see LICENSE.
 
 FOMOD installer: Nexus Mods and contributors, GPL-3.0.
 OMODFramework: erri120 and contributors, GPL-3.0-only.
 Amethyst compatibility modifications and build instructions are included in
-Legacy-Scripted-Installers-1.1.3-source.zip, linked from README.md.
+Legacy-Scripted-Installers-1.1.4-source.zip, linked from README.md.
 
-This distribution packages the unmodified compiled 1.1.3 helper in a compressed
-runtime with verified cache extraction. Caches, build tools and XML API reference
+This release updates the Python launcher and reuses the compiled 1.1.3 helper
+in a compressed runtime with verified cache extraction. Caches, build tools and XML API reference
 files are excluded from the user plugin. Full dependency notices remain in
 licenses/ and THIRD-PARTY-NOTICES.json.
