@@ -3659,6 +3659,7 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
         if previous_meta is not None:
             from Utils.collections.ownership import carry_ownership
             meta.collection_ownership = carry_ownership(previous_meta, meta)
+            meta.mmb_custom_url = previous_meta.mmb_custom_url
         if not getattr(meta, "installed", ""):
             meta.installed = datetime.now().isoformat(timespec="seconds")
         # Carry the endorsed flag from a replaced install (Tk parity).

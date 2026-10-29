@@ -60,6 +60,7 @@ class NexusModMeta:
     updated: str = ""
     previous_version: PreviousVersion | None = None
     nexus_url: str = ""                # full Nexus mod page URL
+    mmb_custom_url: str = ""
     workshop_app_id: str = ""
     workshop_item_id: str = ""
     workshop_title: str = ""
@@ -162,6 +163,7 @@ _KEY_MAP: dict[str, str] = {
     "installed":         "installed",
     "updated":           "updated",
     "nexusUrl":          "nexus_url",
+    "mmb_custom_url":    "mmb_custom_url",
     "workshopAppId":     "workshop_app_id",
     "workshopItemId":    "workshop_item_id",
     "workshopTitle":     "workshop_title",
@@ -237,7 +239,8 @@ def read_meta(meta_ini_path: Path) -> NexusModMeta:
 
     if cp.has_section(_SECTION):
         for ini_key, attr in _KEY_MAP.items():
-            raw = cp.get(_SECTION, ini_key, fallback=None)
+            raw = cp.get(_SECTION, ini_key, fallback=None,
+                         raw=attr == "mmb_custom_url")
             if raw is None:
                 continue
             if attr in _INT_FIELDS:
@@ -267,7 +270,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
 
     Existing content is preserved - only the keys we manage are touched.
     """
-    cp = configparser.ConfigParser()
+    cp = configparser.ConfigParser(interpolation=None)
     # Preserve existing content (e.g. FOMOD flags, notes, etc.)
     if meta_ini_path.is_file():
         cp.read(str(meta_ini_path), encoding="utf-8")
@@ -278,6 +281,11 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
     for ini_key, attr in _KEY_MAP.items():
         value = getattr(meta, attr, None)
         if value is None:
+            continue
+        if attr == "mmb_custom_url":
+            # This user-owned value must survive unrelated metadata writes.
+            if not cp.has_option(_SECTION, ini_key):
+                cp.set(_SECTION, ini_key, str(value))
             continue
         if attr in _BOOL_FIELDS:
             # Never clobber an existing True flag with False for state set by
@@ -517,6 +525,7 @@ def merge_reinstall_metadata(
     # leaves them at defaults), and losing root_folder flattens a root
     # package's Data/ tree on reinstall (the bug this merge exists to fix).
     meta.root_folder = installed.root_folder
+    meta.mmb_custom_url = installed.mmb_custom_url
     meta.from_collection = installed.from_collection
     from Utils.collections.ownership import carry_ownership
     meta.collection_ownership = carry_ownership(installed, meta)

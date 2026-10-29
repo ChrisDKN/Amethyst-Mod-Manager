@@ -1046,6 +1046,18 @@ def _open_nif_viewer(view, name):
         cb(name)
 
 
+def _mod_custom_url(view, name: str) -> str:
+    staging = getattr(view, "staging_dir", None)
+    if staging is None:
+        return ""
+    try:
+        from Utils.mods.metadata import read_meta_ini
+        _, cp, _ = read_meta_ini(Path(staging) / name / "meta.ini")
+        return (cp.get("General", "mmb_custom_url", raw=True, fallback="") or "").strip()
+    except Exception:
+        return ""
+
+
 def _mod_nexus_url(view, name: str) -> str:
     """The mod's Nexus page, with the game's primary as a legacy fallback."""
     staging = getattr(view, "staging_dir", None)

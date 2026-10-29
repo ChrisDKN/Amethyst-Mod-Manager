@@ -1414,9 +1414,17 @@ class ModListView(QTreeView):
         if entry.is_separator or entry.is_group_header:
             return
         from gui_qt.modlist.menu import (
-            _is_thunderstore_mod, _modio_url, _open_on_modio,
+            _is_thunderstore_mod, _mod_custom_url, _modio_url, _open_on_modio,
             _open_on_nexus, _open_on_thunderstore,
         )
+        custom_url = _mod_custom_url(self, entry.name)
+        if custom_url:
+            try:
+                from Utils.environment.xdg import open_url
+                open_url(custom_url)
+            except Exception:
+                pass
+            return
         if _is_thunderstore_mod(self, entry.name):
             _open_on_thunderstore(self, entry.name)
         elif _modio_url(self, entry.name):
