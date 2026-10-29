@@ -19,14 +19,15 @@ import zipfile
 _runner_lock = threading.Lock()
 
 
-def detect_omod(archive, extracted):
+def detect_omods(archive, extracted, files):
     archive, extracted = Path(archive), Path(extracted)
     if archive.suffix.lower() == ".omod":
-        return archive
-    candidates = [p for p in extracted.iterdir() if p.is_file() and p.suffix.lower() == ".omod"]
-    if len(candidates) > 1:
-        raise ValueError("This archive contains multiple OMOD packages; install them individually.")
-    return candidates[0] if candidates else None
+        return [archive]
+    return sorted((extracted / row["path"] for row in files
+                   if Path(row["path"]).suffix.lower() == ".omod"),
+                  key=lambda p: (len(p.relative_to(extracted).parts),
+                                 p.relative_to(extracted).as_posix().casefold(),
+                                 p.relative_to(extracted).as_posix()))
 
 
 def helper_path():
@@ -441,11 +442,21 @@ def run_installer(prepared, *, log, cancel=None, work=None):
         source = snapshot
     wine_path = str if os.name == "nt" else to_wine_path
     request = work / "request.json"
-    request.write_text(json.dumps({"kind": kind, "source": wine_path(source),
+    payload = {"kind": kind, "source": wine_path(source),
         "script": wine_path(script) if script else "", "output": wine_path(output),
         "work": wine_path(work / "unpacked"), "result": wine_path(result),
         "memory_budget": min(1024 ** 3, os.sysconf("SC_AVPHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") // 4)
-            if os.name != "nt" else 1024 ** 3}), encoding="utf-8")
+            if os.name != "nt" else 1024 ** 3}
+    packages = getattr(prepared, "legacy_packages", ())
+    if packages:
+        parent = Path(os.path.commonpath([path.parent for path in packages]))
+        payload["packages"] = []
+        for path in packages:
+            if (not path.is_relative_to(prepared.extract_dir) or not path.is_file()
+                    or path.resolve() != path.absolute()):
+                raise ValueError("OMOD package must be a file inside the extracted archive without links.")
+            payload["packages"].append({"source": wine_path(path), "label": path.relative_to(parent).as_posix()})
+    request.write_text(json.dumps(payload), encoding="utf-8")
     command, env = _command(prepared.game, work, request, log, cancel)
     log(f"Legacy installer preparation: {time.monotonic() - started:.2f}s.")
     with _runner_lock, (work / "runner.log").open("wb") as errors:
@@ -495,7 +506,7 @@ def run_installer(prepared, *, log, cancel=None, work=None):
             process.stdout.close()
             selector.close()
     for line in (work / "runner.log").read_text(encoding="utf-8", errors="replace").splitlines():
-        if line.startswith("Legacy timing:"):
+        if line.startswith(("Legacy timing:", "Legacy package:")):
             log(line[:300])
     if cancel is not None and cancel.is_set():
         raise OperationCancelled("Legacy installation cancelled.")

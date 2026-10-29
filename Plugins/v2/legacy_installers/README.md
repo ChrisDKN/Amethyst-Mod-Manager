@@ -6,6 +6,9 @@ Install through the plugin store, or copy this whole folder into
 
 Use **Install Mod** with the original mod archive. The original installer opens
 through Wine/Proton and returns its selected files to Amethyst for staging.
+Archives containing multiple OMODs open a package picker first. Choose one package
+per installation; nested packages are listed with their folder names. Other files
+in the outer archive, such as optional loose-file extras, are not added automatically.
 Requested game INI edits appear in a confirmation dialog before installation;
 Cancel is selected by default. Failed installation rolls back applied settings.
 The helper uses a disposable Wine prefix rather than changing the game's prefix.
@@ -29,4 +32,8 @@ Disabling the plugin leaves installed mods in place.
 
 This plugin and linked helper are GPL-3.0-only. See LICENSE, NOTICE,
 THIRD-PARTY-NOTICES.txt and licenses/ for dependency notices.
-[Download the matching source and build instructions](../../Sources/legacy_installers/Legacy-Scripted-Installers-1.1.1-source.zip).
+[Download the matching source and build instructions](../../Sources/legacy_installers/Legacy-Scripted-Installers-1.1.3-source.zip).
+
+OBMM scripts support comma-separated arguments, quoted escapes, and the built-in
+`%NewLine%` and `%Tab%` variables, including selection descriptions.
+Selections also skip the Default block after a matching Case has run.

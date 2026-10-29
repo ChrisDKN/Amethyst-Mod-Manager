@@ -13,20 +13,16 @@ def inspect_install(context):
             return None
         state = {"kind": "fomod", "source": folder.parent.relative_to(root).as_posix(),
                  "script": script.relative_to(root).as_posix()}
-    elif context["installer_kind"] == "omod":
+    elif context["installer_kind"] in {"omod", "plain"}:
         archive = Path(context["archive_path"])
-        if archive.suffix.lower() == ".omod":
-            state = {"kind": "omod", "source": None, "script": None}
-        else:
-            from .runtime import detect_omod
-            source_root = root
-            entries = list(root.iterdir())
-            if len(entries) == 1 and entries[0].is_dir():
-                source_root = entries[0]
-            source = detect_omod(archive, source_root)
-            if source is None:
-                return None
-            state = {"kind": "omod", "source": source.relative_to(root).as_posix(), "script": None}
+        from .runtime import detect_omods
+        sources = detect_omods(archive, root, context["files"])
+        if not sources:
+            return None
+        state = {"kind": "omod", "source": None if archive.suffix.lower() == ".omod"
+                 else sources[0].relative_to(root).as_posix(), "script": None}
+        if len(sources) > 1:
+            state["packages"] = [source.relative_to(root).as_posix() for source in sources]
     else:
         return None
     return {"interactive": True, "state": state}
@@ -39,6 +35,7 @@ def run_install(context, state):
     prepared = SimpleNamespace(game=context["game_handler"], profile_dir=Path(context["profile_path"]),
         extract_dir=root, mod_name=context["mod_name"],
         legacy_installer=(state["kind"], source, root / state["script"] if state["script"] else None))
+    prepared.legacy_packages = [root / path for path in state.get("packages", [])]
     result = run_installer(prepared, log=context["log"], cancel=context["cancel"],
                            work=Path(context["work_dir"]))
     state["runtime"] = result
