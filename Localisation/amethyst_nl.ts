@@ -3575,11 +3575,11 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
     </message>
     <message>
       <source>A previous deployment needs restoring before you can change locations. You can restore it here before adding the game.</source>
-      <translation type="unfinished">A previous deployment needs restoring before you can change locations. You can restore it here before adding the game.</translation>
+      <translation>Een vorige implementatie moet worden hersteld voordat je locaties kunt veranderen. Je kunt het hier herstellen voordat je het spel toevoegt.</translation>
     </message>
     <message>
       <source>Restore previous deployment</source>
-      <translation type="unfinished">Restore previous deployment</translation>
+      <translation>Herstel vorige implementatie</translation>
     </message>
     <message>
       <source>Configured</source>
@@ -3635,11 +3635,11 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
     </message>
     <message>
       <source>Previous deployment's staging folder. Restore before changing it.</source>
-      <translation type="unfinished">Previous deployment's staging folder. Restore before changing it.</translation>
+      <translation>Vorige fasemap van implementatie. Herstellen voordat u het wijzigt.</translation>
     </message>
     <message>
       <source>Found via launcher plugin.</source>
-      <translation type="unfinished">Found via launcher plugin.</translation>
+      <translation>Gevonden via launcher plugin.</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -3781,9 +3781,9 @@ Flatpak past nieuwe filesystem toegang toe bij de volgende lancering. Herstart n
       <source>Restore the previous deployment of {0} using its saved locations?
 
 Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</source>
-      <translation type="unfinished">Restore the previous deployment of {0} using its saved locations?
+      <translation>Herstel de vorige implementatie van {0} met behulp van de opgeslagen locaties?
 
-Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</translation>
+Je niet-opgeslagen locatie wijzigingen zullen in dit formulier worden bewaard. Sla op na het succesvol herstellen om het spel toe te voegen of opnieuw te configureren.</translation>
     </message>
     <message>
       <source>Restoring previous deployment…</source>
@@ -3791,19 +3791,19 @@ Your unsaved location changes will be kept in this form. After Restore succeeds,
     </message>
     <message>
       <source>Unexpected restore failure.</source>
-      <translation type="unfinished">Unexpected restore failure.</translation>
+      <translation>Onverwachte herstel mislukt.</translation>
     </message>
     <message>
       <source>Previous deployment restored. Save to finish configuring the game.</source>
-      <translation type="unfinished">Previous deployment restored. Save to finish configuring the game.</translation>
+      <translation>Vorige implementatie hersteld. Sla op om de configuratie van het spel te voltooien.</translation>
     </message>
     <message>
       <source>The staging folder can now be changed.</source>
-      <translation type="unfinished">The staging folder can now be changed.</translation>
+      <translation>De voorgehouden map kan nu worden gewijzigd.</translation>
     </message>
     <message>
       <source>Restore failed: {0}</source>
-      <translation type="unfinished">Restore failed: {0}</translation>
+      <translation>Herstel mislukt: {0}</translation>
     </message>
     <message>
       <source>Yes</source>
@@ -3835,13 +3835,13 @@ Dit kan niet ongedaan worden gemaakt.</translation>
       <source>Clean {0}, including its mod data and root folders?
 
 Remove recorded mod files and links to staged mods, restore vanilla backups, and remove case aliases. Unrecorded copies are kept. This cannot be undone.</source>
-      <translation type="unfinished">Clean {0}, including its mod data and root folders?
+      <translation>{0}opschonen inclusief de mod gegevens en root-mappen?
 
-Remove recorded mod files and links to staged mods, restore vanilla backups, and remove case aliases. Unrecorded copies are kept. This cannot be undone.</translation>
+Verwijder opgenomen mod bestanden en links naar gefaseerde mods, herstel vanilla backups en verwijder geval aliassen. Niet-opgenomen kopieën worden bewaard. Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Game folder cleanup complete.</source>
-      <translation type="unfinished">Game folder cleanup complete.</translation>
+      <translation>Opschonen van spelmap voltooid.</translation>
     </message>
     <message>
       <source>Clean Game Folder - {0}</source>
@@ -3849,7 +3849,7 @@ Remove recorded mod files and links to staged mods, restore vanilla backups, and
     </message>
     <message>
       <source>Cannot clean the game folder while a VFS deployment exists. Use Restore first. If game files are already missing, recover them from the VFS view before restoring.</source>
-      <translation type="unfinished">Cannot clean the game folder while a VFS deployment exists. Use Restore first. If game files are already missing, recover them from the VFS view before restoring.</translation>
+      <translation>Kan de spelmap niet opschonen als er een VFS implementatie bestaat. Gebruik eerst Herstellen. Als er al spelbestanden ontbreken, herstellen deze eerst van de VFS weergave voordat u ze herstelt.</translation>
     </message>
     <message>
       <source>Cleaning game folder…</source>
@@ -5479,7 +5479,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     <name>DetachableTabWidget</name>
     <message>
       <source>Detach</source>
-      <translation type="unfinished">Detach</translation>
+      <translation>Detach</translation>
     </message>
     <message>
       <source>Pin to Modlist Panel</source>
@@ -5495,19 +5495,19 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
     <message>
       <source>Close Others</source>
-      <translation type="unfinished">Close Others</translation>
+      <translation>Andere sluiten</translation>
     </message>
     <message>
       <source>Close All to the Right</source>
-      <translation type="unfinished">Close All to the Right</translation>
+      <translation>Sluit alles aan de rechterkant</translation>
     </message>
     <message>
       <source>Close Tab</source>
-      <translation type="unfinished">Close Tab</translation>
+      <translation>Tabblad sluiten</translation>
     </message>
   </context>
   <context>
@@ -6953,7 +6953,7 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix for the tool, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
-      <translation type="unfinished">Game default uses the game's prefix. A specific Proton version uses an isolated prefix for the tool, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+      <translation>Spel standaard gebruikt de prefix van het spel. Een specifieke Proton versie gebruikt een geïsoleerde prefix voor de tool of een gedeeld voorvoegsel wanneer je hieronder hebt geselecteerd. Voor Bethesda spellen zijn plugins.txt en My Games INI's automatisch ingesteld in het voorvoegsel bij het opstarten van het spel.</translation>
     </message>
     <message>
       <source>Game loaders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
@@ -7068,7 +7068,7 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>Mod provider</source>
-      <translation type="unfinished">Mod provider</translation>
+      <translation>Mod provider</translation>
     </message>
     <message>
       <source>Direct</source>
@@ -7132,11 +7132,11 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>Include saves</source>
-      <translation type="unfinished">Include saves</translation>
+      <translation>Inclusief saves</translation>
     </message>
     <message>
       <source>Include a Saves tab export in the profile archive. Importing the profile will offer to restore these saves.</source>
-      <translation type="unfinished">Include a Saves tab export in the profile archive. Importing the profile will offer to restore these saves.</translation>
+      <translation>Een 'Opslaan'-tab export in het profielarchief opnemen. Het profiel importeren zal aanbieden om deze saves te herstellen.</translation>
     </message>
     <message>
       <source>Mod Name</source>
@@ -7232,7 +7232,7 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>This mod has no portable provider source.</source>
-      <translation type="unfinished">This mod has no portable provider source.</translation>
+      <translation>Deze mod heeft geen draagbare providerbron.</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -7332,7 +7332,7 @@ Dat is prima voor je eigen back-up. Het bestand in deze staat niet delen of uplo
     </message>
     <message>
       <source>Packing saves: {0}</source>
-      <translation type="unfinished">Packing saves: {0}</translation>
+      <translation>Pakkende besparingen: {0}</translation>
     </message>
     <message>
       <source>Packing mod: {0}</source>
@@ -7509,7 +7509,7 @@ Klik Klaar om de uitgepakte bestanden op te ruimen en te sluiten.</translation>
     </message>
     <message>
       <source>Open as tab</source>
-      <translation type="unfinished">Open as tab</translation>
+      <translation>Open als tabblad</translation>
     </message>
   </context>
   <context>
@@ -8060,15 +8060,15 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <name>GameRepositoriesOverlay</name>
     <message>
       <source>Custom game repositories</source>
-      <translation type="unfinished">Custom game repositories</translation>
+      <translation>Aangepaste game repositories</translation>
     </message>
     <message>
       <source>Choose a folder containing custom game handler JSON files. Blank branch uses the default branch; blank folder uses the repository root. Close to sync changes. Use Game sources to choose between handlers with the same game ID. Disabling or removing a repository keeps downloaded games.</source>
-      <translation type="unfinished">Choose a folder containing custom game handler JSON files. Blank branch uses the default branch; blank folder uses the repository root. Close to sync changes. Use Game sources to choose between handlers with the same game ID. Disabling or removing a repository keeps downloaded games.</translation>
+      <translation>Kies een map met aangepaste JSON-bestanden. Blanco branch gebruikt de standaard branch; lege map gebruikt de repository root. Sluiten om wijzigingen te synchroniseren. Gebruik Spelbronnen om te kiezen tussen afhandelaars met hetzelfde spel-ID. Uitschakelen of verwijderen van een repository houdt gedownloade spellen in stand.</translation>
     </message>
     <message>
       <source>Repository removed. Downloaded games are kept.</source>
-      <translation type="unfinished">Repository removed. Downloaded games are kept.</translation>
+      <translation>Repository verwijderd. Gedownloade partijen worden bewaard.</translation>
     </message>
     <message>
       <source>Game sources…</source>
@@ -8079,39 +8079,39 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <name>GameSourcesOverlay</name>
     <message>
       <source>Game handler sources</source>
-      <translation type="unfinished">Game handler sources</translation>
+      <translation>Game handler bronnen</translation>
     </message>
     <message>
       <source>Choose one handler source for each game ID. The game's existing name is kept so saved paths and profiles continue to work. Other downloaded versions are kept. Disabled or removed repositories keep their last downloaded version.</source>
-      <translation type="unfinished">Choose one handler source for each game ID. The game's existing name is kept so saved paths and profiles continue to work. Other downloaded versions are kept. Disabled or removed repositories keep their last downloaded version.</translation>
+      <translation>Kies één handlerbron voor elk spel ID. De bestaande naam van het spel wordt bewaard zodat opgeslagen paden en profielen blijven werken. Andere gedownloade versies worden bewaard. Uitgeschakeld of verwijderde repositories behouden hun laatst gedownloade versie.</translation>
     </message>
     <message>
       <source>Use selected source</source>
-      <translation type="unfinished">Use selected source</translation>
+      <translation>Gebruik geselecteerde bron</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
     <message>
       <source>{0} sources</source>
-      <translation type="unfinished">{0} sources</translation>
+      <translation>{0} bronnen</translation>
     </message>
     <message>
       <source>No downloaded handlers. Close the repositories window to sync first.</source>
-      <translation type="unfinished">No downloaded handlers. Close the repositories window to sync first.</translation>
+      <translation>Geen gedownloade handlers. Sluit het repositories venster om eerst te synchroniseren.</translation>
     </message>
     <message>
       <source>Local definition</source>
-      <translation type="unfinished">Local definition</translation>
+      <translation>Lokale definitie</translation>
     </message>
     <message>
       <source>Retained download; updates disabled</source>
-      <translation type="unfinished">Retained download; updates disabled</translation>
+      <translation>Beëindigde download; updates uitgeschakeld</translation>
     </message>
     <message>
       <source>Handler source selected.</source>
-      <translation type="unfinished">Handler source selected.</translation>
+      <translation>Handler bron geselecteerd.</translation>
     </message>
   </context>
   <context>
@@ -8703,126 +8703,126 @@ Beheerde map: {2}</translation>
     <name>LootReportOverlay</name>
     <message>
       <source>LOOT diagnostics</source>
-      <translation type="unfinished">LOOT diagnostics</translation>
+      <translation>LOOT diagnostiek</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
   </context>
   <context>
     <name>LootReportView</name>
     <message>
       <source>LOOT has not run for this profile yet. Use Sort Plugins or Refresh to generate a report.</source>
-      <translation type="unfinished">LOOT has not run for this profile yet. Use Sort Plugins or Refresh to generate a report.</translation>
+      <translation>LOOT is nog niet uitgevoerd voor dit profiel. Gebruik sorteer Plugins of Vernieuw om een rapport te genereren.</translation>
     </message>
     <message>
       <source>Last LOOT run: {0}</source>
-      <translation type="unfinished">Last LOOT run: {0}</translation>
+      <translation>Laatste LOOT run: {0}</translation>
     </message>
     <message>
       <source>{0} plugin(s) with metadata</source>
-      <translation type="unfinished">{0} plugin(s) with metadata</translation>
+      <translation>{0} plugin(s) met metagegevens</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation type="unfinished">Error</translation>
+      <translation>Foutmelding</translation>
     </message>
     <message>
       <source>Warning</source>
-      <translation type="unfinished">Warning</translation>
+      <translation>Waarschuwing</translation>
     </message>
     <message>
       <source>Note</source>
-      <translation type="unfinished">Note</translation>
+      <translation>Notitie</translation>
     </message>
     <message>
       <source>General</source>
-      <translation type="unfinished">General</translation>
+      <translation>Algemeen</translation>
     </message>
     <message>
       <source>The masterlist reported no general messages.</source>
-      <translation type="unfinished">The masterlist reported no general messages.</translation>
+      <translation>De masterlijst heeft geen algemene berichten gerapporteerd.</translation>
     </message>
     <message>
       <source>The masterlist has no metadata for the loaded plugins.</source>
-      <translation type="unfinished">The masterlist has no metadata for the loaded plugins.</translation>
+      <translation>De masterlijst heeft geen metadata voor de geladen plugins.</translation>
     </message>
     <message>
       <source>Errors</source>
-      <translation type="unfinished">Errors</translation>
+      <translation>Foutmeldingen</translation>
     </message>
     <message>
       <source>Warnings</source>
-      <translation type="unfinished">Warnings</translation>
+      <translation>Waarschuwingen</translation>
     </message>
     <message>
       <source>Dirty plugins</source>
-      <translation type="unfinished">Dirty plugins</translation>
+      <translation>Vuil plugins</translation>
     </message>
     <message>
       <source>Notes</source>
-      <translation type="unfinished">Notes</translation>
+      <translation>Opmerkingen</translation>
     </message>
     <message>
       <source>Messages</source>
-      <translation type="unfinished">Messages</translation>
+      <translation>berichten</translation>
     </message>
     <message>
       <source>Requirements</source>
-      <translation type="unfinished">Requirements</translation>
+      <translation>Vereisten</translation>
     </message>
     <message>
       <source>Incompatibilities</source>
-      <translation type="unfinished">Incompatibilities</translation>
+      <translation>Incompatibiliteit</translation>
     </message>
     <message>
       <source>Locations</source>
-      <translation type="unfinished">Locations</translation>
+      <translation>Locaties</translation>
     </message>
     <message>
       <source>Dirty edits</source>
-      <translation type="unfinished">Dirty edits</translation>
+      <translation>Vuile bewerkingen</translation>
     </message>
     <message>
       <source>Verified clean</source>
-      <translation type="unfinished">Verified clean</translation>
+      <translation>Geverifieerde schoonmaak</translation>
     </message>
     <message>
       <source>Bash Tags</source>
-      <translation type="unfinished">Bash Tags</translation>
+      <translation>Bash tags</translation>
     </message>
     <message>
       <source>{0} ITM</source>
-      <translation type="unfinished">{0} ITM</translation>
+      <translation>{0} ITM</translation>
     </message>
     <message>
       <source>{0} UDR</source>
-      <translation type="unfinished">{0} UDR</translation>
+      <translation>{0} UDR</translation>
     </message>
     <message>
       <source>{0} deleted navmesh</source>
-      <translation type="unfinished">{0} deleted navmesh</translation>
+      <translation>{0} verwijderd navmesh</translation>
     </message>
     <message>
       <source>CRC {0}</source>
-      <translation type="unfinished">CRC {0}</translation>
+      <translation>CRC {0}</translation>
     </message>
     <message>
       <source>clean with</source>
-      <translation type="unfinished">clean with</translation>
+      <translation>opschonen met</translation>
     </message>
     <message>
       <source>Current</source>
-      <translation type="unfinished">Current</translation>
+      <translation>Stroom</translation>
     </message>
     <message>
       <source>Suggested (add)</source>
-      <translation type="unfinished">Suggested (add)</translation>
+      <translation>Voorgesteld (toevoegen)</translation>
     </message>
     <message>
       <source>Suggested (remove)</source>
-      <translation type="unfinished">Suggested (remove)</translation>
+      <translation>Voorgesteld (verwijder)</translation>
     </message>
   </context>
   <context>
@@ -11639,15 +11639,15 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Handler not found in an enabled game repository.</source>
-      <translation type="unfinished">Handler not found in an enabled game repository.</translation>
+      <translation>Handler niet gevonden in een ingeschakelde game repository.</translation>
     </message>
     <message>
       <source>Select a configured game before opening a provider install link.</source>
-      <translation type="unfinished">Select a configured game before opening a provider install link.</translation>
+      <translation>Selecteer een geconfigureerd spel voordat u een provider-installatielink opent.</translation>
     </message>
     <message>
       <source>The install link requires exactly one enabled provider for the selected game.</source>
-      <translation type="unfinished">The install link requires exactly one enabled provider for the selected game.</translation>
+      <translation>De installatielink vereist één ingeschakelde provider voor het geselecteerde spel.</translation>
     </message>
     <message>
       <source>Received a malformed MODL link.</source>
@@ -11971,11 +11971,11 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Mod providers: {0} updates</source>
-      <translation type="unfinished">Mod providers: {0} updates</translation>
+      <translation>Mod providers: {0} updates</translation>
     </message>
     <message>
       <source>{0} provider checks failed; see log</source>
-      <translation type="unfinished">{0} provider checks failed; see log</translation>
+      <translation>{0} provider controles mislukt; zie log</translation>
     </message>
     <message>
       <source>Rolled back {0} of {1} mod(s).</source>
@@ -12223,7 +12223,7 @@ Druk Deploy om je mods toe te passen en start dan het spel van Steam, Heroic, Lu
     </message>
     <message>
       <source>Finish the plugin store operation before closing Amethyst.</source>
-      <translation type="unfinished">Finish the plugin store operation before closing Amethyst.</translation>
+      <translation>Voltooi de opslag van de plugin voordat Amethyst wordt afgesloten.</translation>
     </message>
     <message>
       <source>Wait for Wabbajack list removal to finish before closing Amethyst.</source>
@@ -12243,11 +12243,11 @@ Druk Deploy om je mods toe te passen en start dan het spel van Steam, Heroic, Lu
     </message>
     <message>
       <source>Deploy failed: {0}</source>
-      <translation type="unfinished">Deploy failed: {0}</translation>
+      <translation>Implementeren mislukt: {0}</translation>
     </message>
     <message>
       <source>Deployment failed</source>
-      <translation type="unfinished">Deployment failed</translation>
+      <translation>Implementatie mislukt</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -12263,19 +12263,19 @@ Druk Deploy om je mods toe te passen en start dan het spel van Steam, Heroic, Lu
     </message>
     <message>
       <source>No plugins available</source>
-      <translation type="unfinished">No plugins available</translation>
+      <translation>Geen plug-ins beschikbaar</translation>
     </message>
     <message>
       <source>{0} (theme pack)</source>
-      <translation type="unfinished">{0} (theme pack)</translation>
+      <translation>{0} (themapakket)</translation>
     </message>
     <message>
       <source>{0} (icon pack)</source>
-      <translation type="unfinished">{0} (icon pack)</translation>
+      <translation>{0} (icoon pakket)</translation>
     </message>
     <message>
       <source>Some plugins could not be loaded…</source>
-      <translation type="unfinished">Some plugins could not be loaded…</translation>
+      <translation>Sommige plugins konden niet worden geladen…</translation>
     </message>
     <message>
       <source>Browse plugins…</source>
@@ -12287,19 +12287,19 @@ Druk Deploy om je mods toe te passen en start dan het spel van Steam, Heroic, Lu
     </message>
     <message>
       <source>Plugin store</source>
-      <translation type="unfinished">Plugin store</translation>
+      <translation>Plugin winkel</translation>
     </message>
     <message>
       <source>Wait for the current manager operation to finish.</source>
-      <translation type="unfinished">Wait for the current manager operation to finish.</translation>
+      <translation>Wacht tot de huidige operatie van manager is voltooid.</translation>
     </message>
     <message>
       <source>Wait for the mod list to finish refreshing.</source>
-      <translation type="unfinished">Wait for the mod list to finish refreshing.</translation>
+      <translation>Wacht tot de mod lijst is vernieuwd.</translation>
     </message>
     <message>
       <source>Could not open plugin: {0}</source>
-      <translation type="unfinished">Could not open plugin: {0}</translation>
+      <translation>Kan plug-in niet openen: {0}</translation>
     </message>
     <message>
       <source>Wizard Settings…</source>
@@ -12497,7 +12497,7 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
     </message>
     <message>
       <source>Mod providers</source>
-      <translation type="unfinished">Mod providers</translation>
+      <translation>Mod providers</translation>
     </message>
     <message>
       <source>None</source>
@@ -13010,39 +13010,39 @@ Het profiel en de gedeelde downloadarchieven worden bewaard.</translation>
     <name>ManagerPluginOverlay</name>
     <message>
       <source>Run only plugins you trust. Plugin scripts have the same file access as Amethyst.</source>
-      <translation type="unfinished">Run only plugins you trust. Plugin scripts have the same file access as Amethyst.</translation>
+      <translation>Voer alleen plugins uit die je vertrouwt. Plugin scripts hebben dezelfde bestandstoegang als Amethyst.</translation>
     </message>
     <message>
       <source>Ready to run.</source>
-      <translation type="unfinished">Ready to run.</translation>
+      <translation>Klaar om te werken.</translation>
     </message>
     <message>
       <source>Show requested API operation</source>
-      <translation type="unfinished">Show requested API operation</translation>
+      <translation>Toon aangevraagde API-bewerking</translation>
     </message>
     <message>
       <source>Run</source>
-      <translation type="unfinished">Run</translation>
+      <translation>Uitvoeren</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation type="unfinished">Apply</translation>
+      <translation>Toepassen</translation>
     </message>
     <message>
       <source>Cancel changes</source>
-      <translation type="unfinished">Cancel changes</translation>
+      <translation>Wijzigingen annuleren</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
     <message>
       <source>Could not save plugin settings: {0}</source>
-      <translation type="unfinished">Could not save plugin settings: {0}</translation>
+      <translation>Kan plugin instellingen niet opslaan: {0}</translation>
     </message>
     <message>
       <source>Stop</source>
-      <translation type="unfinished">Stop</translation>
+      <translation>Stoppen</translation>
     </message>
     <message>
       <source>Running…</source>
@@ -13050,27 +13050,27 @@ Het profiel en de gedeelde downloadarchieven worden bewaard.</translation>
     </message>
     <message>
       <source>Review changes</source>
-      <translation type="unfinished">Review changes</translation>
+      <translation>Wijzigingen bekijken</translation>
     </message>
     <message>
       <source>Applying changes…</source>
-      <translation type="unfinished">Applying changes…</translation>
+      <translation>Wijzigingen toepassen…</translation>
     </message>
     <message>
       <source>Cancelling changes…</source>
-      <translation type="unfinished">Cancelling changes…</translation>
+      <translation>Wijzigingen annuleren…</translation>
     </message>
     <message>
       <source>Plugin failed. See the log below.</source>
-      <translation type="unfinished">Plugin failed. See the log below.</translation>
+      <translation>Plugin is mislukt. Zie het logboek hieronder.</translation>
     </message>
     <message>
       <source>Stopped. Any completed changes remain applied.</source>
-      <translation type="unfinished">Stopped. Any completed changes remain applied.</translation>
+      <translation>Gestopt. Alle voltooide wijzigingen blijven toegepast.</translation>
     </message>
     <message>
       <source>Plugin finished.</source>
-      <translation type="unfinished">Plugin finished.</translation>
+      <translation>Plugin voltooid.</translation>
     </message>
     <message>
       <source>Stopping. Waiting for accepted manager operations to finish…</source>
@@ -14141,7 +14141,7 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Read-only entry managed by a plugin.</source>
-      <translation type="unfinished">Read-only entry managed by a plugin.</translation>
+      <translation>Alleen-lezen invoer beheerd door een plugin.</translation>
     </message>
   </context>
   <context>
@@ -14310,7 +14310,7 @@ Klik op Gereed om te sluiten.</translation>
     </message>
     <message>
       <source>Update available from mod provider</source>
-      <translation type="unfinished">Update available from mod provider</translation>
+      <translation>Update beschikbaar van mod provider</translation>
     </message>
     <message>
       <source>Endorsed</source>
@@ -16286,7 +16286,7 @@ Per dag: {1}</translation>
     </message>
     <message>
       <source>Choose which mod manager receives this game's Nexus links. The choice is remembered. Amethyst uses the matching configured game, or the current game for links from other domains.</source>
-      <translation type="unfinished">Choose which mod manager receives this game's Nexus links. The choice is remembered. Amethyst uses the matching configured game, or the current game for links from other domains.</translation>
+      <translation>Kies welke mod manager de links van dit spel ontvangt. De keuze wordt onthouden. Amethyst gebruikt het overeenkomende geconfigureerde spel, of het huidige spel voor links van andere domeinen.</translation>
     </message>
     <message>
       <source>Nexus game domain</source>
@@ -17227,19 +17227,19 @@ Herscan om het te controleren.</translation>
     <name>PluginCommands</name>
     <message>
       <source>The active game or profile changed. Run the command again.</source>
-      <translation type="unfinished">The active game or profile changed. Run the command again.</translation>
+      <translation>Het actieve spel of profiel is veranderd. Voer de opdracht opnieuw uit.</translation>
     </message>
     <message>
       <source>The plugin changed. Run the command again.</source>
-      <translation type="unfinished">The plugin changed. Run the command again.</translation>
+      <translation>De plugin is gewijzigd. Voer de opdracht opnieuw uit.</translation>
     </message>
     <message>
       <source>This command does not match the current selection.</source>
-      <translation type="unfinished">This command does not match the current selection.</translation>
+      <translation>Deze opdracht komt niet overeen met de huidige selectie.</translation>
     </message>
     <message>
       <source>A selected item is no longer available.</source>
-      <translation type="unfinished">A selected item is no longer available.</translation>
+      <translation>Een geselecteerd item is niet langer beschikbaar.</translation>
     </message>
   </context>
   <context>
@@ -17462,19 +17462,19 @@ Herscan om het te controleren.</translation>
     <name>PluginMenuController</name>
     <message>
       <source>Plugins</source>
-      <translation type="unfinished">Plugins</translation>
+      <translation>Plug-ins</translation>
     </message>
     <message>
       <source>Preview with {0}</source>
-      <translation type="unfinished">Preview with {0}</translation>
+      <translation>Voorbeeldweergave met {0}</translation>
     </message>
     <message>
       <source>The active game or profile changed. Reopen the menu.</source>
-      <translation type="unfinished">The active game or profile changed. Reopen the menu.</translation>
+      <translation>Het actieve spel of profiel is veranderd. Heropen het menu.</translation>
     </message>
     <message>
       <source>The plugin changed. Reopen the menu.</source>
-      <translation type="unfinished">The plugin changed. Reopen the menu.</translation>
+      <translation>De plug-in is gewijzigd. Open het menu opnieuw.</translation>
     </message>
   </context>
   <context>
@@ -17500,62 +17500,62 @@ Herscan om het te controleren.</translation>
     <name>PluginNotifications</name>
     <message>
       <source>Open report</source>
-      <translation type="unfinished">Open report</translation>
+      <translation>Rapport openen</translation>
     </message>
     <message>
       <source>{0}: {1} new or updated diagnostics</source>
-      <translation type="unfinished">{0}: {1} new or updated diagnostics</translation>
+      <translation>{0}: {1} nieuwe of bijgewerkte diagnostiek</translation>
     </message>
     <message>
       <source>Select the notification's game and profile before using this action.</source>
-      <translation type="unfinished">Select the notification's game and profile before using this action.</translation>
+      <translation>Selecteer het spel en het profiel van de melding voordat u deze actie kunt gebruiken.</translation>
     </message>
     <message>
       <source>This plugin changed or is no longer available.</source>
-      <translation type="unfinished">This plugin changed or is no longer available.</translation>
+      <translation>Deze plugin is gewijzigd of niet langer beschikbaar.</translation>
     </message>
     <message>
       <source>An affected item is no longer available. Refresh the diagnostic.</source>
-      <translation type="unfinished">An affected item is no longer available. Refresh the diagnostic.</translation>
+      <translation>Een getroffen item is niet langer beschikbaar. Vernieuw de diagnostiek.</translation>
     </message>
     <message>
       <source>The action no longer matches these items.</source>
-      <translation type="unfinished">The action no longer matches these items.</translation>
+      <translation>De actie komt niet meer overeen met deze items.</translation>
     </message>
   </context>
   <context>
     <name>PluginPanelControls</name>
     <message>
       <source>Sort Plugins</source>
-      <translation type="unfinished">Sort Plugins</translation>
+      <translation>Sorteer Plugins</translation>
     </message>
     <message>
       <source>Refresh Plugins</source>
-      <translation type="unfinished">Refresh Plugins</translation>
+      <translation>Plugins vernieuwen</translation>
     </message>
     <message>
       <source>Sync</source>
-      <translation type="unfinished">Sync</translation>
+      <translation>Synchroniseren</translation>
     </message>
     <message>
       <source>Groups</source>
-      <translation type="unfinished">Groups</translation>
+      <translation>Groepen</translation>
     </message>
     <message>
       <source>Plugin Rules</source>
-      <translation type="unfinished">Plugin Rules</translation>
+      <translation>Plugin regels</translation>
     </message>
     <message>
       <source>LOOT</source>
-      <translation type="unfinished">LOOT</translation>
+      <translation>LOOT</translation>
     </message>
     <message>
       <source>Show LOOT diagnostics</source>
-      <translation type="unfinished">Show LOOT diagnostics</translation>
+      <translation>Toon LOOT-diagnostiek</translation>
     </message>
     <message>
       <source>Match plugin load order to modlist priority</source>
-      <translation type="unfinished">Match plugin load order to modlist priority</translation>
+      <translation>Combineer plugin laad volgorde naar de modlist prioriteit</translation>
     </message>
     <message>
       <source>Search plugins…</source>
@@ -17563,27 +17563,27 @@ Herscan om het te controleren.</translation>
     </message>
     <message>
       <source>Pack BSA</source>
-      <translation type="unfinished">Pack BSA</translation>
+      <translation>Pack BSA</translation>
     </message>
     <message>
       <source>Unpack BSA</source>
-      <translation type="unfinished">Unpack BSA</translation>
+      <translation>BSA uitpakken</translation>
     </message>
     <message>
       <source>⊞ Expand all</source>
-      <translation type="unfinished">⊞ Expand all</translation>
+      <translation>≤ Alles uitvouwen</translation>
     </message>
     <message>
       <source>Open</source>
-      <translation type="unfinished">Open</translation>
+      <translation>Open</translation>
     </message>
     <message>
       <source>Reset</source>
-      <translation type="unfinished">Reset</translation>
+      <translation>Reset</translation>
     </message>
     <message>
       <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
-      <translation type="unfinished">Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</translation>
+      <translation>Maak wijzigingen in mod's modificatie ongedaan (Top Level, Root, Uitschakelen). Modbestanden zelf worden niet aangeraakt.</translation>
     </message>
     <message>
       <source>Search files… (try !.dds)</source>
@@ -17591,55 +17591,55 @@ Herscan om het te controleren.</translation>
     </message>
     <message>
       <source>Blacklist</source>
-      <translation type="unfinished">Blacklist</translation>
+      <translation>Geblokkeerde</translation>
     </message>
     <message>
       <source>Routing Rules</source>
-      <translation type="unfinished">Routing Rules</translation>
+      <translation>Routering regels</translation>
     </message>
     <message>
       <source>⊟ Collapse all</source>
-      <translation type="unfinished">⊟ Collapse all</translation>
+      <translation>Lv.Klap alles in</translation>
     </message>
     <message>
       <source>↻ Refresh</source>
-      <translation type="unfinished">↻ Refresh</translation>
+      <translation>Februari Vernieuwen</translation>
     </message>
     <message>
       <source>Open folder</source>
-      <translation type="unfinished">Open folder</translation>
+      <translation>Map openen</translation>
     </message>
     <message>
       <source>Export</source>
-      <translation type="unfinished">Export</translation>
+      <translation>Exporteren</translation>
     </message>
     <message>
       <source>Import</source>
-      <translation type="unfinished">Import</translation>
+      <translation>Importeren</translation>
     </message>
     <message>
       <source>Search saves… (try !.ess)</source>
-      <translation type="unfinished">Search saves… (try !.ess)</translation>
+      <translation>Zoeken naar saves… (probeer !.ess)</translation>
     </message>
     <message>
       <source>Install Selected</source>
-      <translation type="unfinished">Install Selected</translation>
+      <translation>Geselecteerde installeren</translation>
     </message>
     <message>
       <source>Move Selected</source>
-      <translation type="unfinished">Move Selected</translation>
+      <translation>Selectie verplaatsen</translation>
     </message>
     <message>
       <source>Hide Selected</source>
-      <translation type="unfinished">Hide Selected</translation>
+      <translation>Verberg geselecteerde</translation>
     </message>
     <message>
       <source>Remove Selected</source>
-      <translation type="unfinished">Remove Selected</translation>
+      <translation>Geselecteerde verwijderen</translation>
     </message>
     <message>
       <source>Locations</source>
-      <translation type="unfinished">Locations</translation>
+      <translation>Locaties</translation>
     </message>
     <message>
       <source>Search downloads…</source>
@@ -17647,70 +17647,70 @@ Herscan om het te controleren.</translation>
     </message>
     <message>
       <source>Unhide Selected</source>
-      <translation type="unfinished">Unhide Selected</translation>
+      <translation>Selectie tonen</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>Find in files:</source>
-      <translation type="unfinished">Find in files:</translation>
+      <translation>Zoek in bestanden:</translation>
     </message>
     <message>
       <source>Text to search for…</source>
-      <translation type="unfinished">Text to search for…</translation>
+      <translation>Tekst om te zoeken naar…</translation>
     </message>
     <message>
       <source>Search</source>
-      <translation type="unfinished">Search</translation>
+      <translation>Zoeken</translation>
     </message>
     <message>
       <source>Search Content</source>
-      <translation type="unfinished">Search Content</translation>
+      <translation>Inhoud zoeken</translation>
     </message>
     <message>
       <source>Content: "{0}"</source>
-      <translation type="unfinished">Content: "{0}"</translation>
+      <translation>Inhoud "{0}"</translation>
     </message>
     <message>
       <source>Clear Content</source>
-      <translation type="unfinished">Clear Content</translation>
+      <translation>Inhoud wissen</translation>
     </message>
     <message>
       <source>Pack {0}</source>
-      <translation type="unfinished">Pack {0}</translation>
+      <translation>Pakket {0}</translation>
     </message>
     <message>
       <source>Unpack {0}</source>
-      <translation type="unfinished">Unpack {0}</translation>
+      <translation>Uitpakken {0}</translation>
     </message>
     <message>
       <source>File location</source>
-      <translation type="unfinished">File location</translation>
+      <translation>Locatie van bestand</translation>
     </message>
     <message>
       <source>P:{0} / Non-ESL:{1}</source>
-      <translation type="unfinished">P:{0} / Non-ESL:{1}</translation>
+      <translation>P:{0} / Non-ESL:{1}</translation>
     </message>
     <message>
       <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
-      <translation type="unfinished">{0} plugins ({1} ESL, {2} non-ESL)</translation>
+      <translation>{0} plugins ({1} ESL, {2} non-ESL)</translation>
     </message>
   </context>
   <context>
     <name>PluginRepositoriesOverlay</name>
     <message>
       <source>Plugin repositories</source>
-      <translation type="unfinished">Plugin repositories</translation>
+      <translation>Plugin repositories</translation>
     </message>
     <message>
       <source>Choose a folder containing plugin subfolders, or a single plugin's folder. Blank branch uses the default branch; blank folder uses the repository root.</source>
-      <translation type="unfinished">Choose a folder containing plugin subfolders, or a single plugin's folder. Blank branch uses the default branch; blank folder uses the repository root.</translation>
+      <translation>Kies een map met plugins submappen of de map van een enkele plugin. Blank branch gebruikt de standaard branch; de lege map maakt gebruik van de repository root.</translation>
     </message>
     <message>
       <source>Repository removed. Installed plugins are kept.</source>
-      <translation type="unfinished">Repository removed. Installed plugins are kept.</translation>
+      <translation>Repository verwijderd. Geïnstalleerde plugins worden bewaard.</translation>
     </message>
   </context>
   <context>
@@ -17752,94 +17752,94 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     <name>PluginSettingsOverlay</name>
     <message>
       <source>{0} settings</source>
-      <translation type="unfinished">{0} settings</translation>
+      <translation>{0} instellingen</translation>
     </message>
     <message>
       <source>Icon changes take effect after restarting Amethyst.</source>
-      <translation type="unfinished">Icon changes take effect after restarting Amethyst.</translation>
+      <translation>Icoon wijzigingen worden van kracht na het herstarten van Amethyst.</translation>
     </message>
     <message>
       <source>Settings are used on the plugin's next run or refresh.</source>
-      <translation type="unfinished">Settings are used on the plugin's next run or refresh.</translation>
+      <translation>Instellingen worden gebruikt voor de volgende keer uitvoeren of vernieuwen.</translation>
     </message>
     <message>
       <source>Restore defaults</source>
-      <translation type="unfinished">Restore defaults</translation>
+      <translation>Standaardwaarden herstellen</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>annuleren</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Opslaan</translation>
     </message>
     <message>
       <source>Plugin settings could not be read: {0}</source>
-      <translation type="unfinished">Plugin settings could not be read: {0}</translation>
+      <translation>Plugin instellingen konden niet worden gelezen: {0}</translation>
     </message>
     <message>
       <source>Reset damaged settings</source>
-      <translation type="unfinished">Reset damaged settings</translation>
+      <translation>Herstel beschadigde instellingen</translation>
     </message>
     <message>
       <source>Could not save plugin settings: {0}</source>
-      <translation type="unfinished">Could not save plugin settings: {0}</translation>
+      <translation>Kan plugin instellingen niet opslaan: {0}</translation>
     </message>
     <message>
       <source>Could not reset plugin settings: {0}</source>
-      <translation type="unfinished">Could not reset plugin settings: {0}</translation>
+      <translation>Kan de plugin instellingen niet resetten: {0}</translation>
     </message>
     <message>
       <source>Settings reset. Original settings saved to {0}.</source>
-      <translation type="unfinished">Settings reset. Original settings saved to {0}.</translation>
+      <translation>Instellingen gereset. Oorspronkelijke instellingen opgeslagen in {0}.</translation>
     </message>
     <message>
       <source>Settings reset.</source>
-      <translation type="unfinished">Settings reset.</translation>
+      <translation>Instellingen opnieuw ingesteld.</translation>
     </message>
   </context>
   <context>
     <name>PluginStoreView</name>
     <message>
       <source>Plugin store</source>
-      <translation type="unfinished">Plugin store</translation>
+      <translation>Plugin winkel</translation>
     </message>
     <message>
       <source>Plugins run Python with the same file access as Amethyst. Install only plugins you trust.</source>
-      <translation type="unfinished">Plugins run Python with the same file access as Amethyst. Install only plugins you trust.</translation>
+      <translation>Plugins draaien Python met dezelfde bestandstoegang als Amethyst. Installeer alleen plugins die je vertrouwt.</translation>
     </message>
     <message>
       <source>Search plugins</source>
-      <translation type="unfinished">Search plugins</translation>
+      <translation>Plugins doorzoeken</translation>
     </message>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>Vernieuwen</translation>
     </message>
     <message>
       <source>Repositories…</source>
-      <translation type="unfinished">Repositories…</translation>
+      <translation>Repositories…</translation>
     </message>
     <message>
       <source>Details</source>
-      <translation type="unfinished">Details</translation>
+      <translation>Beschrijving</translation>
     </message>
     <message>
       <source>README</source>
-      <translation type="unfinished">README</translation>
+      <translation>LEESMIJ</translation>
     </message>
     <message>
       <source>Download</source>
-      <translation type="unfinished">Download</translation>
+      <translation>downloaden</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Verwijderen</translation>
     </message>
     <message>
       <source>Disable</source>
-      <translation type="unfinished">Disable</translation>
+      <translation>Uitschakelen</translation>
     </message>
     <message>
       <source>Settings…</source>
@@ -17847,167 +17847,167 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     </message>
     <message>
       <source>Cancel pending change</source>
-      <translation type="unfinished">Cancel pending change</translation>
+      <translation>Annuleer in afwachting van wijziging</translation>
     </message>
     <message>
       <source>Restart manager</source>
-      <translation type="unfinished">Restart manager</translation>
+      <translation>Beheerder herstarten</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
     <message>
       <source>Enabled</source>
-      <translation type="unfinished">Enabled</translation>
+      <translation>Ingeschakeld</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>Uitgeschakeld</translation>
     </message>
     <message>
       <source>Pending change</source>
-      <translation type="unfinished">Pending change</translation>
+      <translation>Wachten op wijziging</translation>
     </message>
     <message>
       <source>Installed locally · source unknown</source>
-      <translation type="unfinished">Installed locally · source unknown</translation>
+      <translation>Lokaal geïnstalleerd · bron onbekend</translation>
     </message>
     <message>
       <source>Version {0}</source>
-      <translation type="unfinished">Version {0}</translation>
+      <translation>Versie {0}</translation>
     </message>
     <message>
       <source>Version unknown</source>
-      <translation type="unfinished">Version unknown</translation>
+      <translation>Versie onbekend</translation>
     </message>
     <message>
       <source>Not installed</source>
-      <translation type="unfinished">Not installed</translation>
+      <translation>Niet geïnstalleerd</translation>
     </message>
     <message>
       <source>{0} change(s) waiting for restart. Changes apply on the next manager launch.</source>
-      <translation type="unfinished">{0} change(s) waiting for restart. Changes apply on the next manager launch.</translation>
+      <translation>{0} wijziging(en) wachten op herstart. Wijzigingen zijn van toepassing op de volgende manager lancering.</translation>
     </message>
     <message>
       <source>Plugin changes take effect after restarting Amethyst.</source>
-      <translation type="unfinished">Plugin changes take effect after restarting Amethyst.</translation>
+      <translation>Plugin wijzigingen worden van kracht na het herstarten van Amethyst.</translation>
     </message>
     <message>
       <source>No plugins found.</source>
-      <translation type="unfinished">No plugins found.</translation>
+      <translation>Geen plug-ins gevonden.</translation>
     </message>
     <message>
       <source>Installed locally · version unknown</source>
-      <translation type="unfinished">Installed locally · version unknown</translation>
+      <translation>Lokaal geïnstalleerd · versie onbekend</translation>
     </message>
     <message>
       <source>Author: {0}</source>
-      <translation type="unfinished">Author: {0}</translation>
+      <translation>Auteur: {0}</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>onbekend</translation>
     </message>
     <message>
       <source>Available version: {0}</source>
-      <translation type="unfinished">Available version: {0}</translation>
+      <translation>Beschikbare versie: {0}</translation>
     </message>
     <message>
       <source>Not in the current catalogue</source>
-      <translation type="unfinished">Not in the current catalogue</translation>
+      <translation>Niet in de huidige catalogus</translation>
     </message>
     <message>
       <source>Installed version: {0}</source>
-      <translation type="unfinished">Installed version: {0}</translation>
+      <translation>Geïnstalleerde versie: {0}</translation>
     </message>
     <message>
       <source>Minimum manager version: {0}</source>
-      <translation type="unfinished">Minimum manager version: {0}</translation>
+      <translation>Minimale manager versie: {0}</translation>
     </message>
     <message>
       <source>Not specified</source>
-      <translation type="unfinished">Not specified</translation>
+      <translation>Niet gespecificeerd</translation>
     </message>
     <message>
       <source>Repository: {0}</source>
-      <translation type="unfinished">Repository: {0}</translation>
+      <translation>Opslag: {0}</translation>
     </message>
     <message>
       <source>Branch: {0}</source>
-      <translation type="unfinished">Branch: {0}</translation>
+      <translation>Filiaal: {0}</translation>
     </message>
     <message>
       <source>Default branch</source>
-      <translation type="unfinished">Default branch</translation>
+      <translation>Standaard branch</translation>
     </message>
     <message>
       <source>Folder: {0}</source>
-      <translation type="unfinished">Folder: {0}</translation>
+      <translation>Map: {0}</translation>
     </message>
     <message>
       <source>State: {0}</source>
-      <translation type="unfinished">State: {0}</translation>
+      <translation>Staat: {0}</translation>
     </message>
     <message>
       <source>Installed from: {0} [{1}:{2}]</source>
-      <translation type="unfinished">Installed from: {0} [{1}:{2}]</translation>
+      <translation>Geïnstalleerd van: {0} [{1}:{2}]</translation>
     </message>
     <message>
       <source>default</source>
-      <translation type="unfinished">default</translation>
+      <translation>standaard</translation>
     </message>
     <message>
       <source>Installed source: Unknown</source>
-      <translation type="unfinished">Installed source: Unknown</translation>
+      <translation>Geïnstalleerde bron: onbekend</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation type="unfinished">Update</translation>
+      <translation>Vernieuwen</translation>
     </message>
     <message>
       <source>Replace from this repository…</source>
-      <translation type="unfinished">Replace from this repository…</translation>
+      <translation>Vervangen van deze repository…</translation>
     </message>
     <message>
       <source>Replace with store version</source>
-      <translation type="unfinished">Replace with store version</translation>
+      <translation>Vervang met winkelversie</translation>
     </message>
     <message>
       <source>The installed plugin is up to date or newer.</source>
-      <translation type="unfinished">The installed plugin is up to date or newer.</translation>
+      <translation>De geïnstalleerde plug-in is up to date of nieuwer.</translation>
     </message>
     <message>
       <source>Duplicate installed plugin id. Resolve the duplicate folders first.</source>
-      <translation type="unfinished">Duplicate installed plugin id. Resolve the duplicate folders first.</translation>
+      <translation>Dupliceer geïnstalleerde plugin id. Los eerst de dubbele mappen op.</translation>
     </message>
     <message>
       <source>Removal</source>
-      <translation type="unfinished">Removal</translation>
+      <translation>Verwijderen</translation>
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Inschakelen</translation>
     </message>
     <message>
       <source>Install version {0}</source>
-      <translation type="unfinished">Install version {0}</translation>
+      <translation>Installeer versie {0}</translation>
     </message>
     <message>
       <source>Pending: {0}</source>
-      <translation type="unfinished">Pending: {0}</translation>
+      <translation>In behandeling: {0}</translation>
     </message>
     <message>
       <source>Pending repository: {0}</source>
-      <translation type="unfinished">Pending repository: {0}</translation>
+      <translation>Wachtend op repository: {0}</translation>
     </message>
     <message>
       <source>Plugin dependencies: {0}</source>
-      <translation type="unfinished">Plugin dependencies: {0}</translation>
+      <translation>Plugin afhankelijkheden: {0}</translation>
     </message>
     <message>
       <source>Plugin conflicts: {0}</source>
-      <translation type="unfinished">Plugin conflicts: {0}</translation>
+      <translation>Plugin conflicten: {0}</translation>
     </message>
     <message>
       <source>Loading README…</source>
@@ -18015,51 +18015,51 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     </message>
     <message>
       <source>Could not load README: {0}</source>
-      <translation type="unfinished">Could not load README: {0}</translation>
+      <translation>Kan README niet laden: {0}</translation>
     </message>
     <message>
       <source>Change saved. Restart Amethyst to apply it.</source>
-      <translation type="unfinished">Change saved. Restart Amethyst to apply it.</translation>
+      <translation>Wijziging opgeslagen. Herstart Amethyst om toe te passen.</translation>
     </message>
     <message>
       <source>Loading plugin catalogue…</source>
-      <translation type="unfinished">Loading plugin catalogue…</translation>
+      <translation>Plug-incatalogus laden…</translation>
     </message>
     <message>
       <source>Catalogue loaded.</source>
-      <translation type="unfinished">Catalogue loaded.</translation>
+      <translation>Catalogus geladen.</translation>
     </message>
     <message>
       <source>Replace</source>
-      <translation type="unfinished">Replace</translation>
+      <translation>Vervangen</translation>
     </message>
     <message>
       <source>Delete saved data</source>
-      <translation type="unfinished">Delete saved data</translation>
+      <translation>Opgeslagen gegevens verwijderen</translation>
     </message>
     <message>
       <source>Downloading and validating plugin…</source>
-      <translation type="unfinished">Downloading and validating plugin…</translation>
+      <translation>Plug-in downloaden en valideren…</translation>
     </message>
     <message>
       <source>Replace plugin from this repository?</source>
-      <translation type="unfinished">Replace plugin from this repository?</translation>
+      <translation>Plug-in vervangen in deze repository?</translation>
     </message>
     <message>
       <source>Replace {0} with version {1} from {2} after restart? Saved settings and data will be preserved, and the old folder backed up.</source>
-      <translation type="unfinished">Replace {0} with version {1} from {2} after restart? Saved settings and data will be preserved, and the old folder backed up.</translation>
+      <translation>{0} vervangen door versie {1} van {2} na opnieuw starten? Opgeslagen instellingen en gegevens worden bewaard en de oude map geback-upt.</translation>
     </message>
     <message>
       <source>Remove plugin?</source>
-      <translation type="unfinished">Remove plugin?</translation>
+      <translation>Plug-in verwijderen?</translation>
     </message>
     <message>
       <source>Remove {0} after restart? Saved data is kept for reinstalling unless you choose to delete it. Deletion also removes this plugin's store backups.</source>
-      <translation type="unfinished">Remove {0} after restart? Saved data is kept for reinstalling unless you choose to delete it. Deletion also removes this plugin's store backups.</translation>
+      <translation>{0} verwijderen na herstarten? Opgeslagen data wordt bewaard voor herinstalleren tenzij u het wilt verwijderen. Verwijderen verwijdert ook de store back-ups van deze plugin.</translation>
     </message>
     <message>
       <source>Queuing plugin removal…</source>
-      <translation type="unfinished">Queuing plugin removal…</translation>
+      <translation>Plug-inverwijdering verwijderen…</translation>
     </message>
     <message>
       <source>Cancelling pending change…</source>
@@ -18067,7 +18067,7 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     </message>
     <message>
       <source>Pending change cancelled.</source>
-      <translation type="unfinished">Pending change cancelled.</translation>
+      <translation>In afwachting van wijziging geannuleerd.</translation>
     </message>
     <message>
       <source>Queuing plugin enablement change…</source>
@@ -18075,22 +18075,22 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     </message>
     <message>
       <source>Settings saved. Restart Amethyst to apply icon changes.</source>
-      <translation type="unfinished">Settings saved. Restart Amethyst to apply icon changes.</translation>
+      <translation>Instellingen opgeslagen. Herstart Amethyst om wijzigingen toe te passen.</translation>
     </message>
     <message>
       <source>Settings saved.</source>
-      <translation type="unfinished">Settings saved.</translation>
+      <translation>Instellingen opgeslagen.</translation>
     </message>
     <message>
       <source>Wait for current manager operations to finish before restarting.</source>
-      <translation type="unfinished">Wait for current manager operations to finish before restarting.</translation>
+      <translation>Wacht tot de huidige manager operaties zijn voltooid voordat u herstart.</translation>
     </message>
   </context>
   <context>
     <name>PluginUIController</name>
     <message>
       <source>More plugin controls</source>
-      <translation type="unfinished">More plugin controls</translation>
+      <translation>Meer plugin besturing</translation>
     </message>
     <message>
       <source>Commands…</source>
@@ -18098,19 +18098,19 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     </message>
     <message>
       <source>Some interface elements could not be loaded…</source>
-      <translation type="unfinished">Some interface elements could not be loaded…</translation>
+      <translation>Sommige interface elementen konden niet worden geladen…</translation>
     </message>
     <message>
       <source>Plugin interface</source>
-      <translation type="unfinished">Plugin interface</translation>
+      <translation>Plugin interface</translation>
     </message>
     <message>
       <source>Some plugin services could not be loaded…</source>
-      <translation type="unfinished">Some plugin services could not be loaded…</translation>
+      <translation>Sommige plugin services konden niet worden geladen…</translation>
     </message>
     <message>
       <source>Plugin services</source>
-      <translation type="unfinished">Plugin services</translation>
+      <translation>Plugin services</translation>
     </message>
   </context>
   <context>
@@ -18129,7 +18129,7 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     </message>
     <message>
       <source>Open as tab</source>
-      <translation type="unfinished">Open as tab</translation>
+      <translation>Open als tabblad</translation>
     </message>
   </context>
   <context>
@@ -18267,7 +18267,7 @@ Sleep een plug-in vanuit het linkerdeelvenster om een regel toe te voegen.</tran
     </message>
     <message>
       <source>Wizard tools each run in their own Wine prefix (created in Applications, next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</source>
-      <translation type="unfinished">Wizard tools each run in their own Wine prefix (created in Applications, next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</translation>
+      <translation>Wizard tools voor elke uitvoering in hun eigen Wijn-voorvoegsel (gemaakt in toepassingen, naast de exe van de tool of in de app configuratiemap). Verwijderen van één enkel terugvordert schijfruimte - het wordt automatisch opnieuw aangemaakt wanneer de tool de volgende keer wordt uitgevoerd.</translation>
     </message>
     <message>
       <source>Scanning for prefixes…</source>
@@ -18514,39 +18514,39 @@ De getoonde mods worden gekopieerd naar de eigen mods-map van het profiel (hardl
     <name>ProfileSavesTransfer</name>
     <message>
       <source>Could not resolve save folders.</source>
-      <translation type="unfinished">Could not resolve save folders.</translation>
+      <translation>Kan de opgeslagen mappen niet oplossen.</translation>
     </message>
     <message>
       <source>No save folders found for this game.</source>
-      <translation type="unfinished">No save folders found for this game.</translation>
+      <translation>Geen opgeslagen mappen gevonden voor dit spel.</translation>
     </message>
     <message>
       <source> [profile saves]</source>
-      <translation type="unfinished"> [profile saves]</translation>
+      <translation> [profiel saves]</translation>
     </message>
     <message>
       <source>Choose save folder to import into</source>
-      <translation type="unfinished">Choose save folder to import into</translation>
+      <translation>Kies map opslaan om in te importeren</translation>
     </message>
     <message>
       <source>Choose save folder to export</source>
-      <translation type="unfinished">Choose save folder to export</translation>
+      <translation>Kies de map opslaan om te exporteren</translation>
     </message>
     <message>
       <source>Select</source>
-      <translation type="unfinished">Select</translation>
+      <translation>Selecteren</translation>
     </message>
     <message>
       <source>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</source>
-      <translation type="unfinished">The current contents are moved aside to a "{0}" folder first, so nothing is lost.</translation>
+      <translation>De huidige inhoud wordt eerst opzij gezet naar de "{0}" map, dus er gaat niets verloren.</translation>
     </message>
     <message>
       <source>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</source>
-      <translation type="unfinished">The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</translation>
+      <translation>De huidige {0} bestanden worden eerst opzij gezet naar een "{1}" map, dus er gaat niets verloren.</translation>
     </message>
     <message>
       <source>Import bundled saves?</source>
-      <translation type="unfinished">Import bundled saves?</translation>
+      <translation>Gebundelde besparing importeren?</translation>
     </message>
     <message>
       <source>This profile includes a saves archive.
@@ -18555,20 +18555,20 @@ Extract it into
 {0}
 
 {1}</source>
-      <translation type="unfinished">This profile includes a saves archive.
+      <translation>Dit profiel bevat een opgeslagen archief.
 
-Extract it into
+Extract het in
 {0}
 
 {1}</translation>
     </message>
     <message>
       <source>Import</source>
-      <translation type="unfinished">Import</translation>
+      <translation>Importeren</translation>
     </message>
     <message>
       <source>Skip</source>
-      <translation type="unfinished">Skip</translation>
+      <translation>Overslaan</translation>
     </message>
     <message>
       <source>Extracting saves…</source>
@@ -18576,15 +18576,15 @@ Extract it into
     </message>
     <message>
       <source>Imported {0} save file(s) ({1}).</source>
-      <translation type="unfinished">Imported {0} save file(s) ({1}).</translation>
+      <translation>Geïmporteerde {0} opslagbestand(en) ({1}).</translation>
     </message>
     <message>
       <source>Save import failed: {0}</source>
-      <translation type="unfinished">Save import failed: {0}</translation>
+      <translation>Opslaan import mislukt: {0}</translation>
     </message>
     <message>
       <source>Save import failed.</source>
-      <translation type="unfinished">Save import failed.</translation>
+      <translation>Opslaan import mislukt.</translation>
     </message>
   </context>
   <context>
@@ -18749,7 +18749,7 @@ Dit verwijdert het gehele collectieprofiel, inclusief de persoonlijke mods en bi
     </message>
     <message>
       <source>{0} runs in its own Wine prefix, separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
-      <translation type="unfinished">{0} runs in its own Wine prefix, separate from the game's prefix, so you can pick any Proton version without affecting the game.</translation>
+      <translation>{0} draait in zijn eigen Wine prefix, gescheiden van het spel, zodat je elke Proton versie kunt kiezen zonder het spel te beïnvloeden.</translation>
     </message>
     <message>
       <source>Use 64-bit version</source>
@@ -18912,47 +18912,47 @@ heeft problemen - het wordt automatisch nagemaakt bij de volgende stap.</transla
     </message>
     <message>
       <source>Install selected version</source>
-      <translation type="unfinished">Install selected version</translation>
+      <translation>Geselecteerde versie installeren</translation>
     </message>
     <message>
       <source>Download and install</source>
-      <translation type="unfinished">Download and install</translation>
+      <translation>Downloaden en installeren</translation>
     </message>
     <message>
       <source>Apply selected action</source>
-      <translation type="unfinished">Apply selected action</translation>
+      <translation>Geselecteerde actie toepassen</translation>
     </message>
     <message>
       <source>Open website</source>
-      <translation type="unfinished">Open website</translation>
+      <translation>Website openen</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
     <message>
       <source>Update listed mods</source>
-      <translation type="unfinished">Update listed mods</translation>
+      <translation>Bijwerken van genoteerde mods</translation>
     </message>
     <message>
       <source>Review the proposed provider updates below.</source>
-      <translation type="unfinished">Review the proposed provider updates below.</translation>
+      <translation>Bekijk de voorgestelde provider-updates hieronder.</translation>
     </message>
     <message>
       <source>Choose a version or repository action. Installation replaces the selected mod.</source>
-      <translation type="unfinished">Choose a version or repository action. Installation replaces the selected mod.</translation>
+      <translation>Kies een versie of repository actie. Installatie vervangt de geselecteerde modd.</translation>
     </message>
     <message>
       <source>Review the downloads and dependencies below, then choose Download and install.</source>
-      <translation type="unfinished">Review the downloads and dependencies below, then choose Download and install.</translation>
+      <translation>Bekijk de onderstaande downloads en afhankelijkheden en kies daarna Downloaden en installeren.</translation>
     </message>
     <message>
       <source>Operation completed.</source>
-      <translation type="unfinished">Operation completed.</translation>
+      <translation>Bewerking voltooid.</translation>
     </message>
     <message>
       <source>Waiting for the active operation to finish…</source>
-      <translation type="unfinished">Waiting for the active operation to finish…</translation>
+      <translation>Wachten tot de actieve bewerking klaar is…</translation>
     </message>
   </context>
   <context>
@@ -19162,7 +19162,7 @@ Als het spel nog steeds kapot is, controleer dan de spelbestanden via Steam.</tr
     </message>
     <message>
       <source>Shader packs: {0}/{1}</source>
-      <translation type="unfinished">Shader packs: {0}/{1}</translation>
+      <translation>Shader pakketten: {0}/{1}</translation>
     </message>
     <message>
       <source>Trimmed shaders to {0} preset effect(s).</source>
@@ -19502,66 +19502,66 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     <name>ReportOverlay</name>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
   </context>
   <context>
     <name>RepositoriesOverlay</name>
     <message>
       <source>Default branch</source>
-      <translation type="unfinished">Default branch</translation>
+      <translation>Standaard branch</translation>
     </message>
     <message>
       <source>Repository root</source>
-      <translation type="unfinished">Repository root</translation>
+      <translation>Repository wortel</translation>
     </message>
     <message>
       <source>Repository URL</source>
-      <translation type="unfinished">Repository URL</translation>
+      <translation>Repository URL</translation>
     </message>
     <message>
       <source>Branch</source>
-      <translation type="unfinished">Branch</translation>
+      <translation>Filiaal</translation>
     </message>
     <message>
       <source>Folder</source>
-      <translation type="unfinished">Folder</translation>
+      <translation>Map</translation>
     </message>
     <message>
       <source>Enable this repository</source>
-      <translation type="unfinished">Enable this repository</translation>
+      <translation>Schakel deze repository in</translation>
     </message>
     <message>
       <source>New</source>
-      <translation type="unfinished">New</translation>
+      <translation>Nieuw</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Opslaan</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Verwijderen</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
     <message>
       <source>Enabled</source>
-      <translation type="unfinished">Enabled</translation>
+      <translation>Ingeschakeld</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>Uitgeschakeld</translation>
     </message>
     <message>
       <source>Built-in</source>
-      <translation type="unfinished">Built-in</translation>
+      <translation>Ingebouwd</translation>
     </message>
     <message>
       <source>Repository saved.</source>
-      <translation type="unfinished">Repository saved.</translation>
+      <translation>Repository opgeslagen.</translation>
     </message>
   </context>
   <context>
@@ -20763,7 +20763,7 @@ Start de wizard opnieuw op en installeer eerst Script Merger.</translation>
     </message>
     <message>
       <source>Select path</source>
-      <translation type="unfinished">Select path</translation>
+      <translation>Pad selecteren</translation>
     </message>
   </context>
   <context>
@@ -21850,7 +21850,7 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Unassigned</source>
-      <translation type="unfinished">Unassigned</translation>
+      <translation>Niet-toegewezen</translation>
     </message>
     <message>
       <source>Reset {0} to {1}</source>
@@ -26870,7 +26870,7 @@ Volg de aanwijzingen in het terminal venster. YeetPatch vereist curl, jq, xxhsum
     </message>
     <message>
       <source>Unassigned</source>
-      <translation type="unfinished">Unassigned</translation>
+      <translation>Niet-toegewezen</translation>
     </message>
     <message>
       <source>Press key</source>
@@ -26881,7 +26881,7 @@ Volg de aanwijzingen in het terminal venster. YeetPatch vereist curl, jq, xxhsum
     <name>_DownloadMenuButton</name>
     <message>
       <source>Downloads</source>
-      <translation type="unfinished">Downloads</translation>
+      <translation>downloads</translation>
     </message>
   </context>
   <context>
@@ -27023,7 +27023,7 @@ Volg de aanwijzingen in het terminal venster. YeetPatch vereist curl, jq, xxhsum
     <name>_Popover</name>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
   </context>
   <context>
@@ -27198,11 +27198,11 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     </message>
     <message>
       <source>Mod provider</source>
-      <translation type="unfinished">Mod provider</translation>
+      <translation>Mod provider</translation>
     </message>
     <message>
       <source>Download the pinned archive using its installed plugin</source>
-      <translation type="unfinished">Download the pinned archive using its installed plugin</translation>
+      <translation>Download het vastgezette archief met behulp van de geïnstalleerde plugin</translation>
     </message>
     <message>
       <source>Browse page</source>
@@ -27294,7 +27294,7 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     <name>app</name>
     <message>
       <source>Applying plugin changes…</source>
-      <translation type="unfinished">Applying plugin changes…</translation>
+      <translation>Plugin wijzigingen toepassen…</translation>
     </message>
   </context>
   <context>
@@ -27324,7 +27324,7 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     <name>self.host</name>
     <message>
       <source>Filters</source>
-      <translation type="unfinished">Filters</translation>
+      <translation>Filters</translation>
     </message>
   </context>
   <context>
@@ -27358,43 +27358,43 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     </message>
     <message>
       <source>Plugin filters and saved views</source>
-      <translation type="unfinished">Plugin filters and saved views</translation>
+      <translation>Plugin filters en opgeslagen weergaven</translation>
     </message>
     <message>
       <source>Plugin filters</source>
-      <translation type="unfinished">Plugin filters</translation>
+      <translation>Plugin filters</translation>
     </message>
     <message>
       <source>Include matches</source>
-      <translation type="unfinished">Include matches</translation>
+      <translation>Inclusief overeenkomsten</translation>
     </message>
     <message>
       <source>Exclude matches</source>
-      <translation type="unfinished">Exclude matches</translation>
+      <translation>Uitsluiten van partnervoorstellen</translation>
     </message>
     <message>
       <source>At most 64 saved views are supported.</source>
-      <translation type="unfinished">At most 64 saved views are supported.</translation>
+      <translation>Maximaal 64 opgeslagen weergaven worden ondersteund.</translation>
     </message>
     <message>
       <source>Saved views</source>
-      <translation type="unfinished">Saved views</translation>
+      <translation>Opgeslagen weergaven</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation type="unfinished">Apply</translation>
+      <translation>Toepassen</translation>
     </message>
     <message>
       <source>Delete</source>
-      <translation type="unfinished">Delete</translation>
+      <translation>Verwijderen</translation>
     </message>
     <message>
       <source>Save view</source>
-      <translation type="unfinished">Save view</translation>
+      <translation>Beeld opslaan</translation>
     </message>
     <message>
       <source>View name:</source>
-      <translation type="unfinished">View name:</translation>
+      <translation>Naam bekijken:</translation>
     </message>
     <message>
       <source>Save current view…</source>
