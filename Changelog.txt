@@ -1,6 +1,7 @@
 - v2.6.0
 ### Game Support
 - Added Nivalis Nights
+- Added Prey (2017) #751
 ### Additions
 - Added a headless/api mode to the manager to allow external applictions/scripts to use most of the manager's functions directly
 - Added plugins support and a plugins browser,
@@ -8,6 +9,7 @@
 - Added Thunderstore share code importing through the Thunderstore dropdown
 - Added an option to export saves on profile export and import on profile import
 - Added a LOOT report button to the plugins tab showing the masterlist's general messages and plugin download locations
+- Added Open as tab support to all plugin panel tabs
 ### Changes
 - Custom repositories can now be added to source custom game handlers in the add game menu
 - Script extender wizards now default to installing into the modlist intead of the game folder
