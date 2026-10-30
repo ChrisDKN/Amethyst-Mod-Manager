@@ -1883,7 +1883,29 @@ class NexusAPI:
             app_log(f"GraphQL requirements query error: {exc}")
             return []
 
-    # -- File-level requirements (REST v3, experimental) ---------------------
+    # -- File versions and requirements (REST v3, experimental) --------------
+
+    def get_mod_file_versions_batch(self, version_uids: list[int]) -> dict[int, dict]:
+        """Resolve file versions to their update groups and ordered positions."""
+        out: dict[int, dict] = {}
+        version_uids = list(dict.fromkeys(version_uids))
+        for start in range(0, len(version_uids), 2000):
+            chunk = version_uids[start:start + 2000]
+            wanted = set(chunk)
+            try:
+                data = self._post_v3(
+                    "/mod-file-versions/batch",
+                    {"version_ids": [str(uid) for uid in chunk]})
+                for row in (data.get("data") or {}).get("versions") or []:
+                    try:
+                        uid = int(row.get("id") or 0)
+                    except (AttributeError, TypeError, ValueError):
+                        continue
+                    if uid in wanted:
+                        out[uid] = row
+            except (NexusAPIError, AttributeError, TypeError, ValueError) as exc:
+                app_log(f"v3 file version batch failed: {exc}")
+        return out
 
     def get_file_dependency_candidates_batch(
         self,

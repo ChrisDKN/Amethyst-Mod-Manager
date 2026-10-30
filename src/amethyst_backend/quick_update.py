@@ -48,12 +48,14 @@ def _checkpoint(control, summary=None):
 
 def _plan(session, game, profile, mods, log, progress, control=None):
     from Nexus.nexus_meta import read_meta
+    from Nexus.nexus_updates import NexusUpdateResolver
     from Utils.mods.copy import resolve_target_staging
     from Utils.mods.metadata import meta_file_identity, meta_file_lock
 
     selected, selection_revision = _selection(profile, mods)
     staging = Path(resolve_target_staging(game, profile))
     updates, skipped, failed, fingerprints, owners = [], [], [], [], {}
+    resolver = None
     for index, mod in enumerate(selected):
         _checkpoint(control)
         progress(index, len(selected), f"Checking Quick Update: {mod}")
@@ -72,15 +74,19 @@ def _plan(session, game, profile, mods, log, progress, control=None):
             if reason is not None:
                 skipped.append({"mod": mod, "reason": reason})
                 continue
+            if resolver is None:
+                resolver = NexusUpdateResolver(session.require_api(), log)
             result = versions_runner(session, game, profile, mod, operation_locked=True,
-                                     ignore_download_history=True)(log, lambda *_args: None)
+                                     ignore_download_history=True, update_resolver=resolver)(log, lambda *_args: None)
             with meta_file_lock(path):
                 if (meta_file_identity(path) if path.is_file() else None) != after:
                     raise JobError("stale_mod_version", "The mod changed while Quick Update read its versions.")
             catalog = result["version_catalog"]
+            if catalog.get("update_error"):
+                raise JobError("update_check_failed", catalog["update_error"])
             file_id = catalog["recommended_file_id"]
             if file_id is None:
-                skipped.append({"mod": mod, "reason": "no_name_matched_update"})
+                skipped.append({"mod": mod, "reason": "no_confirmed_update"})
                 continue
             file = next(row for row in catalog["files"] if row["file_id"] == file_id)
             if meta.ignored_version and file["version"] == meta.ignored_version:

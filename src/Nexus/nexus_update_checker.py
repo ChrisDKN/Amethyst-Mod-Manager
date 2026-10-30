@@ -5,7 +5,7 @@ Check installed Nexus mods for available updates.
 Workflow:
   1. Scan ``meta.ini`` files in the staging root to find mods with Nexus IDs.
   2. For each mod with a stored ``file_id``, fetch the mod's file list from
-     the API and compare against the latest MAIN file.
+     the API and resolve a successor through v3 update groups or saved categories.
   3. Return a list of mods that have newer files available.
 
 Usage::
@@ -18,7 +18,6 @@ Usage::
 from __future__ import annotations
 
 import copy
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, fields
 from datetime import datetime, timezone
@@ -203,6 +202,13 @@ class UpdateInfo:
     nexus_url: str = ""
 
 
+@dataclass
+class UpdateCheckIssue:
+    mod_name: str
+    game_domain: str
+    reason: str
+
+
 def check_for_updates(
     api: NexusAPI,
     staging_root: Path,
@@ -212,6 +218,7 @@ def check_for_updates(
     enabled_only: Optional[set] = None,
     installed_names: Optional[set] = None,
     max_workers: int = 10,
+    errors: Optional[list[UpdateCheckIssue]] = None,
 ) -> tuple[list["UpdateInfo"], list["MissingRequirementInfo"]]:
     """Check installed mods in domain-qualified batches.
 
@@ -222,6 +229,7 @@ def check_for_updates(
     when its staging directory is shared by several profiles.
     """
     _log = progress_cb or (lambda m: None)
+    errors = errors if errors is not None else []
     installed = scan_installed_mods(staging_root)
     if installed_names is not None:
         installed = [m for m in installed if m.mod_name in installed_names]
@@ -233,6 +241,8 @@ def check_for_updates(
         domain = normalise_game_domain(meta.game_domain) or fallback
         if domain:
             by_domain.setdefault(domain, set()).add(meta.mod_name)
+        else:
+            errors.append(UpdateCheckIssue(meta.mod_name, "", "no Nexus game domain"))
     if not by_domain:
         _log("No Nexus-sourced mods with a game domain found.")
         return [], []
@@ -268,7 +278,8 @@ def check_for_updates(
                 save_results=save_results, enabled_only=names,
                 max_workers=max_workers,
                 installed_mods=installed,
-                endorsements_cb=get_endorsements, write_meta_cb=queue_meta)
+                endorsements_cb=get_endorsements, write_meta_cb=queue_meta,
+                errors=errors)
             updates.extend(domain_updates)
             missing.extend(domain_missing)
     finally:
@@ -300,6 +311,7 @@ def _check_for_updates_one_domain(
     installed_mods: Optional[list[NexusModMeta]] = None,
     endorsements_cb: Optional[Callable[[], list[dict]]] = None,
     write_meta_cb: Optional[Callable[[Path, NexusModMeta], None]] = None,
+    errors: Optional[list[UpdateCheckIssue]] = None,
 ) -> tuple[list["UpdateInfo"], list["MissingRequirementInfo"]]:
     """
     Check all Nexus-sourced mods under *staging_root* for updates and missing
@@ -311,9 +323,10 @@ def _check_for_updates_one_domain(
     and neither consumes the REST hourly rate limit.
 
     **Update detection:**
-    For each mod, ``viewerUpdateAvailable`` is used when non-null (requires the
-    user to have tracked/downloaded the mod via Nexus).  Otherwise ``updatedAt``
-    is compared against the local install date.
+    Known files use v3 update-group positions, with category/name and version
+    comparisons as a fallback. Legacy metadata without a file ID uses the
+    mod-level version, viewer update flag, or install date. ``errors`` collects
+    mods whose updates could not be determined without clearing saved flags.
 
     **Requirements check:**
     Each mod’s listed Nexus requirements are cross-referenced against the set of
@@ -350,6 +363,12 @@ def _check_for_updates_one_domain(
     """
     _log = progress_cb or (lambda m: None)
     save_meta = write_meta_cb or write_meta
+    errors = errors if errors is not None else []
+    initial_errors = len(errors)
+
+    def failed(meta, reason):
+        errors.append(UpdateCheckIssue(meta.mod_name, game_domain, reason))
+        _log(f"  {meta.mod_name}: could not check updates ({reason}).")
 
     # 1. Scan installed mods with Nexus metadata
     installed = (scan_installed_mods(staging_root)
@@ -385,6 +404,10 @@ def _check_for_updates_one_domain(
         or _parse_install_date(m) is not None
     ]
     skipped = len(installed) - len(checkable)
+    checkable_names = {meta.mod_name for meta in checkable}
+    for meta in installed:
+        if meta.mod_name not in checkable_names:
+            failed(meta, "no version, file id, or install date")
 
     _log(f"Checking {len(checkable)} Nexus mod(s) for updates"
          f"{f' ({skipped} skipped - no version, file id, or install date)' if skipped else ''}...")
@@ -414,7 +437,11 @@ def _check_for_updates_one_domain(
     # -----------------------------------------------------------------------
     _log("Fetching update info via GraphQL...")
     gql_ids = [(game_domain, mod_id) for mod_id in by_mod_id]
-    gql_info: dict[int, NexusModUpdateInfo] = api.graphql_mod_update_info_batch(gql_ids)
+    try:
+        gql_info: dict[int, NexusModUpdateInfo] = api.graphql_mod_update_info_batch(gql_ids)
+    except Exception as exc:
+        _log(f"  GraphQL update info failed ({exc}); using file comparisons.")
+        gql_info = {}
 
     # Backfill meta.description / meta.uploaded_by from the GraphQL data
     # whenever they differ (or were empty). Free - same batch call already
@@ -449,6 +476,7 @@ def _check_for_updates_one_domain(
         mod_id for mod_id, metas in by_mod_id.items()
         if any(m.file_id > 0 for m in metas)
     ]
+    gql_files = {}
     if mods_needing_files:
         _log(f"Fetching file lists for {len(mods_needing_files)} mod(s) via GraphQL...")
         try:
@@ -468,7 +496,7 @@ def _check_for_updates_one_domain(
                 f = by_fid.get(meta.file_id)
                 if f is None or not f.category_name:
                     continue
-                if meta.file_category != f.category_name:
+                if not (meta.file_category or "").strip():
                     meta.file_category = f.category_name
                     if save_results:
                         save_meta(staging_root / meta.mod_name / "meta.ini", meta)
@@ -507,7 +535,7 @@ def _check_for_updates_one_domain(
     # -----------------------------------------------------------------------
     # 3. Classify each mod.
     #    - file_id known → file-level check (installed file's actual
-    #      version vs latest-in-same-category; authoritative and not
+    #      version vs latest-in-recorded-category; authoritative and not
     #      affected by meta-page version drift or stale meta.ini strings).
     #    - file_id missing (legacy MO2 imports):
     #        Path A  viewerUpdateAvailable == True  → trusted update
@@ -526,9 +554,9 @@ def _check_for_updates_one_domain(
             gql_version_backfilled = False
 
             # --- File-level check whenever we can identify the installed
-            # file: the file record is authoritative for both version and
-            # category, so we compare installed_file.version to the latest
-            # file in the same category. This avoids (1) false positives
+            # file: use its authoritative version and the saved category
+            # to compare against the latest file in that category.
+            # This avoids (1) false positives
             # from non-MAIN installs being compared against a newer MAIN
             # upload, and (2) stale `meta.version` strings from install-
             # time filename parsing (e.g. "Mod-3-0-1" but real version is
@@ -576,7 +604,7 @@ def _check_for_updates_one_domain(
                     gql_version_backfilled = True
 
             else:
-                # No usable comparison data - skip
+                failed(meta, "no usable update information")
                 continue
 
             _apply_update_result(
@@ -604,158 +632,65 @@ def _check_for_updates_one_domain(
     #    GraphQL didn't return the mod (avoids N REST calls for batched mods).
     # -----------------------------------------------------------------------
     if rest_fallback:
-        _lock = threading.Lock()
+        from Nexus.nexus_updates import NexusUpdateResolver
 
-        def _check_with_files(mod_id: int, metas: list[NexusModMeta], files: list) -> None:
-            """Process mod(s) using file list - from GraphQL batch or REST."""
-            gql_mod_info = gql_info.get(mod_id)
-            cat_id = gql_mod_info.category_id if gql_mod_info else 0
+        file_lists = dict(gql_files)
+        for mid in rest_fallback:
+            info = gql_info.get(mid)
+            if mid not in file_lists and info and info.files:
+                file_lists[mid] = info.files
+        rest_only = [mid for mid in rest_fallback if not file_lists.get(mid)]
+        if rest_only:
+            _log(f"  Fetching file lists for {len(rest_only)} mod(s) without batch results.")
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futures = {pool.submit(api.get_mod_files, game_domain, mid): mid
+                           for mid in rest_only}
+                for future in as_completed(futures):
+                    mid = futures[future]
+                    try:
+                        file_lists[mid] = future.result().files
+                    except Exception as exc:
+                        file_lists.pop(mid, None)
+                        for meta in rest_fallback[mid]:
+                            failed(meta, f"could not fetch files: {exc}")
+
+        resolver = NexusUpdateResolver(api, _log)
+        resolver.prepare(game_domain, [
+            (meta, file_lists[mid]) for mid, metas in rest_fallback.items()
+            if file_lists.get(mid) for meta in metas])
+        for mid, metas in rest_fallback.items():
+            files = file_lists.get(mid)
             if not files:
-                return
-
-            # Pick the "latest" file for version comparison.  Prefer matching
-            # the installed file's display name (same slot / variant) when we
-            # can identify it; otherwise fall back to the newest file overall.
-            newest_overall = max(files, key=lambda f: f.uploaded_timestamp)
-
+                if mid in file_lists:
+                    for meta in metas:
+                        failed(meta, "Nexus returned no files")
+                continue
+            info = gql_info.get(mid)
             for meta in metas:
-                installed_file = (
-                    next((f for f in files if f.file_id == meta.file_id), None)
-                    if meta.file_id > 0
-                    else None
+                result = resolver.resolve(game_domain, meta, files)
+                if result.error:
+                    errors.append(UpdateCheckIssue(meta.mod_name, game_domain, result.error))
+                    continue
+                version_backfilled = bool(result.installed_version and
+                                          result.installed_version != meta.version)
+                if version_backfilled:
+                    meta.version = result.installed_version
+                latest = result.file
+                _apply_update_result(
+                    result.has_update, meta, mid, game_domain,
+                    latest_version=(latest.version or latest.mod_version or "") if latest else meta.version,
+                    latest_file_id=latest.file_id if latest else meta.file_id,
+                    latest_file_name=latest.file_name if latest else "",
+                    updates=updates, staging_root=staging_root,
+                    save_results=save_results, _log=_log,
+                    category_id=info.category_id if info else 0,
+                    category_name=info.category_name if info else "",
+                    version_backfilled=version_backfilled, write_meta_cb=save_meta,
                 )
 
-                # Backfill meta.version from the installed file record.
-                # The file record on Nexus is authoritative - meta.ini's
-                # version field is often stale because it was parsed from
-                # the archive filename at install time (which lags behind
-                # the actual upload version, e.g. archive "...-1-0-33-..."
-                # for file 1.0.34). Overwriting with the file's true
-                # version prevents false "update available" flags when
-                # installed_file_id already equals the latest file id.
-                version_backfilled = False
-                if installed_file:
-                    _vf = installed_file.version or installed_file.mod_version or ""
-                    if _vf and meta.version != _vf:
-                        meta.version = _vf
-                        version_backfilled = True
-
-                # Pick comparison target - only consider files in the
-                # same category (MAIN, OPTIONAL, etc.) so that e.g. a
-                # newer OPTIONAL file doesn't flag a MAIN install.
-                #
-                # Special case: if the installed file has been moved to
-                # OLD_VERSION / ARCHIVED / REMOVED, the author has
-                # superseded it. We don't know which category the user
-                # originally installed from (MAIN vs OPTIONAL), so
-                # compare against the newest non-superseded file of any
-                # current category - any of those could be the intended
-                # replacement.
-                installed_cat = (
-                    installed_file.category_name
-                    if installed_file
-                    else meta.file_category or ""
-                ).strip().upper()
-                _SUPERSEDED = {"OLD_VERSION", "ARCHIVED", "REMOVED"}
-                if installed_cat in _SUPERSEDED:
-                    target_cat = ""
-                    cat_matches = [
-                        f for f in files
-                        if (f.category_name or "").strip().upper()
-                        not in _SUPERSEDED
-                    ]
-                else:
-                    target_cat = installed_cat
-                    cat_matches = (
-                        [f for f in files if (f.category_name or "").strip().upper() == target_cat]
-                        if target_cat else []
-                    )
-
-                # When we can identify the installed file, further restrict
-                # comparison to files sharing its display name - same Nexus
-                # "slot"/variant. Otherwise a mod page like Engine Fixes,
-                # which ships both "Engine Fixes - Main File" and
-                # "Engine Fixes - SKSE64 Preloader" under MAIN, would flag
-                # the Preloader as updated whenever the Main File bumps,
-                # even though the Preloader itself hasn't changed.
-                # Only apply this narrowing if the installed file's name
-                # actually matches at least one file in the current list -
-                # otherwise the file may have been renamed and we should
-                # fall back to the broader category set.
-                if cat_matches and installed_file and installed_file.name:
-                    name_in_cat = [f for f in cat_matches
-                                   if f.name == installed_file.name]
-                    if name_in_cat:
-                        cat_matches = name_in_cat
-
-                if cat_matches:
-                    latest = max(cat_matches, key=lambda f: f.uploaded_timestamp)
-                elif installed_file:
-                    # Fallback: match by display name if no category info
-                    name_matches = [f for f in files if f.name == installed_file.name]
-                    latest = max(name_matches, key=lambda f: f.uploaded_timestamp)
-                else:
-                    latest = newest_overall
-
-                latest_ver = latest.version or latest.mod_version or ""
-
-                install_date = _parse_install_date(meta)
-                if meta.version:
-                    # Version compare - authoritative per user spec.
-                    has_update = _version_is_newer(latest_ver, meta.version)
-                elif install_date is not None:
-                    # No version even after REST lookup - date-compare fallback.
-                    latest_upload = datetime.fromtimestamp(
-                        latest.uploaded_timestamp, tz=timezone.utc
-                    )
-                    has_update = latest_upload > install_date
-                else:
-                    continue
-
-                with _lock:
-                    _apply_update_result(
-                        has_update, meta, mod_id, game_domain,
-                        latest_version=latest.version or latest.mod_version or "",
-                        latest_file_id=latest.file_id if installed_file else 0,
-                        latest_file_name=latest.file_name,
-                        updates=updates,
-                        staging_root=staging_root,
-                        save_results=save_results,
-                        _log=_log,
-                        category_id=cat_id,
-                        category_name=gql_mod_info.category_name if gql_mod_info else "",
-                        version_backfilled=version_backfilled,
-                        write_meta_cb=save_meta,
-                    )
-
-        # Use batch files when GraphQL returned them; REST only for mods not in gql_info
-        rest_only: dict[int, list[NexusModMeta]] = {}
-        for mid, metas in rest_fallback.items():
-            info = gql_info.get(mid)
-            if info and info.files:
-                _check_with_files(mid, metas, info.files)
-            else:
-                rest_only[mid] = metas
-
-        if rest_only:
-            _log(f"  Falling back to REST get_mod_files for {len(rest_only)} mod(s) "
-                 "(GraphQL returned no file list).")
-            def _check_rest(mod_id: int, metas: list[NexusModMeta]) -> None:
-                try:
-                    files_resp = api.get_mod_files(game_domain, mod_id)
-                    _check_with_files(mod_id, metas, files_resp.files)
-                except NexusAPIError as exc:
-                    _log(f"  {metas[0].mod_name}: could not fetch files ({exc})")
-
-            with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                futures = {
-                    pool.submit(_check_rest, mid, metas): mid
-                    for mid, metas in rest_only.items()
-                }
-                for future in as_completed(futures):
-                    future.result()
-
-    _log(f"Update check complete: {len(updates)} update(s) available.")
+    incomplete = len(errors) - initial_errors
+    _log(f"Update check complete: {len(updates)} update(s) available"
+         f"{f'; {incomplete} mod(s) could not be checked' if incomplete else ''}.")
 
     # -----------------------------------------------------------------------
     # 5. Requirements check - mod-level from the same gql_info batch data;

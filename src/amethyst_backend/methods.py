@@ -420,7 +420,7 @@ REGISTRY = MappingProxyType({
         lambda service, params: service._start_set_bundle(params), effect='write'),
     'mods.check_updates.start': Method('game profile', 'mods sources', 'Check profile-scoped Nexus, Thunderstore, and BG3 mod.io updates.',
         lambda service, params: service._start_check_mod_updates(params), effect='write'),
-    'mods.quick_update.plan.start': Method('game profile', 'mods source', 'Plan updates using the desktop Nexus filename-family matcher, with owner resolution and a revision.',
+    'mods.quick_update.plan.start': Method('game profile', 'mods source', 'Plan confirmed Nexus successors with owner resolution and a revision.',
         lambda service, params: service._start_plan_quick_update(params)),
     'mods.quick_update.start': Method('confirm game profile revision', 'download_only installer_policy mods per_mod source', 'Acquire archives in parallel and optionally replace mods sequentially, with per-mod rollback and partial-result reporting.',
         lambda service, params: service._start_quick_update(params), effect='write', cancellable=True, pausable=True),

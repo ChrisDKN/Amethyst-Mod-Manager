@@ -768,6 +768,7 @@ def check_updates_runner(
                             api = session.require_api()
                             from Nexus.nexus_update_checker import check_for_updates
 
+                            nexus_errors = []
                             updates, missing = check_for_updates(
                                 api,
                                 staging,
@@ -777,6 +778,7 @@ def check_updates_runner(
                                 save_results=True,
                                 enabled_only=nexus_tracked,
                                 installed_names=set(available),
+                                errors=nexus_errors,
                             )
                         except Exception as exc:
                             if len(sources) == 1:
@@ -787,6 +789,10 @@ def check_updates_runner(
                             })
                             log(f"[nexus] update check failed: {exc}")
                         else:
+                            source_errors.extend({
+                                "source": "nexus", "mod": issue.mod_name,
+                                "domain": issue.game_domain, "message": issue.reason,
+                            } for issue in nexus_errors)
                             updates.sort(key=lambda item: (
                                 order.get(item.mod_name, len(order)),
                                 item.mod_name,

@@ -801,6 +801,7 @@ class AmethystService:
                     "sources": ["nexus", "thunderstore", "modio", "plugin"], "catalog": True,
                     "plugin_source_prefix": "plugin:",
                     "installed_highlights": True, "name_matched_recommendations": True,
+                    "update_group_recommendations": True,
                     "revision_checked": True, "owner_resolution": True,
                     "cached_archives": True, "nxm_downloads": True,
                     "installer_choices": True, "routing_sync": "affected_profiles",

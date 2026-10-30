@@ -25,8 +25,9 @@ from gui_qt.appearance.theme import (
 from gui_qt.nexus.file_chooser import _plain_text
 from gui_qt.runtime.safe_emit import safe_emit
 from Utils.mods.versions import (
-    CATEGORY_ORDER, resolve_latest_name_match, fmt_size, sort_key,
+    CATEGORY_ORDER, fmt_size, sort_key,
 )
+from Nexus.nexus_updates import NexusUpdateResolver
 
 _CATEGORY_LABELS = {
     "MAIN": QT_TRANSLATE_NOOP("ChangeVersionView", "Main files"),
@@ -60,7 +61,7 @@ class _LegendBar(QWidget):
             ("TEXT_OK_BRIGHT", "Currently installed"),
             ("STATUS_QUEUED", "Newest matching version"),
             ("TEXT_ERR_BRIGHT", "Older matching version"),
-            (None, "No name match"),
+            (None, "Other files"),
         ]
         self._entries = [self._make_entry(p, key, lbl)
                          for key, lbl in legend_items]
@@ -149,6 +150,7 @@ class ChangeVersionView(QWidget):
         self._dl_key = None    # progress-item key while a manual watch is armed
         self._installing = False
         self._files = None          # cached (sorted) file list for _meta.mod_id
+        self._update_resolver = None
         self._fetch_gen = 0         # invalidates in-flight fetches on retarget
         self._render_tasks = []
         self._render_index = 0
@@ -295,13 +297,16 @@ class ChangeVersionView(QWidget):
             self._status.setVisible(False)
         domain = self._effective_domain()
         mod_id = int(getattr(self._meta, "mod_id", 0) or 0)
+        meta = self._meta
         self._fetch_gen += 1
         gen = self._fetch_gen
 
         def worker():
             try:
                 resp = self._api.get_mod_files(domain, mod_id)
-                safe_emit(self._files_ready, list(resp.files), None, gen)
+                resolver = NexusUpdateResolver(self._api, self._log)
+                resolver.prepare(domain, [(meta, resp.files)], history=True)
+                safe_emit(self._files_ready, (list(resp.files), resolver), None, gen)
             except Exception as exc:
                 safe_emit(self._files_ready, None, str(exc), gen)
 
@@ -316,6 +321,7 @@ class ChangeVersionView(QWidget):
             self._status.setText(self.tr("Could not load files: {0}").format(error))
             self._status.setVisible(True)
             return
+        files, self._update_resolver = files
         if not files:
             self._loading_overlay.hide_overlay()
             self._body.setEnabled(True)
@@ -362,8 +368,8 @@ class ChangeVersionView(QWidget):
         self._body.setUpdatesEnabled(False)
         self._body_l.setEnabled(False)
         installed_id = int(getattr(self._meta, "file_id", 0) or 0)
-        match_id, old_ids = resolve_latest_name_match(
-            files, installed_id, self._mod_name)
+        resolution = self._update_resolver.resolve(self._effective_domain(), self._meta, files)
+        match_id, old_ids = resolution.match_id, resolution.old_ids
         domain = self._effective_domain()
         mod_id = int(getattr(self._meta, "mod_id", 0) or 0)
 
@@ -515,8 +521,8 @@ class ChangeVersionView(QWidget):
 
     def _refresh_highlights(self):
         installed_id = int(getattr(self._meta, "file_id", 0) or 0)
-        match_id, old_ids = resolve_latest_name_match(
-            self._files, installed_id, self._mod_name)
+        resolution = self._update_resolver.resolve(self._effective_domain(), self._meta, self._files)
+        match_id, old_ids = resolution.match_id, resolution.old_ids
         rows = []
         for frame, name, _, _, f, title in self._rows:
             state, bg_key, fg_key = self._highlight_for_file(
@@ -563,6 +569,8 @@ class ChangeVersionView(QWidget):
         previous version was removed and the folder name swapped) just repaints
         the highlights from the cached list."""
         old_mod_id = int(getattr(self._meta, "mod_id", 0) or 0)
+        old_domain = self._effective_domain()
+        old_file_id = int(getattr(self._meta, "file_id", 0) or 0)
         # The repopulate below deletes the row buttons a pending browser-watch
         # flow still references - stop it first (same as an Install-click toggle).
         if self._manual_watch is not None:
@@ -575,7 +583,10 @@ class ChangeVersionView(QWidget):
         self._ignore_cb.setChecked(bool(getattr(meta, "ignore_update", False)))
         self._ignore_cb.blockSignals(False)
         self.clear_install_status()
-        if int(getattr(meta, "mod_id", 0) or 0) != old_mod_id or not self._files:
+        file_id = int(getattr(meta, "file_id", 0) or 0)
+        if (int(getattr(meta, "mod_id", 0) or 0) != old_mod_id
+                or self._effective_domain() != old_domain or not self._files
+                or (file_id != old_file_id and not any(f.file_id == file_id for f in self._files))):
             self._render_timer.stop()
             self._finish_timer.stop()
             self._render_tasks = []

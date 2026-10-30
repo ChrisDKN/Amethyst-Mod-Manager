@@ -106,10 +106,12 @@ def _selected_target(game, context):
     return selected
 
 
-def versions_runner(session, game, profile, mod, source="nexus", *, operation_locked=False, ignore_download_history=False):
+def versions_runner(session, game, profile, mod, source="nexus", *, operation_locked=False,
+                    ignore_download_history=False, update_resolver=None):
     def run(_log, progress):
         from Utils.operations import acquire_game_operation
-        from Utils.mods.versions import resolve_latest_name_match, sort_key
+        from Utils.mods.versions import sort_key
+        from Nexus.nexus_updates import NexusUpdateResolver
 
         def operation():
             with (nullcontext() if operation_locked else acquire_game_operation(game, "mods.versions.get")):
@@ -139,9 +141,14 @@ def versions_runner(session, game, profile, mod, source="nexus", *, operation_lo
                 listing = cached_read(("nexus.files", context["domain"], context["nexus_meta"].mod_id),
                                       lambda: api.get_mod_files(context["domain"], context["nexus_meta"].mod_id))
                 installed = context["nexus_meta"].file_id
-                match, old = resolve_latest_name_match(listing.files, installed, context["target_mod"])
+                resolver = update_resolver or NexusUpdateResolver(api, _log)
+                resolver.prepare(context["domain"], [(context["nexus_meta"], listing.files)], history=True)
+                resolution = resolver.resolve(context["domain"], context["nexus_meta"], listing.files)
+                match, old = resolution.match_id, resolution.old_ids
+                recommended = (match if resolution.has_update and resolution.automatic
+                               and match > 0 and match != installed else None)
                 files = [{**_file(file), "installed": file.file_id == installed,
-                          "recommended": file.file_id == match and match != installed,
+                          "recommended": file.file_id == recommended,
                           "older_match": file.file_id in old}
                          for file in sorted(listing.files, key=sort_key)]
                 _context(game, profile, mod, context["properties"]["revision"],
@@ -149,7 +156,9 @@ def versions_runner(session, game, profile, mod, source="nexus", *, operation_lo
                 _selected_target(game, context)
                 progress(1, 1, "Mod versions ready")
                 return {"version_catalog": {**_binding(context), "revision": context["properties"]["revision"],
-                                            "recommended_file_id": match if match > 0 and match != installed else None,
+                                            "recommended_file_id": recommended,
+                                            "update_source": resolution.source,
+                                            "update_error": resolution.error or None,
                                             "files": files},
                         "rate_limits": _rate_limits(api)}
         return _call(operation)

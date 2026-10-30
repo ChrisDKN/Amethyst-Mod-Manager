@@ -300,6 +300,7 @@ The response describes the protocol and available features:
         "catalog": true,
         "installed_highlights": true,
         "name_matched_recommendations": true,
+        "update_group_recommendations": true,
         "revision_checked": true,
         "owner_resolution": true,
         "cached_archives": true,
@@ -931,7 +932,7 @@ Result schemas allow additional properties for compatible additions.
 | `mods.properties.set.start` | `game`, `profile`, `mod`, `revision`, non-empty `changes` object | Save supported metadata fields atomically and refresh affected routing when requested. |
 | `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus`, `thunderstore`, `modio`, or `plugin:<plugin-id>/<provider-id>`) | Read installed source identity, the version catalogue, recommendations, ownership, and revision. |
 | `mods.version.change.start` | `game`, `profile`, `mod`, `revision`, `confirm:true`; Nexus/mod.io `file_id` or Thunderstore `version`; `source`, archive/download options, installer choices, and Thunderstore `dependency_policy` (optional) | Replace an installed mod with a selected source version and refresh affected profile routing and plugins. |
-| `mods.quick_update.plan.start` | `game`, `profile`; `mods` array and `source` (`nexus` or `plugins`, optional) | Plan Nexus filename-family updates or plugin repository recommendations, with owner resolution and a revision. |
+| `mods.quick_update.plan.start` | `game`, `profile`; `mods` array and `source` (`nexus` or `plugins`, optional) | Plan confirmed Nexus successors or plugin repository recommendations, with owner resolution and a revision. |
 | `mods.quick_update.start` | `game`, `profile`, plan `revision`, `confirm:true`; matching `mods`, `download_only`, `installer_policy`, and `per_mod` options (optional) | Acquire archives in parallel and optionally replace mods sequentially, with per-mod rollback and partial-result reporting. |
 | `mods.notes.get` | `game`, `profile`; `mods` array (optional) | Read profile-local notes for real mods and the current revision. |
 | `mods.notes.set.start` | `game`, `profile`, `revision`, `changes` object; `append` boolean (optional) | Replace, append, or remove selected notes atomically. |
@@ -2984,9 +2985,10 @@ Poll the job for `result.version_catalog` and `rate_limits`. The catalogue
 includes the installed domain/mod/file identity, version, requested mod,
 resolved owner, affected profiles, and `revision`. Files include descriptions,
 categories, sizes, upload times, and `installed`, `recommended`, and
-`older_match` flags. Name matching and category ordering use the same helpers
-as the desktop Change Version window. A recommendation is a filename-family
-match; it does not establish compatibility with the other installed mods.
+`older_match` flags. Recommendations use the same update-group resolver and
+category fallback as the desktop Change Version window. `update_source`
+explains the selection; `update_error` reports an incomplete check. A
+recommendation does not establish compatibility with other installed mods.
 
 Choose an exact `file_id` from that catalogue:
 
@@ -3060,10 +3062,11 @@ live file catalogues. Other sources are unsupported by Quick Update.
 
 Omitting `mods` considers only Nexus mods with a saved pending-update flag.
 An explicit selection also checks unflagged mods. Both respect update ignores
-and ignored versions. The newest file in the installed file's display-name
-family is selected using the desktop matcher; renamed local folders retain
-that family when the installed file is still listed. A mod without a suitable
-name match is skipped and can use Change Version instead.
+and ignored versions. Nexus v3 update groups identify later active releases,
+including renamed files and replacement uploads with unchanged version strings.
+When group data is unavailable, the shared desktop resolver uses saved file
+categories and matching names. Unconfirmed successors are skipped and can use
+Change Version instead. Failed checks appear in `failed`.
 
 Execute with the same selection and the returned revision:
 
@@ -3414,6 +3417,9 @@ nonfatal `source_errors`, and current Nexus rate-limit
 information when Nexus was queried. The checkers persist their update state in
 the existing `meta.ini` files, so a later `mods.list` reflects the refreshed
 state. The job does not download, install, reorder, enable, or deploy anything.
+Nexus checks use batched v3 update-group positions when available, retaining
+saved file categories as a fallback. Incomplete checks contribute per-mod
+`source_errors` with the domain and reason and preserve previous update flags.
 For Nexus updates, use the returned exact IDs with the normal Nexus download
 and archive-install methods, or query `nexus.mods.files.start` when no latest
 file ID is available.

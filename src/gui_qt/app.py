@@ -8750,7 +8750,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         def _worker():
             # Carry the checked subset (None = all) so _on_updates_ready can do a
             # scoped, filemap-free flag refresh instead of a full reload.
-            out = {"nexus": None, "modio": [], "thunderstore": [],
+            out = {"nexus": None, "nexus_errors": [], "modio": [], "thunderstore": [],
                    "subset": subset,
                    "modio_api_path_missing": modio_api_path_missing}
             try:
@@ -8797,10 +8797,12 @@ class MainWindow(QMainWindow, PluginPanelControls):
                         out["nexus"] = check_for_updates(
                             api, staging, game_domain=domain, save_results=True,
                             enabled_only=subset,
+                            errors=out["nexus_errors"],
                             progress_cb=lambda m: self._append_log(f"[nexus] {m}"),
                         )
                     except Exception as exc:
                         self._append_log(f"[nexus] update check failed: {exc}")
+                        out["nexus_failed"] = True
                     else:
                         try:
                             from Nexus.nexus_meta import scan_installed_mods
@@ -8863,6 +8865,11 @@ class MainWindow(QMainWindow, PluginPanelControls):
         nexus = result.get("nexus")
         modio = result.get("modio") or []
         parts = []
+        if result.get("nexus_failed"):
+            parts.append(self.tr("Nexus update check failed; see log"))
+        elif result.get("nexus_errors"):
+            parts.append(self.tr("Nexus: {0} mod(s) could not be checked; see log").format(
+                len(result["nexus_errors"])))
         provider_results = result.get("providers") or {"items": [], "errors": []}
         provider_updates = [item for item in provider_results["items"] if item["has_update"]]
         if provider_updates:
@@ -9827,13 +9834,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                                  "Downloads tab.").format(len(dl_items)), "success")
 
     def _quick_update_mods(self, mod_names):
-        """Auto-install the latest name-matched version for each update-flagged
-        mod (Tk parity, gui/modlist_nexus_actions._quick_update_mods). Mods whose
-        latest file isn't a name match are skipped - the user updates those via
-        Change Version. Three phases, all off the UI thread: resolve the target
-        file_ids (parallel) → download them (parallel, premium-gated) → install
-        the whole batch via _install_paths with the folder name forced (silent
-        Replace-All)."""
+        """Resolve confirmed successors, download and install off the UI thread."""
         if not self._allow_mod_file_changes(mod_names):
             return
         if getattr(self, "_quick_updating", False):
@@ -9870,26 +9871,50 @@ class MainWindow(QMainWindow, PluginPanelControls):
 
         def _resolve_worker():
             import concurrent.futures as _cf
+            from Nexus.nexus_meta import normalise_game_domain, read_meta
+            from Nexus.nexus_updates import NexusUpdateResolver
             from Utils.mods.quick_update import resolve_quick_update_target
             queue = []
             skipped = []   # (mod_name, reason)
+            log = lambda message: self._append_log(f"[nexus] {message}")
+            resolver = NexusUpdateResolver(api, log)
 
-            def _one(nm):
+            def _prepare(nm):
                 from Utils.mods.version_history import VersionChangeContext
                 try:
                     change = VersionChangeContext.capture(game, profile_dir, nm, "nexus")
+                    meta = read_meta(staging / nm / "meta.ini")
+                    if not meta.mod_id or meta.ignore_update:
+                        return None, "no Nexus identity or updates ignored"
+                    mod_domain = normalise_game_domain(meta.game_domain) or normalise_game_domain(domain)
+                    files = api.get_mod_files(mod_domain, meta.mod_id).files
+                    return (change, meta, mod_domain, files), None
                 except Exception as exc:
-                    return "skipped", str(exc)
-                status, payload = resolve_quick_update_target(api, staging, nm, domain)
-                return status, payload + (change,) if status == "queued" else payload
+                    return None, str(exc)
 
             with _cf.ThreadPoolExecutor(max_workers=4) as pool:
-                for nm, (status, payload) in zip(targets, pool.map(_one, targets)):
+                prepared = list(zip(targets, pool.map(_prepare, targets)))
+            domains = {}
+            for _nm, (item, _error) in prepared:
+                if item is not None:
+                    _change, meta, mod_domain, files = item
+                    domains.setdefault(mod_domain, []).append((meta, files))
+            for mod_domain, entries in domains.items():
+                resolver.prepare(mod_domain, entries)
+            for nm, (item, error) in prepared:
+                if item is None:
+                    status, payload = "skipped", error
+                else:
+                    change, _meta, _mod_domain, files = item
+                    status, payload = resolve_quick_update_target(
+                        api, staging, nm, domain, resolver=resolver, files=files)
                     if status == "queued":
-                        queue.append(payload)
-                    else:
-                        skipped.append((nm, payload))
-                        self._append_log(f"[nexus] {nm} - {payload}, skipped.")
+                        payload += (change,)
+                if status == "queued":
+                    queue.append(payload)
+                else:
+                    skipped.append((nm, payload))
+                    log(f"{nm} - {payload}, skipped.")
             self._qu_resolved.emit(queue, skipped)
 
         threading.Thread(target=_resolve_worker, daemon=True,
@@ -10080,7 +10105,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             self._qu_skipped = []
             self._append_log(
                 f"[nexus] Quick Update (download only) - {len(dl_items)} downloaded, "
-                f"{len(skipped)} skipped (no name match), {len(failed)} failed.")
+                f"{len(skipped)} skipped, {len(failed)} failed.")
             for name, reason in failed:
                 self._append_log(f"[nexus] Quick Update - {name}: {reason}")
             self._notify(self.tr("Quick Update: downloaded {0} update(s) - install "
@@ -10122,7 +10147,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             self._reload_modlist()
         self._append_log(
             f"[nexus] Quick Update - {updated} updated, "
-            f"{len(skipped)} skipped (no name match), {len(failed)} failed.")
+            f"{len(skipped)} skipped, {len(failed)} failed.")
         for name, reason in failed:
             self._append_log(f"[nexus] Quick Update - {name}: {reason}")
         if updated:
@@ -10134,7 +10159,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             return
         parts = []
         if skipped:
-            parts.append(f"{len(skipped)} had no name-matched file")
+            parts.append(f"{len(skipped)} skipped; see log")
         if failed:
             parts.append(f"{len(failed)} failed to download or install")
         self._notify(
