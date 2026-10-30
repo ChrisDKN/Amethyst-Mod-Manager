@@ -17475,15 +17475,13 @@ class MainWindow(QMainWindow, PluginPanelControls):
             except Exception as exc:
                 print(f"[gui_qt] remove-previous group check failed: {exc}",
                       flush=True)
-            # New inherits old's enabled state + position in the profile that
-            # owns the files, and the OLD row is dropped there (remove_mods
-            # intentionally does NOT touch modlist.txt).
+            previous = [e for e in read_modlist(pdir / "modlist.txt")
+                        if e.name != new_name]
+            removed_slot = next(((i, e.enabled) for i, e in enumerate(previous)
+                                 if e.name == old_folder), None)
             from amethyst_plugins.metadata import copy_mod_metadata
             copy_mod_metadata(pdir, pdir, old_folder, new_name)
-            replace_mod_in_place(pdir / "modlist.txt", old_folder, new_name)
             if group_dir is None:
-                # Delete the old mod's files/plugins/index (NOT its modlist row
-                # - already dropped above).
                 remove_mods(game, pdir, [old_folder], log_fn=log)
             else:
                 from Utils.profiles.groups import (remove_member_mod,
@@ -17495,15 +17493,23 @@ class MainWindow(QMainWindow, PluginPanelControls):
                     # Both versions are group entries: undeploy + drop the old
                     # one properly, and give the new one its slot. A locked
                     # member vetoes the removal - then the row stays too.
-                    if remove_mods_from_group(game, group_dir, [old_folder],
-                                              log_fn=log):
-                        replace_mod_in_place(gml, old_folder, new_name)
+                    if not remove_mods_from_group(game, group_dir, [old_folder],
+                                                  log_fn=log):
+                        return
+                    replace_mod_in_place(gml, old_folder, new_name)
                 else:
                     # The group's reconcile already renamed its entry to the
                     # new version - only the member's stale copy is left.
                     remove_member_mod(game, pdir, old_folder, log_fn=log)
+            replace_mod_in_place(pdir / "modlist.txt", old_folder, new_name,
+                                 removed_slot=removed_slot)
         except Exception as exc:
             self._append_log(f"[install] remove-previous failed: {exc}")
+            self._notify(self.tr("Could not remove the previous version: {0}").format(exc),
+                         "error")
+            if reload_modlist:
+                self._reload_modlist()
+            return
         # The swap happened member-side when a group is active - rebuild the
         # group so the reload sees the new version in the old one's slot
         # (same identity → the reconcile migrates the entry in place).

@@ -1800,8 +1800,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                     strict=strict)
             except Exception as exc:
                 log(f"undeploy during group remove failed: {exc}")
-                if strict:
-                    raise
+                raise
         else:
             log("no deployment is active - skipping undeploy of removed mod(s).")
 

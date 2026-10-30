@@ -10,7 +10,12 @@ and its files stay deployed). Pure stdlib + Utils.* - no GUI toolkit.
 from __future__ import annotations
 
 import shutil
+import stat
 from pathlib import Path
+
+
+class IncompleteUndeployError(RuntimeError):
+    pass
 
 
 def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
@@ -64,8 +69,7 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
                 strict=strict)
         except Exception as exc:
             log(f"undeploy during remove failed: {exc}")
-            if strict:
-                raise
+            raise
     else:
         log("no deployment is active - skipping undeploy of removed mod(s).")
 
@@ -160,13 +164,15 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
     """Safely unlink committed deployment entries owned by *mod_names*.
 
     The source tree must still exist. Copies are accepted only when size and
-    mtime match; links must resolve to the exact staged source.
+    mtime match; links must resolve to the exact staged source. Incomplete
+    undeployment raises IncompleteUndeployError before source cleanup.
     """
     from Utils.deployment.shared import _prune_empty_dirs
     from Utils.filegraph.deploy import absolute_destination
     log = log_fn or (lambda _message: None)
     remove_keys = {name.lower() for name in mod_names}
     removed = 0
+    failures: list[str] = []
     dirs_to_prune: set[Path] = set()
     stop_dirs: set[Path] = set()
     for entry in profile.deployed_entries():
@@ -174,20 +180,25 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
             continue
         destination = absolute_destination(game, entry)
         if destination is None:
+            failures.append(f"could not resolve deployed destination for {entry.destination!r}")
             continue
         source = staging_root / entry.mod_name / entry.source_display
         try:
+            try:
+                dst_stat = destination.lstat()
+            except FileNotFoundError:
+                continue
             safe = False
-            if destination.is_symlink():
+            if stat.S_ISLNK(dst_stat.st_mode):
                 safe = destination.resolve() == source.resolve()
-            elif destination.is_file() and source.is_file():
-                dst_stat = destination.stat()
+            elif stat.S_ISREG(dst_stat.st_mode):
                 src_stat = source.stat()
-                safe = (dst_stat.st_ino == src_stat.st_ino or (
+                safe = ((dst_stat.st_dev == src_stat.st_dev
+                         and dst_stat.st_ino == src_stat.st_ino) or (
                     dst_stat.st_size == src_stat.st_size
                     and dst_stat.st_mtime_ns == src_stat.st_mtime_ns))
             if safe:
-                destination.unlink()
+                destination.unlink(missing_ok=True)
                 removed += 1
                 if entry.target == "game":
                     root = game.get_game_path()
@@ -200,13 +211,19 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
                     if destination.parent.is_relative_to(root):
                         dirs_to_prune.add(destination.parent)
                         stop_dirs.add(root)
-        except OSError as exc:
-            log(f"could not undeploy {destination}: {exc}")
-            if strict:
-                raise
+            else:
+                failures.append(f"ownership could not be verified for {destination}")
+        except (OSError, RuntimeError) as exc:
+            failures.append(f"could not undeploy {destination}: {exc}")
     _prune_empty_dirs(dirs_to_prune, stop_dirs=stop_dirs)
     if removed:
         log(f"undeployed {removed} file(s) owned by removed mod(s).")
+    if failures:
+        for failure in failures:
+            log(failure)
+        raise IncompleteUndeployError(
+            f"Removal stopped: could not reconcile {len(failures)} deployed file(s). "
+            "Staged mods and catalog records were kept. See the log for details.")
     return removed
 
 
