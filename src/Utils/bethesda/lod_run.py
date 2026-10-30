@@ -36,6 +36,26 @@ def new_output_path():
     return home.resolve() / "AmethystModManager" / "lod-runs" / uuid.uuid4().hex
 
 
+def output_mod_name(staging, profile, name):
+    from Utils.atomic_write import filename_limit
+    from Utils.mods.modlist import read_modlist
+
+    occupied = {row.name.casefold() for row in read_modlist(profile / "modlist.txt")}
+    if staging.is_dir():
+        occupied.update(path.name.casefold() for path in staging.iterdir())
+    limit = filename_limit(staging)
+    number = 1
+    while True:
+        suffix = f" ({number})" if number > 1 else ""
+        base = name
+        while len(os.fsencode(base + suffix)) > limit:
+            base = base[:-1]
+        candidate = base + suffix
+        if candidate.casefold() not in occupied:
+            return candidate
+        number += 1
+
+
 def validate_output_path(game, choice, output, prefix):
     from Utils.wizards.applications import installation_target
 
@@ -68,11 +88,12 @@ def arguments(game, choice, output, compat_data, launch_args=""):
     return [f'-d:{data_path}', f'-o:{output_path}', choice["game_flag"], *extra]
 
 
-def import_output(game, choice, output, mod_name, *, log_fn, checkpoint):
+def import_output(game, choice, output, mod_name, *, log_fn, checkpoint, progress_fn=lambda *_: None):
     from Utils.mods.install_as_mod import index_installed_mod
     from Utils.plugins.sync import sync_plugins_for_mods
     from Utils.wizards.payload import PreparedPayload, _install_mod, archive_token, tree_identity
 
+    progress_fn(0, 1, "validate_lod_output")
     root = output / "files"
     if root.is_symlink() or not root.is_dir() or output.is_symlink():
         raise ToolRunError("unsafe_lod_output", "The generated output folder is a link or unavailable.")
@@ -101,6 +122,9 @@ def import_output(game, choice, output, mod_name, *, log_fn, checkpoint):
     if len(paths) != len(set(paths)):
         raise ToolRunError("unsafe_lod_output", "Generated output has paths differing only in case.")
     source_identity = tree_identity(root, checkpoint)
+    staging = Path(game.get_effective_mod_staging_path()).resolve()
+    profile = game._active_profile_dir
+    mod_name = output_mod_name(staging, profile, mod_name)
     marker = output / "generation.json"
     with marker.open("x", encoding="utf-8") as stream:
         stream.write(json.dumps({"tool": choice["tool"], "mod": mod_name}))
@@ -112,12 +136,15 @@ def import_output(game, choice, output, mod_name, *, log_fn, checkpoint):
                 raise ToolRunError("lod_output_changed", "The generated output changed during import.")
 
     payload = GeneratedPayload(marker, root, tuple(sorted(files)), archive_token(marker))
-    target = Path(game.get_effective_mod_staging_path()).resolve() / mod_name
-    profile = game._active_profile_dir
+    target = staging / mod_name
+    log_fn(f"{choice['label']}: importing generated output as '{mod_name}'.")
+    progress_fn(0, 1, "import_lod_output")
     _install_mod(payload, game, target, mod_name, profile / "modlist.txt", log_fn, checkpoint,
-                 record_source=False, root_folder=False)
+                 record_source=False, root_folder=False, replace_existing=False)
     try:
+        progress_fn(0, 1, "index_lod_output")
         index_installed_mod(game, mod_name, log_fn=log_fn, strict=True)
+        progress_fn(0, 1, "sync_lod_plugins")
         sync_plugins_for_mods(game, profile, target.parent, [(mod_name, True)], log_fn=log_fn)
     except Exception as exc:
         raise ToolRunError("lod_output_sync_failed", "The output mod is installed but indexing or plugin synchronization failed.",
@@ -163,7 +190,8 @@ def run_lod(game, choice, exe, settings, output, mod_name, *, cancel=None, prefi
         if not stat.S_ISDIR(value.st_mode) or (value.st_dev, value.st_ino) != output_identity:
             raise ToolRunError("lod_output_changed", "The LOD work folder changed during the run.")
         before_import()
-        return import_output(game, choice, output, mod_name, log_fn=log, checkpoint=import_checkpoint)
+        return import_output(game, choice, output, mod_name, log_fn=log, checkpoint=import_checkpoint,
+                             progress_fn=kwargs.get("progress_fn", lambda *_: None))
 
     try:
         return run_bethesda_tool(game, choice, exe, settings["proton_name"], settings["prefix_mode"],

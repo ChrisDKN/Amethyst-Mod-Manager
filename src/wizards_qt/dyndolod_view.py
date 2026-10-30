@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton,
     QStackedWidget,
 )
 
@@ -40,7 +40,7 @@ class DynDOLODView(QWidget):
     _run_status_sig = Signal(str, str)
     _picked_sig = Signal(object)          # portal picker → UI thread
     _extract_done_sig = Signal(bool)
-    _run_started_sig = Signal()           # tool launched → enable Done
+    _run_started_sig = Signal()
     _run_finished_sig = Signal()
     _run_failed_sig = Signal()
 
@@ -84,7 +84,7 @@ class DynDOLODView(QWidget):
         self._picked_sig.connect(_guard(self._on_picked))
         self._extract_done_sig.connect(_guard(self._on_extract_done))
         self._run_started_sig.connect(_guard(self._on_run_started))
-        self._run_finished_sig.connect(_guard(self._finish))
+        self._run_finished_sig.connect(_guard(lambda: self._done_btn.setEnabled(True)))
         self._run_failed_sig.connect(_guard(lambda: self._done_btn.setEnabled(True)))
 
         self.setObjectName("DynDOLODView")
@@ -371,14 +371,13 @@ class DynDOLODView(QWidget):
     def _build_step_deploy(self) -> QWidget:
         page, lay = self._step_page(self.tr("Step 4: Deploy Modlist"))
         note = QLabel(
-            self.tr("Disable or remove the previous '{0}' output mod before deploying. "
-                    "The new output is imported after generation succeeds.").format(self._output_dir))
+            self.tr("Disable previous '{0}' outputs, including numbered copies, before deploying. "
+                    "Each successful run creates a new mod, adding (2), (3), etc. when needed. "
+                    "Previous outputs are kept for you to remove manually.").format(self._output_dir))
         note.setAlignment(Qt.AlignHCenter)
         note.setWordWrap(True)
         note.setStyleSheet(self._dim)
         lay.addWidget(note)
-        self._replace_output = QCheckBox(self.tr("Replace the disabled output after generation succeeds"))
-        lay.addWidget(self._replace_output)
         self._deploy_status = self._make_status(lay)
         lay.addStretch(1)
 
@@ -493,9 +492,22 @@ class DynDOLODView(QWidget):
         self._set_status(self._run_status, self.tr("Launching {0}…").format(self._name), "")
         name = self._name
         request = {"proton_name": self._proton_name, "prefix_mode": self._prefix_mode,
-                   "prefer_discrete_gpu": self._prefer_discrete_gpu, "deploy": False,
-                   "replace_output": self._replace_output.isChecked()}
+                   "prefer_discrete_gpu": self._prefer_discrete_gpu, "deploy": False}
         tool_id = getattr(self._ctx, "wizard_tool_id", "") or f"run_{self._tool_id}"
+
+        def progress(_current, _total, phase):
+            messages = {
+                "plan_lod_run": self.tr("Checking generation inputs…"),
+                "prepare_lod_prefix": self.tr("Preparing the tool prefix…"),
+                "finalize_lod": self.tr("Finishing the tool session…"),
+                "restore_lod": self.tr("Restoring the game after generation…"),
+                "validate_lod_output": self.tr("Validating generated output…"),
+                "import_lod_output": self.tr("Importing generated output as a new mod…"),
+                "index_lod_output": self.tr("Indexing the new output mod…"),
+                "sync_lod_plugins": self.tr("Synchronizing generated plugins…"),
+            }
+            if phase in messages:
+                safe_emit(self._run_status_sig, messages[phase], "")
 
         def worker():
             from Utils.bethesda.lod_run import new_output_path
@@ -507,12 +519,13 @@ class DynDOLODView(QWidget):
                 request["output_path"] = str(new_output_path())
                 revision = catalogue(game, profile)["revision"]
                 plan = plan_runner(game, profile, tool_id, revision, self._choice,
-                                   request, self._install_cancel)(self._log, lambda *_: None)
-                run_runner(game, profile, tool_id, revision, self._choice, request,
+                                   request, self._install_cancel)(self._log, progress)
+                result = run_runner(game, profile, tool_id, revision, self._choice, request,
                            plan["revision"], self._install_cancel,
-                           on_started=lambda: safe_emit(self._run_started_sig))(self._log, lambda *_: None)
+                           on_started=lambda: safe_emit(self._run_started_sig))(self._log, progress)
                 self._run_complete = True
-                safe_emit(self._run_status_sig, self.tr("{0} finished.").format(name), ok_text())
+                safe_emit(self._run_status_sig,
+                          self.tr("{0} finished. Created '{1}'.").format(name, result["output_mod"]["name"]), ok_text())
                 safe_emit(self._run_finished_sig)
             except Exception as exc:
                 details = getattr(exc, "details", {})
@@ -528,7 +541,8 @@ class DynDOLODView(QWidget):
         self._ran = True
         self._set_status(
             self._run_status,
-            self.tr('{0} is running.\nClose the tool when generation finishes; its output will then be imported.').format(self._name),
+            self.tr('{0} is running.\nWhen generation finishes, choose Exit or Save & Exit without zipping. '
+                    'The output will then be imported as a new mod.').format(self._name),
             ok_text())
         self._done_btn.setEnabled(False)
 

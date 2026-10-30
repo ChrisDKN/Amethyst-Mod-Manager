@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 
 from .jobs import JobCancelled, JobError
@@ -57,34 +58,24 @@ def _binding(game):
 
 
 def _mod_target(game, profile, choice, request, cancel):
+    from Utils.bethesda.lod_run import output_mod_name
     from Utils.mods.modlist import read_modlist
     from Utils.mods.names import sanitize_mod_folder_name
-    from Utils.wizards.payload import tree_identity
 
     name = request.get("mod_name", choice["output_dir"])
     if (sanitize_mod_folder_name(name) != name or name.casefold() in {"root_folder", "overwrite", "applications"}
             or name.casefold().endswith("_separator") or name.casefold().startswith("@group:") or name.startswith(".")):
         raise JobError("invalid_lod_mod_name", "Choose a valid output mod folder name.")
     staging = Path(game.get_effective_mod_staging_path()).resolve()
-    target = staging / name
-    if target.is_symlink() or (target.exists() and not target.is_dir()):
-        raise JobError("unsafe_tool_destination", "The output mod destination is a link or file.")
-    if staging.exists() and any(p.name.casefold() == name.casefold() and p.name != name for p in staging.iterdir()):
-        raise JobError("tool_mod_name_conflict", "An output folder differs only in letter case.")
     rows = read_modlist(profile / "modlist.txt")
     candidates = {name.casefold(), choice["output_dir"].casefold()}
-    if any(row.name.casefold() in candidates and row.enabled for row in rows):
+    if any(row.enabled and any(re.fullmatch(re.escape(base) + r"(?: \([0-9]+\))?", row.name.casefold())
+                               for base in candidates) for row in rows):
         raise JobError("lod_previous_output_enabled", "Disable or remove the previous output mod before generating LOD.")
-    if any(row.name.casefold() == name.casefold() and row.locked for row in rows):
-        raise JobError("lod_output_locked", "Unlock the output mod before replacing it.")
-    if target.exists() and not request.get("replace_output", False):
-        raise JobError("lod_output_exists", "Set replace_output:true to replace the disabled output after a successful run.")
-
-    def check():
-        if cancel.is_set():
-            raise JobCancelled("LOD planning cancelled.")
-
-    return name, target, tree_identity(target, check)
+    if cancel.is_set():
+        raise JobCancelled("LOD planning cancelled.")
+    name = output_mod_name(staging, profile, name)
+    return name, staging / name
 
 
 def _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel):
@@ -119,7 +110,7 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
     _check_prefix(prefix, settings["launch_env"])
     output = Path(request["output_path"]).expanduser().absolute()
     validate_output_path(selected, choice, output, prefix)
-    name, target, target_identity = _mod_target(selected, profile, choice, request, cancel)
+    name, target = _mod_target(selected, profile, choice, request, cancel)
     deploy = request.get("deploy", True)
     if selected.get_deploy_active():
         last = selected.get_last_deployed_profile()
@@ -145,7 +136,7 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
                 "prefix_files": {n: _identity(Path(prefix["prefix_path"]) / n) for n in ("user.reg", "system.reg", "userdef.reg")},
                 "runner": _identity(Path(prefix["script"])), "inputs": inputs, "sources": sources,
                 "application_binaries": _application_binaries(exe),
-                "output_mod": [str(target), target_identity],
+                "output_mod": str(target),
                 "output_parent": [token[:3] for token in parent_identity] if parent_identity else None}
     if inputs != {path: _identity(Path(path)) for path in inputs}:
         raise JobError("stale_lod_run", "Profile or launch settings changed while planning.")
@@ -154,7 +145,7 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
             "settings": settings, "exe_path": str(exe), "prefix": prefix,
             "arguments": arguments(selected, choice, output, Path(prefix["compat_data"]), settings["launch_args"]),
             "output_path": str(output), "output_mod": {"name": name, "path": str(target),
-                                                       "replacing": target_identity is not None},
+                                                       "replacing": False},
             "deploy_before_run": deploy, "root_folder_enabled": request.get("root_folder_enabled", True),
             "save_settings": request.get("save_settings", False), "restore_after_run": True,
             "external_tool_ui": True}
@@ -184,7 +175,7 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
         from Utils.deployment.locking import DeploymentBusy
         from Utils.executables import launch
         from Utils.operations import OperationBusy, OperationCancelled
-        from Utils.wizards.payload import PayloadInstallError, tree_identity
+        from Utils.wizards.payload import PayloadInstallError
 
         try:
             initial = _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel)
@@ -198,8 +189,8 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
             binaries = _application_binaries(exe)
             inputs = _inputs(selected, profile, exe)
             inputs[str(profile / "loadorder.txt")] = _identity(profile / "loadorder.txt")
-            mod_target = Path(initial["output_mod"]["path"])
-            mod_identity = tree_identity(mod_target)
+            binding_paths = (selected._paths_file, profile / "profile_state.json", profile / "profile_settings.json")
+            import_binding = None
 
             def check_binding():
                 if _binding(_selected_game(game, profile)) != binding:
@@ -227,14 +218,16 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
 
             def before_import():
                 checkpoint()
-                if tree_identity(mod_target) != mod_identity:
-                    raise JobError("stale_lod_run", "The previous output mod changed during generation.")
                 _mod_target(selected, profile, choice, request, cancel)
 
             def import_checkpoint():
-                check_binding()
+                nonlocal import_binding
                 if cancel.is_set():
                     raise ToolRunCancelled(choice["label"])
+                current = [_identity(path) for path in binding_paths]
+                if current != import_binding:
+                    check_binding()
+                    import_binding = current
 
             settings = initial["settings"]
 
@@ -251,7 +244,8 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
                     raise JobError("lod_settings_save_failed", "Could not save all LOD launch settings.", {"state_persisted": True})
                 return True
 
-            result = run_lod(selected, choice, exe, settings, Path(initial["output_path"]), initial["output_mod"]["name"],
+            result = run_lod(selected, choice, exe, settings, Path(initial["output_path"]),
+                             request.get("mod_name", choice["output_dir"]),
                              prefix=initial["prefix"], cancel=cancel, before_write=verify, before_import=before_import,
                              import_checkpoint=import_checkpoint,
                              checkpoint=checkpoint, after_prepare=after_prepare, after_restore=after_prepare,

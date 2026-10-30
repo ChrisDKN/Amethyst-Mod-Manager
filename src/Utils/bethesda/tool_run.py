@@ -135,6 +135,7 @@ def run_bethesda_tool(game, choice, exe, proton_name, prefix_mode, *, mode="inte
                                            extra_args=args + ([plugin] if plugin else []),
                                            label=choice["label"], game=game, owner=owner)
                     result["exit_codes"].append(code)
+                    progress_fn(index, len(queue), f"finalize_{family}")
                     save_changes()
                     check()
                     if code:

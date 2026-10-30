@@ -343,9 +343,9 @@ def _owned_tree(root):
 
 
 def _install_mod(payload, selected, target, name, modlist, log, checkpoint,
-                 record_source, root_folder=True):
+                 record_source, root_folder=True, replace_existing=True):
     from Nexus.nexus_meta import read_meta
-    from Utils.atomic_write import _tmp_for
+    from Utils.atomic_write import _tmp_for, rename_new
     from Utils.mods.install_as_mod import register_as_mod_neutral
     from Utils.mods.modlist import read_modlist
 
@@ -355,6 +355,8 @@ def _install_mod(payload, selected, target, name, modlist, log, checkpoint,
     if any(path.name.casefold() == name.casefold() and path.name != name for path in target.parent.iterdir()):
         raise PayloadInstallError("tool_mod_name_conflict", "A staged folder differs only in letter case.")
     identity = _token(target)
+    if identity is not None and not replace_existing:
+        raise PayloadInstallError("tool_destination_changed", "The new output mod destination is already occupied.")
     modlist_identity = _token(modlist)
     temporary = Path(tempfile.mkdtemp(prefix=".wizard-install-", dir=target.parent))
     backup = temporary / "previous"
@@ -373,7 +375,10 @@ def _install_mod(payload, selected, target, name, modlist, log, checkpoint,
         if identity is not None:
             target.rename(backup)
             moved = True
-        staged.rename(target)
+        if replace_existing:
+            staged.rename(target)
+        else:
+            rename_new(staged, target)
         created = _token(target)[:2]
         created_tree = _owned_tree(target)
         try:
