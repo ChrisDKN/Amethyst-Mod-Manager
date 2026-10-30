@@ -39,6 +39,7 @@ WIZARD_LABELS = (
     QT_TRANSLATE_NOOP("WizardTools", "Install Script Extender (xNVSE)"),
     QT_TRANSLATE_NOOP("WizardTools", "Apply 4GB Patch"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Tale of Two Wastelands"),
+    QT_TRANSLATE_NOOP("WizardTools", "Install New California"),
     QT_TRANSLATE_NOOP("WizardTools", "BSA Decompressor"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Unofficial Fallout 3 ESM Patcher"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Ultimate Edition ESM Fixes"),
@@ -83,6 +84,7 @@ WIZARD_LABELS = (
 
 # Tool descriptions -- the menu entry tooltip.
 WIZARD_DESCRIPTIONS = (
+    QT_TRANSLATE_NOOP("WizardTools", "Run the New California installer and capture its files and INIs in a dedicated profile."),
     QT_TRANSLATE_NOOP("WizardTools", "Download YeetPatch and update Voices of the Void in a terminal."),
     QT_TRANSLATE_NOOP(
         "WizardTools",

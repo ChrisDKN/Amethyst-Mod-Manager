@@ -53,6 +53,13 @@ class Fallout_NV(BethesdaBase):
                 category="Setup and Installers",
             ),
             WizardTool(
+                id="install_new_california",
+                label="Install New California",
+                description="Run the New California installer and capture its files and INIs in a dedicated profile.",
+                dialog_class_path="wizards.new_california.NewCaliforniaWizard",
+                category="Setup and Installers",
+            ),
+            WizardTool(
                 id="fnv_bsa_decompressor",
                 label="BSA Decompressor",
                 description="Decompress the vanilla BSA archives for faster loading (native Linux MPI installer) and add the result as a mod. Needs the FNV BSA Decompressor download from Nexus.",

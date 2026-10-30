@@ -15758,6 +15758,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
             wizard_tool_label=tool.label,
             wizard_tool_label_args=tool.label_args,
             plugin_context_factory=lambda plugin: self._plugin_ui.services.context(plugin),
+            select_profile=lambda name: self._wizard_select_profile(game, name),
+            notify=self._notify,
         )
         try:
             view = spec.view_factory(
@@ -15845,6 +15847,15 @@ class MainWindow(QMainWindow, PluginPanelControls):
                                  "game."), "warning")
             return
         self._open_wizard_tool(tool)
+
+    def _wizard_select_profile(self, game, name) -> bool:
+        if (self._gs.game is not game or self._tool_busy
+                or self._deploy_running or getattr(self, "_install_running", False)
+                or self._col_install_running or name not in self._gs.profiles()):
+            return False
+        self._set_profile_selector_items(self._gs.profiles(), current=self._gs.profile)
+        self._on_profile_changed(name)
+        return self._gs.profile == name
 
     def _wizard_run_deploy(self, on_done) -> bool:
         """Start a deploy for a wizard step through the normal deploy path

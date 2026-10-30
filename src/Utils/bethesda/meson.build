@@ -17,6 +17,7 @@ py.install_sources(
   'lod.py',
   'lod_run.py',
   'mo2_patcher.py',
+  'new_california.py',
   'oblivion4gb.py',
   'patch4gb.py',
   'oblivion_archives.py',

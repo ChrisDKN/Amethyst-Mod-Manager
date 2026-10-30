@@ -32,6 +32,7 @@ py.install_sources(
   'me3_install_view.py',
   'modio_settings_view.py',
   'mscloader_view.py',
+  'new_california_view.py',
   'nif_viewer_view.py',
   'npc_viewer_view.py',
   'oblivion_4gb_view.py',

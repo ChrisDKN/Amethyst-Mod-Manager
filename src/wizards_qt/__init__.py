@@ -79,6 +79,8 @@ class QtWizardContext:
     descriptor identity used by remembered Proton settings.
     run_archive_batch(request, progress, done) starts app-owned archive work,
     returns a cancellation Event or None, and delivers callbacks on the GUI thread.
+    select_profile(name) selects an existing profile on the GUI thread and
+    returns False when the wizard's game is no longer active or is busy.
     """
     profile_name: str = "default"
     run_deploy: Callable | None = None
@@ -99,6 +101,8 @@ class QtWizardContext:
     wizard_tool_label: str = ""
     wizard_tool_label_args: tuple = ()
     plugin_context_factory: Callable | None = None
+    select_profile: Callable[[str], bool] | None = None
+    notify: Callable[[str, str], None] | None = None
 
 
 # Deliberately dropped from the Qt app (not even shown greyed out).
@@ -278,6 +282,8 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_param("wizards_qt.texture_tool_view", "TextureToolView", tool="parallaxr")),
     "wizards.ttw.TTWInstallerWizard":
         QtWizardSpec(_simple("wizards_qt.ttw_view", "TTWView")),
+    "wizards.new_california.NewCaliforniaWizard":
+        QtWizardSpec(_simple("wizards_qt.new_california_view", "NewCaliforniaView")),
     "wizards.bsa_decompressor.BSADecompressorWizard":
         QtWizardSpec(_simple("wizards_qt.bsa_decompressor_view",
                              "BSADecompressorView")),
