@@ -113,6 +113,18 @@ def _run_extractor(args: list[str], *, priority_path=None, low_priority=None):
 
 def fetch_latest_github_asset(api_url: str, archive_keywords: list[str]) -> tuple[str, str]:
     """Return (version_tag, download_url) for the latest release asset matching *archive_keywords*."""
+    tag, url, _sha256 = fetch_latest_github_asset_checked(api_url, archive_keywords)
+    return tag, url
+
+
+def fetch_latest_github_asset_checked(
+        api_url: str, archive_keywords: list[str]) -> tuple[str, str, str]:
+    """Like :func:`fetch_latest_github_asset`, plus the asset's SHA-256.
+
+    GitHub publishes a ``sha256:<hex>`` digest for every release asset;
+    the hex part is returned for :func:`verify_sha256`, or "" for older
+    assets uploaded before GitHub recorded digests.
+    """
     req = urllib.request.Request(
         api_url,
         headers={"Accept": "application/vnd.github+json", "User-Agent": "ModManager/1.0"},
@@ -126,14 +138,61 @@ def fetch_latest_github_asset(api_url: str, archive_keywords: list[str]) -> tupl
         if not any(name.endswith(ext) for ext in ARCHIVE_EXTS):
             continue
         if all(kw in name for kw in archive_keywords):
-            return tag, asset["browser_download_url"]
+            return tag, asset["browser_download_url"], github_asset_sha256(asset)
     raise RuntimeError(f"No matching asset found in the latest GitHub release ({tag}).")
+
+
+def github_asset_sha256(asset: dict) -> str:
+    """Lowercase hex SHA-256 GitHub publishes for a release asset, or ""."""
+    digest = str(asset.get("digest") or "")
+    return digest[len("sha256:"):].lower() if digest.startswith("sha256:") else ""
+
+
+def verify_github_download(path: Path, sha256: str, log_fn=None) -> None:
+    """verify_sha256() when GitHub published a digest; log either way.
+
+    Deletes *path* on a mismatch so a bad archive is never picked up later.
+    """
+    log = log_fn or (lambda _m: None)
+    if not sha256:
+        log("GitHub publishes no SHA-256 for this asset - not verified.")
+        return
+    try:
+        verify_sha256(path, sha256)
+    except RuntimeError:
+        Path(path).unlink(missing_ok=True)
+        raise
+    log(f"SHA-256 verified ({sha256}).")
+
+
+def verify_sha256(path: Path, expected: str) -> None:
+    """Raise RuntimeError unless *path* hashes to *expected* (lowercase hex)."""
+    import hashlib
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    actual = digest.hexdigest()
+    if actual != expected.lower():
+        raise RuntimeError(
+            f"Downloaded file failed its checksum (expected {expected}, got {actual}).")
 
 
 def fetch_newest_github_asset(api_url: str, asset_keywords: list[str], *,
                               extensions: "set[str] | None" = None,
                               max_pages: int = 10) -> tuple[str, str]:
-    """Return the newest matching asset across a repository's releases.
+    """(tag, url) form of :func:`fetch_newest_github_asset_checked`."""
+    tag, url, _sha256 = fetch_newest_github_asset_checked(
+        api_url, asset_keywords, extensions=extensions, max_pages=max_pages)
+    return tag, url
+
+
+def fetch_newest_github_asset_checked(
+        api_url: str, asset_keywords: list[str], *,
+        extensions: "set[str] | None" = None,
+        max_pages: int = 10) -> tuple[str, str, str]:
+    """Return (tag, url, sha256) of the newest matching asset across a
+    repository's releases; sha256 is "" when GitHub published none.
 
     Unlike :func:`fetch_latest_github_asset`, *api_url* points at the releases
     collection (``.../releases``), not ``.../releases/latest``. Releases are
@@ -175,7 +234,7 @@ def fetch_newest_github_asset(api_url: str, asset_keywords: list[str], *,
                 if all(keyword in name for keyword in keywords):
                     url = asset.get("browser_download_url", "")
                     if url:
-                        return str(tag), str(url)
+                        return str(tag), str(url), github_asset_sha256(asset)
 
         if len(releases) < 100:
             break

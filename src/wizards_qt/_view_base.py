@@ -599,13 +599,15 @@ class WizardViewBase(QWidget):
             import tempfile
             from Utils.ca_bundle import download_file
             from Utils.wizards.archives import (
-                extract_archive, fetch_latest_github_asset,
+                extract_archive, fetch_latest_github_asset_checked,
+                verify_sha256,
             )
             from Utils.bethesda.xedit import applications_dir, flatten_subdirs
             try:
                 safe_emit(status_sig,
                           self.tr("Fetching latest release from GitHub…"), "")
-                tag, dl_url = fetch_latest_github_asset(api_url, keywords)
+                tag, dl_url, sha256 = fetch_latest_github_asset_checked(
+                    api_url, keywords)
                 safe_emit(status_sig,
                           self.tr("Downloading {0}…").format(tag), "")
                 self._log(f"{tool_label} Wizard: downloading {tag} from {dl_url}")
@@ -623,6 +625,16 @@ class WizardViewBase(QWidget):
                 download_file(dl_url, tmp_path, reporthook=hook)
                 if progress_sig is not None:
                     safe_emit(progress_sig, 100)
+                if sha256:
+                    try:
+                        verify_sha256(tmp_path, sha256)
+                    except RuntimeError:
+                        tmp_path.unlink(missing_ok=True)
+                        raise
+                    self._log(f"{tool_label} Wizard: SHA-256 verified ({sha256}).")
+                else:
+                    self._log(f"{tool_label} Wizard: GitHub publishes no SHA-256 "
+                              "for this asset - not verified.")
                 safe_emit(status_sig, self.tr("Extracting…"), "")
 
                 dest = applications_dir(game, app_dir)

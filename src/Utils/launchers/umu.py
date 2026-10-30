@@ -98,8 +98,12 @@ def installed_tag() -> str:
     return _read_state().get("tag", "") if bundled_umu_run().is_file() else ""
 
 
-def _fetch_latest() -> "tuple[str, str] | None":
-    """``(tag, zipapp_url)`` for the newest upstream release, or None."""
+def _fetch_latest() -> "tuple[str, str, str] | None":
+    """``(tag, zipapp_url, sha256)`` for the newest upstream release, or None.
+
+    sha256 is the digest GitHub publishes for the asset, or "".
+    """
+    from Utils.wizards.archives import github_asset_sha256
     from Utils.ca_bundle import get_ssl_context
     req = urllib.request.Request(
         _LATEST_API, headers={"User-Agent": "Amethyst-Mod-Manager"})
@@ -115,7 +119,7 @@ def _fetch_latest() -> "tuple[str, str] | None":
         if name.endswith(_ZIPAPP_SUFFIX):
             url = asset.get("browser_download_url")
             if tag and url:
-                return tag, url
+                return tag, url, github_asset_sha256(asset)
     return None
 
 
@@ -166,7 +170,7 @@ def install_umu_run(log_fn: "LogFn | None" = None) -> bool:
     if latest is None:
         log("could not reach the umu-launcher release feed.")
         return False
-    tag, url = latest
+    tag, url, sha256 = latest
 
     dest = bundled_umu_run()
     if dest.is_file() and installed_tag() == tag:
@@ -184,6 +188,16 @@ def install_umu_run(log_fn: "LogFn | None" = None) -> bool:
     except Exception as exc:
         log(f"umu-launcher download failed: {exc}")
         return False
+
+    if sha256:
+        import hashlib
+        actual = hashlib.sha256(payload).hexdigest()
+        if actual != sha256:
+            log(f"umu-launcher download failed its checksum (expected {sha256}, got {actual}).")
+            return False
+        log(f"SHA-256 verified ({sha256}).")
+    else:
+        log("GitHub publishes no SHA-256 for this asset - not verified.")
 
     if not _extract_zipapp(payload, dest):
         log("no umu-run found inside the downloaded zipapp archive.")
