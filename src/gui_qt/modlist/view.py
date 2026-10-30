@@ -1404,20 +1404,39 @@ class ModListView(QTreeView):
             return m.expand_group_selection(carry or [row])
         return m.expand_group_selection([row])
 
-    def _open_source_page(self, row: int) -> None:
+    def _open_source_pages(self, row: int) -> None:
         if not 0 <= row < self.model().rowCount():
             return
-        entry = self.model().entry(row)
+        rows = sorted({idx.row() for idx in self.selectionModel().selectedRows()})
+        if row not in rows:
+            rows = [row]
         from gui_qt.modlist.external import external
-        if external(entry):
-            return
-        if entry.is_separator or entry.is_group_header:
-            return
+        entries = [self.model().entry(r) for r in rows]
+        names = [entry.name for entry in entries
+                 if not external(entry)
+                 and not entry.is_separator and not entry.is_group_header]
+
+        def _open_pages(confirmed=True):
+            if confirmed:
+                for name in names:
+                    self._open_source_page(name)
+
+        if len(names) > 5:
+            from gui_qt.dialogs.confirm import ConfirmOverlay
+            ConfirmOverlay.show_over(
+                self, self.tr("Open mod pages"),
+                self.tr("Open source pages for {0} selected mods in your browser?")
+                .format(len(names)),
+                _open_pages, confirm_label=self.tr("Open pages"), danger=False)
+        else:
+            _open_pages()
+
+    def _open_source_page(self, name: str) -> None:
         from gui_qt.modlist.menu import (
             _is_thunderstore_mod, _mod_custom_url, _modio_url, _open_on_modio,
             _open_on_nexus, _open_on_thunderstore,
         )
-        custom_url = _mod_custom_url(self, entry.name)
+        custom_url = _mod_custom_url(self, name)
         if custom_url:
             try:
                 from Utils.environment.xdg import open_url
@@ -1425,12 +1444,12 @@ class ModListView(QTreeView):
             except Exception:
                 pass
             return
-        if _is_thunderstore_mod(self, entry.name):
-            _open_on_thunderstore(self, entry.name)
-        elif _modio_url(self, entry.name):
-            _open_on_modio(self, entry.name)
+        if _is_thunderstore_mod(self, name):
+            _open_on_thunderstore(self, name)
+        elif _modio_url(self, name):
+            _open_on_modio(self, name)
         else:
-            _open_on_nexus(self, entry.name)
+            _open_on_nexus(self, name)
 
     def keyPressEvent(self, event):
         if self._drag_active and event.key() == Qt.Key_Escape:
@@ -1466,7 +1485,7 @@ class ModListView(QTreeView):
         if binding_matches_mouse("open_mod_page", event):
             idx = self.indexAt(event.position().toPoint())
             if idx.isValid():
-                self._open_source_page(idx.row())
+                self._open_source_pages(idx.row())
             event.accept()
             return
         if event.button() == Qt.LeftButton:

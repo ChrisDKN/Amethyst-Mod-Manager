@@ -24,7 +24,7 @@ Default bindings:
     Alt+Down        Move selected mods/plugins/separators down
     Shift+E         Expand/collapse all separators (modlist)
     Shift+F         Toggle the active panel's filter side panel
-    Mouse 3         Open the clicked mod's source page
+    Mouse 3         Open the clicked mod's or selected mods' source pages
     Mouse 4         Browser back
     Mouse 5         Browser forward
 
