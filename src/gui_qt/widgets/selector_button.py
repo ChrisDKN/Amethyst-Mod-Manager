@@ -10,7 +10,9 @@ never become the selection.
 from __future__ import annotations
 
 from typing import Callable
-from PySide6.QtWidgets import QToolButton, QMenu, QListWidget
+from PySide6.QtWidgets import (QToolButton, QMenu, QListWidget, QStyle,
+                               QStyleOptionButton, QStyleOptionToolButton,
+                               QStylePainter)
 from PySide6.QtGui import QActionGroup, QIcon
 from PySide6.QtCore import Qt, QSize, QEvent, QObject, QTimer, Signal
 
@@ -534,6 +536,31 @@ class SelectorButton(QToolButton):
 
     def _repolish(self) -> None:
         self.style().unpolish(self); self.style().polish(self)
+
+    def paintEvent(self, event):                # noqa: N802
+        if self.toolButtonStyle() != Qt.ToolButtonTextBesideIcon:
+            super().paintEvent(event)
+            return
+        option = QStyleOptionToolButton()
+        self.initStyleOption(option)
+        label = QStyleOptionButton()
+        label.initFrom(self)
+        label.state = option.state
+        label.text = option.text
+        label.icon = option.icon
+        label.iconSize = option.iconSize
+        label.rect = self.style().subElementRect(
+            QStyle.SE_PushButtonContents, label, self)
+        icon_width = label.icon.actualSize(label.iconSize).width()
+        label.text = label.fontMetrics.elidedText(
+            label.text, Qt.ElideRight, max(0, label.rect.width() - icon_width - 4))
+        option.text = ""
+        option.icon = QIcon()
+        painter = QStylePainter(self)
+        painter.drawComplexControl(QStyle.CC_ToolButton, option)
+        painter.setClipRect(label.rect)
+        # Qt's push-button label centers the icon and text together.
+        painter.drawControl(QStyle.CE_PushButtonLabel, label)
 
     def changeEvent(self, e):               # noqa: N802
         # Font or theme change → the cached widths no longer describe the
