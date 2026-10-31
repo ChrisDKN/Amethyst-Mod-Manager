@@ -1,7 +1,7 @@
 {
  "v": 1,
- "generated": "2026-08-13",
- "etags": {"ludusavi": "cf1d3e0017515c8f1694b528b0ce91e4a4657df2ce92ec62fe7c240877a4b6f0", "bloodshed-extra": "98c2ba85f5759d49ed83765830890105b611289c9b63f23019086fed052e9f03"},
+ "generated": "2026-10-31",
+ "etags": {"ludusavi": "4d3da45d0c629818df0c205fe2ad791b7b4052527dd3e24027c767c47c22ad12", "bloodshed-extra": "76cda30f62ef7eae5d5e50100f7041e554e070082358a7342e5fe10a038a38ab"},
  "games": {
   "!Anyway!": {
    "f": [
@@ -225,6 +225,13 @@
     ["<winDocuments>/15 Days Savegames", "windows", ""]
    ],
    "s": "342990"
+  },
+  "1666: Amsterdam": {
+   "f": [
+    ["<winLocalAppData>/Amsterdam/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3949550",
+   "x": ["4519690", "5101950"]
   },
   "16bit Trader": {
    "f": [
@@ -1411,6 +1418,11 @@
    ],
    "s": "1479140"
   },
+  "ALIS": {
+   "f": [
+    ["<winLocalAppData>/Alis/Saved/SaveGames", "windows", ""]
+   ]
+  },
   "ALLTYNEX Second": {
    "f": [
     ["<winAppData>/SITER SKAIN/ALLTYNEX Second", "windows", ""]
@@ -1445,10 +1457,17 @@
   },
   "AR-K": {
    "f": [
-    ["<home>/AppData/LocalLow/Gato_Salvaje/ark1/datos.txt", "windows", ""]
+    ["<home>/AppData/LocalLow/Gato_Salvaje/ark1/datos.txt", "windows", ""],
+    ["<home>/AppData/LocalLow/Gato_Salvaje/ark2/datos.txt", "windows", ""]
    ],
    "s": "269890",
    "x": ["351070"]
+  },
+  "AR-K: The Great Escape": {
+   "f": [
+    ["<home>/AppData/LocalLow/Gato Salvaje/ArkIII", "windows", ""]
+   ],
+   "s": "368890"
   },
   "ARK: Survival Ascended": {
    "f": [
@@ -1640,7 +1659,8 @@
     ["<winLocalAppData>/AbzuGame/Saved/SaveGames/*.sav", "windows", ""],
     ["<winLocalAppData>/Packages/505GAMESS.P.A.35784A6D3DB4D_tefn33qh9azfc/SystemAppData/wgs", "windows", "microsoft"]
    ],
-   "s": "384190"
+   "s": "384190",
+   "x": ["577450"]
   },
   "Acceleration of SUGURI": {
    "f": [
@@ -1686,6 +1706,20 @@
    ],
    "s": "502500",
    "x": ["868310", "868311", "868312", "929100", "929101", "929102", "929103", "929104", "929105", "929106", "1421540", "1421550", "1421551", "1421552", "1421553", "1454770"]
+  },
+  "Ace Combat 8: Wings of Theve": {
+   "f": [
+    ["<winLocalAppData>/BANDAI NAMCO Entertainment/ACE COMBAT 8/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2288340",
+   "x": ["3594180", "3635880"]
+  },
+  "Ace Combat Zero: The Belkan War": {
+   "f": [
+    ["<root>/userdata/<storeUserId>/2288340/remote/aczero/save", "windows", "steam"]
+   ],
+   "s": "5370600",
+   "x": ["3635880"]
   },
   "Ace Combat: Assault Horizon - Enhanced Edition": {
    "f": [
@@ -1765,6 +1799,13 @@
     ["<base>/savegame/savegameXX.sav", "windows", ""]
    ]
   },
+  "Across The Moment": {
+   "f": [
+    ["<winLocalAppData>/ATM10_01/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "611780",
+   "x": ["675570"]
+  },
   "Across the Grooves": {
    "f": [
     ["<home>/AppData/LocalLow/Nova-box/Across the Grooves/User", "windows", ""]
@@ -1839,6 +1880,12 @@
     ["<home>/AppData/LocalLow/Oldbut Gold/Ad Fundum/Saves", "windows", ""]
    ],
    "s": "2647820"
+  },
+  "Ad Infernum": {
+   "f": [
+    ["<base>/AdInfernum_Data/Resources/ProfileData", "windows", ""]
+   ],
+   "s": "1390070"
   },
   "Ad Infinitum": {
    "f": [
@@ -2120,6 +2167,12 @@
     ["<root>/userdata/<storeUserId>/762220", "", "steam"]
    ],
    "s": "762220"
+  },
+  "Aftershock: Coastline": {
+   "f": [
+    ["<home>/AppData/LocalLow/Alex Rassloff/Aftershock_ Coastline/SaveData", "windows", ""]
+   ],
+   "s": "2450040"
   },
   "Against All Odds": {
    "f": [
@@ -2583,6 +2636,13 @@
    ],
    "s": "1344840"
   },
+  "Akiba Lost": {
+   "f": [
+    ["<home>/AppData/LocalLow/IzanagiGames/AKIBA LOST", "windows", ""]
+   ],
+   "s": "4131220",
+   "x": ["4441050", "4885210", "4889930"]
+  },
   "Akiba's Trip: Hellbound & Debriefed": {
    "f": [
     ["<base>/AkibaHD_Data/SaveData/<storeUserId>", "windows", ""]
@@ -2972,13 +3032,13 @@
    "s": "3655390",
    "x": ["3712120"]
   },
-  "Aliens Versus Predator": {
+  "Aliens versus Predator": {
    "f": [
     ["<winLocalAppData>/Rebellion/AvP Classic/User_Profiles", "windows", ""]
    ],
    "s": "3730"
   },
-  "Aliens Versus Predator 2": {
+  "Aliens versus Predator 2": {
    "f": [
     ["<base>/Save/Player_0", "windows", ""]
    ]
@@ -3010,6 +3070,13 @@
     ["<winLocalAppData>/Packages/ColdIronStudiosLLC.AliensFireteam_r52mqvf2yh3da/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "1549970"
+  },
+  "Aliens: Fireteam Elite 2": {
+   "f": [
+    ["<winLocalAppData>/AFE2/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3448650",
+   "x": ["4941380", "4941390"]
   },
   "Alisa": {
    "f": [
@@ -3049,6 +3116,13 @@
     ["<winLocalAppData>/3DClouds/AllStarFruitRacing/Saved/SaveGames", "windows", ""]
    ],
    "s": "673190"
+  },
+  "Allumeria": {
+   "f": [
+    ["<winDocuments>/My Games/Allumeria", "windows", ""]
+   ],
+   "s": "3516590",
+   "x": ["4247370"]
   },
   "Almost My Floor": {
    "f": [
@@ -3246,6 +3320,11 @@
    ],
    "s": "1389950"
   },
+  "Amanagi": {
+   "f": [
+    ["<base>/SaveFile.dat", "windows", ""]
+   ]
+  },
   "Amanda the Adventurer": {
    "f": [
     ["<home>/AppData/LocalLow/MangledMaw/Amanda The Adventurer", "windows", ""]
@@ -3316,7 +3395,7 @@
   "America": {
    "f": [
     ["<base>/Save", "windows", ""],
-    ["<base>/Save2 for the Expansion Pack", "windows", ""]
+    ["<base>/Save2", "windows", ""]
    ]
   },
   "America's Army": {
@@ -3404,20 +3483,20 @@
     ["<xdgData>/American Truck Simulator/profiles", "linux", ""]
    ],
    "s": "270880",
-   "x": ["300010", "421070", "421080", "421081", "421090", "422310", "432710", "441960", "450550", "463740", "520550", "526940", "541260", "546260", "561620", "566890", "588600", "620610", "684630", "800370", "951650", "962750", "1015160", "1076080", "1104880", "1116310", "1149810", "1162160", "1209470", "1209471", "2543810", "2585150", "2730870", "2910160", "2926440", "3012580", "3025440", "3146090", "3272290", "3872930", "4348660"]
-  },
-  "Amerzone - The Explorer's Legacy (2025)": {
-   "f": [
-    ["<home>/AppData/LocalLow/Microids Studio Paris/Amerzone/Saves/<storeUserId>", "windows", ""]
-   ],
-   "s": "2429190",
-   "x": ["3544420"]
+   "x": ["300010", "421070", "421080", "421081", "421090", "422310", "432710", "441960", "450550", "463740", "520550", "526940", "541260", "546260", "561620", "566890", "588600", "620610", "684630", "800370", "951650", "962750", "1015160", "1076080", "1104880", "1116310", "1149810", "1162160", "1209470", "1209471", "2543810", "2585150", "2730870", "2910160", "2926440", "3012580", "3025440", "3146090", "3272290", "3749870", "3793190", "3793200", "3872930", "4348660"]
   },
   "Amerzone: The Explorer's Legacy": {
    "f": [
     ["<base>/Saved_*.bin", "windows", ""]
    ],
    "s": "302190"
+  },
+  "Amerzone: The Explorer's Legacy (2025)": {
+   "f": [
+    ["<home>/AppData/LocalLow/Microids Studio Paris/Amerzone/Saves/<storeUserId>", "windows", ""]
+   ],
+   "s": "2429190",
+   "x": ["3544420"]
   },
   "Amid Evil": {
    "f": [
@@ -3590,6 +3669,12 @@
    ],
    "s": "8010"
   },
+  "And All Would Cry Beware!": {
+   "f": [
+    ["<home>/AppData/LocalLow/Renegade Sector Games/AndAllWouldCryBeware/AndAllWouldCryBeware*.sav", "windows", ""]
+   ],
+   "s": "1071510"
+  },
   "And Yet It Moves": {
    "f": [
     ["<home>/.Broken Rules/And Yet It Moves", "linux", ""],
@@ -3650,6 +3735,11 @@
   "Angry Birds": {
    "f": [
     ["<winAppData>/Rovio/Angry Birds/*.*", "windows", ""]
+   ]
+  },
+  "Angry Birds Epic": {
+   "f": [
+    ["<home>/AppData/LocalLow/Rovio Entertainment Ltd_/Epic/prefs/player", "windows", ""]
    ]
   },
   "Angry Birds Rio": {
@@ -3744,6 +3834,13 @@
    "f": [
     ["<base>/PlayerProfile.ini", "windows", ""]
    ]
+  },
+  "Anime Shop Simulator": {
+   "f": [
+    ["<home>/AppData/LocalLow/OneMoreTime/Anime Shop Simulator", "windows", ""]
+   ],
+   "s": "3393280",
+   "x": ["3444060", "3444070", "5175820", "5175830"]
   },
   "Animorphs: Know the Secret": {
    "f": [
@@ -4048,6 +4145,11 @@
     ["<base>/antz.sav", "windows", ""]
    ]
   },
+  "Anubis II": {
+   "f": [
+    ["<base>/SaveGame", "windows", ""]
+   ]
+  },
   "Anuchard": {
    "f": [
     ["<home>/AppData/LocalLow/stellarNull/Anuchard", "windows", ""],
@@ -4313,6 +4415,12 @@
     ["<base>/Saves", "windows", ""]
    ]
   },
+  "Arcadecraft": {
+   "f": [
+    ["<winDocuments>/SavedGames/Arcadecraft", "windows", ""]
+   ],
+   "s": "297330"
+  },
   "Arcadegeddon": {
    "f": [
     ["<base>/Arcade/Saved/SaveGames/OfflineProgression.sav", "", "epic"],
@@ -4378,6 +4486,18 @@
    ],
    "s": "1296360"
   },
+  "Arctic Awakening": {
+   "f": [
+    ["<home>/AppData/LocalLow/GoldFire Studios/Arctic Awakening/Saves", "windows", ""]
+   ],
+   "s": "1275550",
+   "x": ["4009660"]
+  },
+  "Ardennes Offensive": {
+   "f": [
+    ["<base>/AO_op", "windows", ""]
+   ]
+  },
   "Area 51 (2005)": {
    "f": [
     ["<base>/SAVES", "windows", ""]
@@ -4422,6 +4542,12 @@
     ["<winAppData>/Arise/Saved/SaveGames", "windows", ""]
    ],
    "s": "866140"
+  },
+  "Aritana and the Harpy's Feather": {
+   "f": [
+    ["<base>/aritana_Data/data*.dk", "windows", ""]
+   ],
+   "s": "314360"
   },
   "Arizona Sunshine": {
    "f": [
@@ -4806,11 +4932,23 @@
    ],
    "s": "3384890"
   },
+  "Asdivine Hearts": {
+   "f": [
+    ["<base>/AsdivineHearts_Data/save/savedata*", "windows", ""]
+   ],
+   "s": "406110"
+  },
   "Asemblance": {
    "f": [
     ["<winLocalAppData>/HoloRoom9code/Saved/SaveGames/GameSave1.sav", "windows", ""]
    ],
    "s": "452970"
+  },
+  "Asgard's Fall: Viking Survivors": {
+   "f": [
+    ["<winLocalAppData>/AsgardsFall/Save Files", "windows", ""]
+   ],
+   "s": "2780710"
   },
   "Asgard's Wrath": {
    "f": [
@@ -4942,7 +5080,8 @@
    "f": [
     ["<root>/savegames/<storeUserId>/4", "windows", "uplay"]
    ],
-   "s": "33230"
+   "s": "33230",
+   "x": ["22803", "33360", "33361", "33362", "48173"]
   },
   "Assassin's Creed III": {
    "f": [
@@ -5295,7 +5434,7 @@
     ["<winLocalAppData>/Asylum/Saved/SaveGames", "windows", ""]
    ],
    "s": "230210",
-   "x": ["1311020"]
+   "x": ["1311020", "1311030"]
   },
   "Atari 50: The Anniversary Celebration": {
    "f": [
@@ -5601,6 +5740,12 @@
    ],
    "s": "1020340"
   },
+  "Audio Trip": {
+   "f": [
+    ["<home>/AppData/LocalLow/Kinemotik Studios/Audio Trip", "windows", ""]
+   ],
+   "s": "826540"
+  },
   "Auditorium": {
    "f": [
     ["<winAppData>/com.cipherprime.auditorium/Local Store/#SharedObjects/main.swf/AuditoriumClassicLevelProgress.sol", "windows", ""]
@@ -5624,6 +5769,12 @@
    ],
    "s": "444130"
   },
+  "Aurelia": {
+   "f": [
+    ["<winLocalAppData>/Aurelia", "windows", ""]
+   ],
+   "s": "1231560"
+  },
   "Aurion: Legacy of the Kori-Odan": {
    "f": [
     ["<winDocuments>/AurionSaves/data_Sauvegarde_*.Jgod", "windows", ""]
@@ -5646,11 +5797,22 @@
     ["<base>/SaveGame", "windows", ""]
    ]
   },
+  "Australian Trip": {
+   "f": [
+    ["<winLocalAppData>/AustralianTrip/User Data/Default/IndexedDB", "windows", ""]
+   ],
+   "s": "757870"
+  },
   "Auto Chess": {
    "f": [
     ["<winLocalAppData>/AutoChess/Saved/SaveGames", "windows", ""]
    ],
    "s": "1530300"
+  },
+  "Auto Concentration": {
+   "f": [
+    ["<base>/AUTOCON.T10", "windows", ""]
+   ]
   },
   "Autobahn": {
    "f": [
@@ -5860,6 +6022,12 @@
    ],
    "s": "573110"
   },
+  "Away: The Survival Series": {
+   "f": [
+    ["<winLocalAppData>/Away/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "750200"
+  },
   "Awe": {
    "f": [
     ["<base>/Saves", "windows", ""]
@@ -5909,6 +6077,19 @@
     ["<winLocalAppData>/アヤカシガミ/save.dat", "windows", ""]
    ],
    "s": "565690"
+  },
+  "Ayasa: Shadows of Silence": {
+   "f": [
+    ["<winLocalAppData>/Aya/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3146120",
+   "x": ["4091500", "4091520"]
+  },
+  "Aztaka": {
+   "f": [
+    ["<winLocalAppData>/Aztaka/Profiles", "windows", ""]
+   ],
+   "s": "37100"
   },
   "Aztez": {
    "f": [
@@ -5967,6 +6148,12 @@
    ],
    "s": "669950",
    "x": ["819540", "1159900", "1173920", "1209860"]
+  },
+  "BEAST CRIMES": {
+   "f": [
+    ["<home>/AppData/LocalLow/Link Häggman/BeastCrimes/NaninovelData/Saves", "windows", ""]
+   ],
+   "s": "1571090"
   },
   "BIOS": {
    "f": [
@@ -6091,7 +6278,7 @@
   },
   "Backyard Baseball": {
    "f": [
-    ["C:/windows/system32/hegames", "windows", ""]
+    ["<winDir>/System32/hegames", "windows", ""]
    ],
    "s": "3170540"
   },
@@ -6123,6 +6310,12 @@
    "f": [
     ["<winDocuments>/Atari/Backyard Football 2006/<storeUserId>.pro", "windows", ""]
    ]
+  },
+  "Backyard Hockey": {
+   "f": [
+    ["<winPublic>/Documents/Backyard Hockey Data Files", "windows", ""]
+   ],
+   "s": "3170590"
   },
   "Backyard Skateboarding": {
    "f": [
@@ -7119,7 +7312,8 @@
   },
   "Beast of Reincarnation": {
    "f": [
-    ["<winLocalAppData>/BeastOfReincarnation/Saved/SaveGames", "windows", ""]
+    ["<winLocalAppData>/BeastOfReincarnation/Saved/SaveGames", "windows", ""],
+    ["<winLocalAppData>/Packages/Fictions.ProjectAibou_qj8vnfjar8dk2/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "2001760",
    "x": ["4146830"]
@@ -7178,7 +7372,7 @@
     ["<home>/AppData/LocalLow/Hyperbolic Magnetism/Beat Saber/*.dat", "windows", ""]
    ],
    "s": "620980",
-   "x": ["1048870", "1048871", "1048872", "1048873", "1048874", "1048875", "1048876", "1048877", "1048878", "1048879", "1099560", "1099561", "1099562", "1099563", "1099580", "1099581", "1099582", "1099583", "1099584", "1099585", "1167660", "1167661", "1167662", "1167663", "1181770", "1181771", "1181772", "1181773", "1181774", "1181775", "1209130", "1209131", "1209132", "1209133", "1209134", "1209135", "1267590", "1267591", "1267592", "1267593", "1267594", "1375360", "1375361", "1375362", "1375363", "1375364", "1375365", "1375366", "1375367", "1375368", "1375369", "1375370", "1463160", "1463190", "1463220", "1463230", "1463240", "1463241", "1463250", "1463251", "1463260", "1463261", "1463270", "1463271", "1636340", "1636341", "1636342", "1636343", "1636344", "1636345", "1636346", "1725500", "1725501", "1725502", "1725503", "1725504", "1725505", "1725506", "1725507", "1753520", "1753521", "1753522", "1753523", "1753524", "1753525", "1753526", "1753527", "1753528", "1753529", "1812880", "1812881", "1812882", "1812883", "1812884", "1812885", "1812886", "1812887", "1812888", "1812889", "1939830", "1939831", "1939832", "1939833", "1939834", "1939835", "1939836", "1939837", "1967800", "1967801", "1967802", "1967803", "1967804", "1967805", "1967806", "1967807", "1967808", "1967809", "2122140", "2122141", "2122142", "2122143", "2122144", "2122160", "2122161", "2122162", "2122163", "2195470", "2195471", "2195472", "2195473", "2195474", "2195475", "2195476", "2195477", "2195478", "2195479", "2233130", "2233131", "2233132", "2233133", "2233134", "2233135", "2233136", "2233137", "2271510", "2271511", "2350250", "2350251", "2350252", "2350253", "2350254", "2350255", "2407760", "2407761", "2407762", "2407763", "2407764", "2407765", "2407766", "2407767", "2407768", "2407769", "2407770", "2455550", "2455551", "2594030", "2594040", "2594050", "2594060", "2594070", "2594080", "2594090", "2594100", "2650880", "2650900", "2650910", "2650920", "2650930", "2650940", "2650960", "2650970", "2650980", "2650990", "2651000", "2838230", "2838240", "2838250", "2838260", "2838270", "2838280", "2838290", "2838300", "2838310", "2838330", "2893430", "2893440", "2893450", "2893460", "2893470", "2893480", "2893490", "2893500", "2893510", "3156250", "3156260", "3181490", "3181510", "3181520", "3181530", "3181550", "3181560", "3181570", "3181580", "3181590", "3181600", "3274160", "3274170", "3274180", "3274190", "3274200", "3274210", "3274230", "3274240", "3274250", "3274260", "3274280", "3274290", "3354440", "3354460", "3354470", "3354480", "3354490", "3354500", "3354510", "3354520", "3354530", "3354540", "3354590", "3354630", "3354660", "3354680", "3354690", "3354700", "3354710", "3535520", "3739820", "3804490", "3842290", "4002060", "4084510", "4185610", "4185620", "4185630", "4185640", "4185650", "4185660", "4185670", "4185680", "4185690", "4185700", "4185710", "4185720", "4374210", "4463920", "4550600", "4550610", "4550620", "4550630", "4550640", "4550650", "4756020"]
+   "x": ["1048870", "1048871", "1048872", "1048873", "1048874", "1048875", "1048876", "1048877", "1048878", "1048879", "1099560", "1099561", "1099562", "1099563", "1099580", "1099581", "1099582", "1099583", "1099584", "1099585", "1167660", "1167661", "1167662", "1167663", "1181770", "1181771", "1181772", "1181773", "1181774", "1181775", "1209130", "1209131", "1209132", "1209133", "1209134", "1209135", "1267590", "1267591", "1267592", "1267593", "1267594", "1375360", "1375361", "1375362", "1375363", "1375364", "1375365", "1375366", "1375367", "1375368", "1375369", "1375370", "1463160", "1463190", "1463220", "1463230", "1463240", "1463241", "1463250", "1463251", "1463260", "1463261", "1463270", "1463271", "1636340", "1636341", "1636342", "1636343", "1636344", "1636345", "1636346", "1725500", "1725501", "1725502", "1725503", "1725504", "1725505", "1725506", "1725507", "1753520", "1753521", "1753522", "1753523", "1753524", "1753525", "1753526", "1753527", "1753528", "1753529", "1812880", "1812881", "1812882", "1812883", "1812884", "1812885", "1812886", "1812887", "1812888", "1812889", "1939830", "1939831", "1939832", "1939833", "1939834", "1939835", "1939836", "1939837", "1967800", "1967801", "1967802", "1967803", "1967804", "1967805", "1967806", "1967807", "1967808", "1967809", "2122140", "2122141", "2122142", "2122143", "2122144", "2122160", "2122161", "2122162", "2122163", "2195470", "2195471", "2195472", "2195473", "2195474", "2195475", "2195476", "2195477", "2195478", "2195479", "2233130", "2233131", "2233132", "2233133", "2233134", "2233135", "2233136", "2233137", "2271510", "2271511", "2350250", "2350251", "2350252", "2350253", "2350254", "2350255", "2407760", "2407761", "2407762", "2407763", "2407764", "2407765", "2407766", "2407767", "2407768", "2407769", "2407770", "2455550", "2455551", "2594030", "2594040", "2594050", "2594060", "2594070", "2594080", "2594090", "2594100", "2650880", "2650900", "2650910", "2650920", "2650930", "2650940", "2650960", "2650970", "2650980", "2650990", "2651000", "2838230", "2838240", "2838250", "2838260", "2838270", "2838280", "2838290", "2838300", "2838310", "2838330", "2893430", "2893440", "2893450", "2893460", "2893470", "2893480", "2893490", "2893500", "2893510", "3156250", "3156260", "3181490", "3181510", "3181520", "3181530", "3181550", "3181560", "3181570", "3181580", "3181590", "3181600", "3274160", "3274170", "3274180", "3274190", "3274200", "3274210", "3274230", "3274240", "3274250", "3274260", "3274280", "3274290", "3354440", "3354460", "3354470", "3354480", "3354490", "3354500", "3354510", "3354520", "3354530", "3354540", "3354590", "3354630", "3354660", "3354680", "3354690", "3354700", "3354710", "3535520", "3739820", "3804490", "3842290", "4002060", "4084510", "4185610", "4185620", "4185630", "4185640", "4185650", "4185660", "4185670", "4185680", "4185690", "4185700", "4185710", "4185720", "4374210", "4463920", "4550600", "4550610", "4550620", "4550630", "4550640", "4550650", "4756020", "4886340", "4886350", "4886360", "4886370", "4886380", "4886390", "4886400", "4886410", "5191250", "5308330"]
   },
   "BeatBlasters III": {
    "f": [
@@ -7409,7 +7603,8 @@
    "f": [
     ["<home>/AppData/LocalLow/Joey Drew Studios/Bendy and the Dark Revival/data", "windows", ""]
    ],
-   "s": "1063660"
+   "s": "1063660",
+   "x": ["4297080"]
   },
   "Bendy and the Ink Machine": {
    "f": [
@@ -7532,7 +7727,10 @@
    "f": [
     ["<base>/data/Saves", "windows", ""],
     ["<base>/data/demos", "windows", ""],
-    ["<base>/data/screenshots", "windows", ""]
+    ["<base>/data/screenshots", "windows", ""],
+    ["<home>/.var/app/info.beyondallreason.bar/data/Saves", "linux", ""],
+    ["<home>/.var/app/info.beyondallreason.bar/data/demos", "linux", ""],
+    ["<home>/.var/app/info.beyondallreason.bar/data/screenshots", "linux", ""]
    ]
   },
   "Beyond Blue": {
@@ -7643,6 +7841,11 @@
    ],
    "s": "1331550"
   },
+  "Big Biz Tycoon": {
+   "f": [
+    ["<base>/VT*.sav", "windows", ""]
+   ]
+  },
   "Big Brain Wolf": {
    "f": [
     ["<winAppData>/Macromedia/Flash Player/#SharedObjects/<storeUserId>/localhost/savedGameBBW.sol", "windows", ""]
@@ -7722,7 +7925,7 @@
     ["<home>/AppData/LocalLow/Rike Games/Bills Must Be Paid/FullGame", "windows", ""]
    ],
    "s": "4421010",
-   "x": ["4577620"]
+   "x": ["4577620", "5020040"]
   },
   "Billy Blade: Temple of Time": {
    "f": [
@@ -8001,6 +8204,13 @@
    "s": "1138660",
    "x": ["1284240", "1322960", "1535180", "1879710"]
   },
+  "Black Forest": {
+   "f": [
+    ["<home>/AppData/LocalLow/Lemuria/Black Forest/*.dat", "windows", ""],
+    ["<xdgConfig>/Lemuria/Black Forest", "linux", ""]
+   ],
+   "s": "523070"
+  },
   "Black Geyser: Couriers of Darkness": {
    "f": [
     ["<home>/.config/unity3d/GrapeOcean/BlackGeyser/data/saves", "linux", ""],
@@ -8180,6 +8390,13 @@
     ["<xdgData>/ags/Blackwell Unbound", "linux", ""]
    ],
    "s": "80340"
+  },
+  "Blackwood": {
+   "f": [
+    ["<home>/AppData/LocalLow/AttritoM7 Productions/Blackwood/blackwood.sav", "windows", ""]
+   ],
+   "s": "3639070",
+   "x": ["5237010"]
   },
   "Blade & Sorcery": {
    "f": [
@@ -8837,6 +9054,11 @@
    ],
    "s": "719070"
   },
+  "Blue Dragon (re:Blue)": {
+   "f": [
+    ["<base>/profiles/default/saves", "windows", ""]
+   ]
+  },
   "Blue Estate The Game": {
    "f": [
     ["<winDocuments>/My Games/BlueEstate/BEGame/SaveData/Steam.sav", "windows", ""]
@@ -8916,6 +9138,12 @@
     ["<base>/SavesDir/blushblush.sav", "windows", ""]
    ],
    "s": "777130"
+  },
+  "Boardfall": {
+   "f": [
+    ["<winLocalAppData>/BoardFall", "windows", ""]
+   ],
+   "s": "4026170"
   },
   "Bob Came in Pieces": {
    "f": [
@@ -9332,6 +9560,13 @@
    "s": "879850",
    "x": ["880710"]
   },
+  "Boxes: Lost Fragments": {
+   "f": [
+    ["<home>/AppData/LocalLow/Big Loop Studios/Boxes Lost Fragments/*.dat", "windows", ""]
+   ],
+   "s": "2019810",
+   "x": ["2300500"]
+  },
   "Boyfriend Dungeon": {
    "f": [
     ["<winLocalAppData>/Packages/20748KitfoxGamesInc.BoyfriendDungeon_ndj3659pgnjmr/SystemAppData", "windows", "microsoft"]
@@ -9487,6 +9722,12 @@
    ],
    "s": "738520"
   },
+  "Breathedge 2": {
+   "f": [
+    ["<winLocalAppData>/Breathedge2Game/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2412960"
+  },
   "Breed": {
    "f": [
     ["<base>/Game Saves", "windows", ""]
@@ -9584,6 +9825,13 @@
    "s": "652410",
    "x": ["709830", "709831", "1667070", "2174110"]
   },
+  "Brigandine Abyss": {
+   "f": [
+    ["<winLocalAppData>/BrigandineAbyss/Saved_Release/SaveGames", "windows", ""]
+   ],
+   "s": "3211430",
+   "x": ["4859070", "4884860"]
+  },
   "Brigandine: The Legend of Runersia": {
    "f": [
     ["<home>/AppData/LocalLow/Happinet/Brigandine_ The Legend of Runersia/SaveDatas/*.dat", "windows", ""]
@@ -9636,7 +9884,7 @@
     ["<winLocalAppData>/Brokgame/saves", "windows", ""]
    ],
    "s": "949480",
-   "x": ["1318790"]
+   "x": ["1318790", "1538690", "2116310", "2156870", "2931330", "4309650"]
   },
   "Broken Age": {
    "f": [
@@ -9727,6 +9975,13 @@
    ],
    "s": "580430"
   },
+  "BrokenLore: Don't Lie": {
+   "f": [
+    ["<winLocalAppData>/DontLie/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3886200",
+   "x": ["4005770"]
+  },
   "Brotato": {
    "f": [
     ["<home>/.local/share/Brotato/<storeUserId>/save_*.json", "linux", ""],
@@ -9779,6 +10034,11 @@
   "Bruce Coville's My Teacher is an Alien": {
    "f": [
     ["<base>/data/savegame", "windows", ""]
+   ]
+  },
+  "Brunswick Circuit Pro Bowling": {
+   "f": [
+    ["<base>/savegame.dat", "windows", ""]
    ]
   },
   "Brushwood Buddies": {
@@ -10024,6 +10284,11 @@
    ],
    "s": "730870"
   },
+  "Buried stars": {
+   "f": [
+    ["<home>/AppData/LocalLow/LINE Games/BURIED STARS", "windows", ""]
+   ]
+  },
   "Burly Men at Sea": {
    "f": [
     ["<home>/AppData/LocalLow/brainandbrain/Burly Men at Sea/burlySave.burly", "windows", ""]
@@ -10185,12 +10450,6 @@
     ["<base>/Saved Races", "windows", ""]
    ]
   },
-  "CASE: Animatronics": {
-   "f": [
-    ["<root>/userdata/<storeUserId>/489360/remote", "windows", "steam"]
-   ],
-   "s": "489360"
-  },
   "CAT Interstellar": {
    "f": [
     ["<base>/CATInterstellar/Saved/SaveGames", "windows", ""]
@@ -10214,6 +10473,11 @@
   "CEO CITY": {
    "f": [
     ["<base>/CyberPlanet Interactive/CEO City/Data/Save", "windows", ""]
+   ]
+  },
+  "CIA Operative: Solo Missions": {
+   "f": [
+    ["<base>/main/*.sav", "windows", ""]
    ]
   },
   "CLARC": {
@@ -10322,7 +10586,8 @@
    "f": [
     ["<home>/AppData/LocalLow/Party for Introverts/Cabernet", "windows", ""]
    ],
-   "s": "2401410"
+   "s": "2401410",
+   "x": ["3283960", "3545650"]
   },
   "Caesar": {
    "f": [
@@ -10504,6 +10769,12 @@
    "s": "10180",
    "x": ["10190"]
   },
+  "Call of Duty: Modern Warfare 2 Campaign Remastered": {
+   "f": [
+    ["<base>/players2/<storeUserId>/settings_c.zip.h2", "windows", ""],
+    ["<base>/players2/<storeUserId>/settings_s.zip.h2", "windows", ""]
+   ]
+  },
   "Call of Duty: Modern Warfare 3": {
    "f": [
     ["<base>/players2/save", "windows", ""],
@@ -10512,6 +10783,12 @@
    ],
    "s": "115300",
    "x": ["42680", "42690"]
+  },
+  "Call of Duty: Modern Warfare 4": {
+   "f": [
+    ["<winLocalAppData>/Activision/Call of Duty/players/<storeUserId>", "windows", ""]
+   ],
+   "s": "4435490"
   },
   "Call of Duty: Modern Warfare II": {
    "f": [
@@ -10821,6 +11098,25 @@
    "s": "1190000",
    "x": ["1585850", "1685720", "1685721", "1748990", "1748991", "1773800", "1773801", "1931780", "1981550", "2085260", "2112230", "2112231", "2112232", "2282030", "2464230", "2546830", "2601200", "2721070", "2889700", "3335470", "3660210", "4185010"]
   },
+  "Car Park Capital": {
+   "f": [
+    ["<base>/saves/*.cpcp", "windows", ""],
+    ["<base>/saves/*.cpcp", "linux", ""],
+    ["<base>/saves/*.json", "windows", ""],
+    ["<base>/saves/*.json", "linux", ""],
+    ["<base>/saves/blueprints/*.cpbp", "windows", ""],
+    ["<base>/saves/blueprints/*.cpbp", "linux", ""],
+    ["<base>/saves/scenarios/*.cpcs", "windows", ""],
+    ["<base>/saves/scenarios/*.cpcs", "linux", ""]
+   ],
+   "s": "3031880"
+  },
+  "Car Parking Multiplayer 2": {
+   "f": [
+    ["<home>/AppData/LocalLow/Olzhas/Car Parking 2/SaveFile.es3", "windows", ""]
+   ],
+   "s": "4252340"
+  },
   "CarX Drift Racing Online": {
    "f": [
     ["<home>/AppData/LocalLow/CarX Technologies/Drift Racing Online/Cache", "windows", ""]
@@ -10909,14 +11205,14 @@
     ["<base>/SAVE", "windows", ""]
    ],
    "s": "2230980",
-   "x": ["1456830", "1782680", "2628610", "2688800", "3162620", "3398030", "3549890", "3549900"]
+   "x": ["1456830", "1782680", "2628610", "2688800", "3162620", "3398030", "3549890", "3549900", "3549910", "4454410"]
   },
   "Caribbean Legend: Age of Pirates": {
    "f": [
     ["<base>/SAVE", "windows", ""]
    ],
    "s": "3549020",
-   "x": ["4238730"]
+   "x": ["4238730", "4631460", "4969720"]
   },
   "Caribbean!": {
    "f": [
@@ -10945,6 +11241,7 @@
   },
   "Carmageddon: Max Damage": {
    "f": [
+    ["<root>/userdata/<storeUserId>/505170/remote", "", "steam"],
     ["<winDocuments>/Carmageddon Max Damage/savegames", "windows", ""]
    ],
    "s": "505170"
@@ -10977,6 +11274,11 @@
   "CarneyVale: Showtime": {
    "f": [
     ["<winAppData>/Gambit/CarneyVale Showtime/<storeUserId>.sav", "windows", ""]
+   ]
+  },
+  "Carnival Cruise Lines Tycoon 2005: Island Hopping": {
+   "f": [
+    ["<base>/data/profiles/<storeUserId>.ini", "windows", ""]
    ]
   },
   "Carnival Games": {
@@ -11086,6 +11388,13 @@
    ],
    "s": "1172450",
    "x": ["1431200"]
+  },
+  "Case: Animatronics": {
+   "f": [
+    ["<root>/userdata/<storeUserId>/489360/remote", "windows", "steam"]
+   ],
+   "s": "489360",
+   "x": ["500650"]
   },
   "Cash Cleaner Simulator": {
    "f": [
@@ -11244,6 +11553,11 @@
    "s": "239250",
    "x": ["273150", "273151", "273152", "273153"]
   },
+  "Castlevania: Symphony of Horrors": {
+   "f": [
+    ["<winLocalAppData>/CastlevaniaSOH/Saved/SaveGames", "windows", ""]
+   ]
+  },
   "Cat Girl Without Salad": {
    "f": [
     ["<base>/DATA", "windows", ""]
@@ -11270,7 +11584,8 @@
   },
   "Cat Quest III": {
    "f": [
-    ["<winDocuments>/Cat Quest III/cq3_save*.dat", "windows", ""]
+    ["<winLocalAppData>/Cat Quest III/cq3_autosave*.dat", "windows", ""],
+    ["<winLocalAppData>/Cat Quest III/cq3_save*.dat", "windows", ""]
    ],
    "s": "2305840"
   },
@@ -11297,7 +11612,7 @@
     ["<home>/AppData/LocalLow/Digital Sun/Cataclismo/SavesMP", "windows", ""]
    ],
    "s": "1422440",
-   "x": ["4396100"]
+   "x": ["4396100", "5001640"]
   },
   "Cataclysm: Dark Days Ahead": {
    "f": [
@@ -11324,6 +11639,12 @@
     ["<root>/userdata/<storeUserId>/679750/remote", "windows", "steam"]
    ],
    "s": "679750"
+  },
+  "Catch Flex": {
+   "f": [
+    ["<home>/AppData/LocalLow/Vilegacy/Catch Flex/progress.json", "windows", ""]
+   ],
+   "s": "3670810"
   },
   "Cateau": {
    "f": [
@@ -11388,6 +11709,13 @@
     ["<home>/AppData/LocalLow/Pine Studio/Cats in Time/*.sav", "windows", ""]
    ],
    "s": "1599880"
+  },
+  "Cattails: Wildwood Story": {
+   "f": [
+    ["<winLocalAppData>/Cattails_Wildwood_Story/saves", "windows", ""]
+   ],
+   "s": "1882500",
+   "x": ["2004330"]
   },
   "Cattle and Crops": {
    "f": [
@@ -11566,6 +11894,12 @@
     ["<winDocuments>/Ceville/save", "windows", ""]
    ],
    "s": "23460"
+  },
+  "Chained Beasts": {
+   "f": [
+    ["<home>/AppData/LocalLow/Featherweight Games/ChainedBeasts", "windows", ""]
+   ],
+   "s": "3569420"
   },
   "Chained Echoes": {
    "f": [
@@ -12307,6 +12641,12 @@
     ["<base>/save/<storeUserId>/*.sav", "windows", ""]
    ]
   },
+  "Cirno! Lifts a Boulder": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Cirno! Lifts a Boulder/levelsave.icecold", "windows", ""]
+   ],
+   "s": "4173110"
+  },
   "Citadel: Forged with Fire": {
    "f": [
     ["<winLocalAppData>/Citadel/Saved/SaveGames", "windows", ""]
@@ -12625,6 +12965,19 @@
    ],
    "s": "403900"
   },
+  "Click and Conquer": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Click and Conquer/save_data.tres", "windows", ""]
+   ],
+   "s": "3267900"
+  },
+  "Click the Button": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/ClickTheButton/save.json", "windows", ""]
+   ],
+   "s": "3946950",
+   "x": ["4805850", "5110650"]
+  },
   "Click to Continue": {
    "f": [
     ["<base>/PaperclipFactory/Saved/SaveGames", "windows", ""]
@@ -12669,6 +13022,13 @@
     ["<home>/AppData/LocalLow/Dinosaur Bytes Studio/Clive 'N' Wrench/GameSave", "windows", ""]
    ],
    "s": "1094720"
+  },
+  "Clive Barker's Hellraiser: Revival": {
+   "f": [
+    ["<winLocalAppData>/Hellraiser/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "1551980",
+   "x": ["4664770", "5184670"]
   },
   "Clive Barker's Jericho": {
    "f": [
@@ -13012,6 +13372,12 @@
    ],
    "s": "1663220"
   },
+  "Coffee Talk Tokyo": {
+   "f": [
+    ["<home>/AppData/LocalLow/Chorus Worldwide/CTT", "windows", ""]
+   ],
+   "s": "3161220"
+  },
   "Cogmind": {
    "f": [
     ["<base>/user", "windows", ""]
@@ -13298,6 +13664,11 @@
    ],
    "s": "2229830"
   },
+  "Command & Conquer (2013)": {
+   "f": [
+    ["<winDocuments>/Command & Conquer", "windows", ""]
+   ]
+  },
   "Command & Conquer 3: Tiberium Wars": {
    "f": [
     ["<home>/Saved Games/Command & Conquer 3 Kane's Wrath", "windows", ""],
@@ -13541,7 +13912,7 @@
   },
   "Conan Exiles": {
    "f": [
-    ["<base>/ConanSandbox/Saved", "windows", ""]
+    ["<base>/ConanSandbox/Saved/*.db", "windows", ""]
    ],
    "s": "440900"
   },
@@ -13857,6 +14228,13 @@
     ["<winLocalAppData>/Remedy/Control/Default-Generic-User", "windows", "gog"]
    ],
    "s": "870780"
+  },
+  "Control Resonant": {
+   "f": [
+    ["<root>/userdata/<storeUserId>/3669870/remote", "windows", "steam"]
+   ],
+   "s": "3669870",
+   "x": ["4403940"]
   },
   "Convoy": {
    "f": [
@@ -14759,7 +15137,7 @@
     ["<winLocalAppData>/Pearl Abyss/CD/save/<storeUserId>", "windows", ""]
    ],
    "s": "3321460",
-   "x": ["4024620"]
+   "x": ["4024620", "4024630", "4193060", "4572870", "4783050", "5001840"]
   },
   "Crimson Gray": {
    "f": [
@@ -15441,6 +15819,12 @@
    ],
    "s": "2464690"
   },
+  "Cyber Agent": {
+   "f": [
+    ["<home>/AppData/LocalLow/BambuseaeGames/CyberAgent/SaveData.es3", "windows", ""]
+   ],
+   "s": "1274300"
+  },
   "Cyber City 2157: The Visual Novel": {
    "f": [
     ["<winAppData>/renpy/dream-1450895417/*.save", "windows", ""]
@@ -15486,7 +15870,8 @@
   },
   "Cyberpunk 2077": {
    "f": [
-    ["<home>/Saved Games/CD Projekt Red/Cyberpunk 2077", "windows", ""]
+    ["<home>/Saved Games/CD Projekt Red/Cyberpunk 2077", "windows", ""],
+    ["<winLocalAppData>/Packages/CDPROJEKTSA.4d0e9834-20b1-4580-9bdc-4501ef2ffaac_0xkrdv0gjmk28/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "1091500",
    "x": ["1495710", "2060310", "2138330", "2441600"]
@@ -15615,6 +16000,14 @@
    ],
    "s": "1091320",
    "x": ["2073890"]
+  },
+  "DERELIKT": {
+   "f": [
+    ["<home>/AppData/LocalLow/Visuwyg/DERELIKT/PersistentData/*/*.drt", "windows", ""],
+    ["<home>/AppData/LocalLow/Visuwyg/DERELIKT/PersistentData/*/data.ctg", "windows", ""]
+   ],
+   "s": "3810510",
+   "x": ["5242870"]
   },
   "DIRT 5": {
    "f": [
@@ -16020,7 +16413,7 @@
     ["<winLocalAppData>/The5thFloor/Saved/SaveGames", "windows", ""]
    ],
    "s": "4157130",
-   "x": ["4348890", "4693910", "4768220", "4768230"]
+   "x": ["4348890", "4693910", "4768220", "4768230", "5236770"]
   },
   "Dark Quest": {
    "f": [
@@ -16126,15 +16519,6 @@
    "f": [
     ["<base>/SAVE", "windows", ""]
    ]
-  },
-  "Darkest Dungeon": {
-   "f": [
-    ["<home>/.local/share/Red Hook Studios/Darkest", "linux", ""],
-    ["<root>/userdata/<storeUserId>/262060/remote/profile_*", "", "steam"],
-    ["<winDocuments>/Darkest/profile_*", "windows", ""]
-   ],
-   "s": "262060",
-   "x": ["445700", "580100", "702540", "735730", "1117860"]
   },
   "Darkest Dungeon II": {
    "f": [
@@ -16356,7 +16740,8 @@
    "f": [
     ["<base>/profiles", "windows", ""]
    ],
-   "s": "33540"
+   "s": "33540",
+   "x": ["33550"]
   },
   "Dawn of Man": {
    "f": [
@@ -16619,7 +17004,8 @@
    "f": [
     ["<root>/userdata/<storeUserId>/2527390/remote/win64_save", "", "steam"]
    ],
-   "s": "2527390"
+   "s": "2527390",
+   "x": ["2851890", "2851900", "2851910", "2851920", "2851930", "2851940", "2851950", "2851960", "2851970", "2851980", "2851990", "2852000", "2852010", "2852020", "2852030", "2852040", "2852050", "2852060", "2852070", "2852080", "2892640", "3214130", "3659690", "3659770", "3659830", "3668680"]
   },
   "Dead Secret": {
    "f": [
@@ -16876,6 +17262,13 @@
    "s": "3228590",
    "x": ["3883890", "3897660", "4208730"]
   },
+  "Deadzone: Rogue 2": {
+   "f": [
+    ["<winLocalAppData>/Oak/Saved/Config/Windows", "windows", "steam"],
+    ["<winLocalAppData>/Oak/Saved/SaveGames", "windows", "steam"]
+   ],
+   "s": "4465790"
+  },
   "Dear Esther": {
    "f": [
     ["<base>/dearesther/SAVE", "windows", ""],
@@ -17046,7 +17439,8 @@
    "f": [
     ["<home>/AppData/LocalLow/melessthanthree/DeathOfAWish/savedGames.gd", "windows", ""]
    ],
-   "s": "2302080"
+   "s": "2302080",
+   "x": ["2563830", "3089970"]
   },
   "Death of the Reprobate": {
    "f": [
@@ -17325,9 +17719,19 @@
    "s": "1803140",
    "x": ["4588480", "4613120", "4626870"]
   },
+  "Deer Avenger 3D": {
+   "f": [
+    ["<base>/savegame", "windows", ""]
+   ]
+  },
   "Deer Hunter 2004": {
    "f": [
     ["<base>/Game/Profiles/<storeUserId>.pro", "windows", ""]
+   ]
+  },
+  "Deer Hunter Tournament": {
+   "f": [
+    ["<winDocuments>/DHT/Profiles", "windows", ""]
    ]
   },
   "Deer Hunter: The 2005 Season": {
@@ -17340,6 +17744,12 @@
     ["<xdgConfig>/unity3d/Alda Games s.r.o./Defend Your Life!/prefs", "linux", ""]
    ],
    "s": "357780"
+  },
+  "Defender of the Crown: The Legend Returns": {
+   "f": [
+    ["<home>/AppData/LocalLow/Black Tower Basement/Defender of the Crown Collection/<storeUserId>/*.sav/<home>/AppData/LocalLow/Black Tower Basement/Defender of the Crown Collection/<storeUserId>/*.jpg", "windows", "steam"]
+   ],
+   "s": "4208140"
   },
   "Defender's Quest: Valley of the Forgotten": {
    "f": [
@@ -17596,6 +18006,12 @@
    ],
    "s": "422510"
   },
+  "Demon's Wrath": {
+   "f": [
+    ["<base>/SavesDir", "windows", ""]
+   ],
+   "s": "2173920"
+  },
   "DemonCrawl": {
    "f": [
     ["<winLocalAppData>/DemonCrawl", "windows", ""]
@@ -17627,6 +18043,11 @@
     ["<xdgData>/Demonizer", "linux", ""]
    ],
    "s": "1091390"
+  },
+  "Demonworld: Dark Armies": {
+   "f": [
+    ["<base>/SaveGames", "windows", ""]
+   ]
   },
   "Densha de Go! Final": {
    "f": [
@@ -18081,6 +18502,12 @@
     ["<winAppData>/DevilDaggers", "windows", ""]
    ],
    "s": "422970"
+  },
+  "Devil May Cry 4": {
+   "f": [
+    ["<winDocuments>/CAPCOM/DEVILMAYCRY4", "windows", ""]
+   ],
+   "s": "45700"
   },
   "Devil May Cry 4: Special Edition": {
    "f": [
@@ -18768,6 +19195,16 @@
    ],
    "s": "338300"
   },
+  "Disney's Dinosaur Activity Center": {
+   "f": [
+    ["<base>/Saved", "windows", ""]
+   ]
+  },
+  "Disney's Villains' Revenge": {
+   "f": [
+    ["<base>/SaveGame", "windows", ""]
+   ]
+  },
   "Disneyland Adventures": {
    "f": [
     ["<root>/userdata/<storeUserId>/630610/remote", "", "steam"],
@@ -18855,6 +19292,13 @@
    "s": "529780",
    "x": ["551560"]
   },
+  "Dive or Die: Children of Rain": {
+   "f": [
+    ["<home>/AppData/LocalLow/DropRateStudio/Dive or Die", "windows", ""]
+   ],
+   "s": "3590290",
+   "x": ["4321140"]
+  },
   "Divekick": {
    "f": [
     ["<root>/userdata/<storeUserId>/244730/remote/divekick/profilesave.sav", "windows", "steam"]
@@ -18932,6 +19376,13 @@
     ["<home>/AppData/LocalLow/Weltall Zero/Divinoids/saveGame.sav", "windows", ""]
    ],
    "s": "1251670"
+  },
+  "Divinum": {
+   "f": [
+    ["<home>/AppData/LocalLow/Sigil Games/Divinum/*.sav", "windows", ""]
+   ],
+   "s": "1148130",
+   "x": ["4196020"]
   },
   "DmC: Devil May Cry": {
    "f": [
@@ -19041,6 +19492,13 @@
    ],
    "s": "698780",
    "x": ["717250"]
+  },
+  "Dokimon Quest": {
+   "f": [
+    ["<winLocalAppData>/dokimon", "windows", ""]
+   ],
+   "s": "2019300",
+   "x": ["3236490", "3314520"]
   },
   "Dollar Dash": {
    "f": [
@@ -19185,6 +19643,12 @@
   "Donald Trump's Real Estate Tycoon": {
    "f": [
     ["<base>/Save/Games", "windows", ""]
+   ]
+  },
+  "Donkey Kong 64 (DK64: Rekongpiled)": {
+   "f": [
+    ["<winLocalAppData>/DK64Recompiled/saves", "windows", ""],
+    ["<xdgConfig>/DK64Recompiled/saves", "linux", ""]
    ]
   },
   "Donkey Xote": {
@@ -19386,6 +19850,21 @@
     ["<base>/Doorways_Data/saves", "windows", ""]
    ],
    "s": "383930"
+  },
+  "Dora the Explorer: Backpack Adventure": {
+   "f": [
+    ["<base>/savegame", "windows", ""]
+   ]
+  },
+  "Dora the Explorer: Lost City Adventure": {
+   "f": [
+    ["<base>/savegame", "windows", ""]
+   ]
+  },
+  "Dora the Explorer: World Adventure!": {
+   "f": [
+    ["<base>/SAVED", "windows", ""]
+   ]
   },
   "Doraemon: Story of Seasons": {
    "f": [
@@ -19745,7 +20224,7 @@
   },
   "Dragon Quest VII Reimagined": {
    "f": [
-    ["<winDocuments>/My Games/DRAGON QUEST VII/Steam/<storeUserId>/release/Saved/SaveGames", "windows", "steam"]
+    ["<winDocuments>/My Games/DRAGON QUEST VII/Steam/<storeUserId>/release/Saved/SaveGames/GameSaveData*.sav", "windows", "steam"]
    ],
    "s": "2499860"
   },
@@ -19799,7 +20278,7 @@
    ],
    "s": "784010"
   },
-  "Dragon's Dogma II": {
+  "Dragon's Dogma 2": {
    "f": [
     ["<root>/userdata/<storeUserId>/2054970/remote", "", "steam"]
    ],
@@ -20061,6 +20540,11 @@
    ],
    "s": "3463050"
   },
+  "Dreams to Reality": {
+   "f": [
+    ["<base>/DATA/GAME", "windows", ""]
+   ]
+  },
   "Dreamscaper": {
    "f": [
     ["<winLocalAppData>/Dreamscaper/Saved/SaveGames", "windows", ""]
@@ -20214,7 +20698,8 @@
     ["<home>/AppData/LocalLow/Just2D/Drova/Sprint_24", "windows", ""],
     ["<xdgConfig>/unity3d/Just2D/Drova/Sprint_24", "linux", ""]
    ],
-   "s": "1585180"
+   "s": "1585180",
+   "x": ["1585800"]
   },
   "Drox Operative 2": {
    "f": [
@@ -20452,7 +20937,7 @@
     ["<winLocalAppData>/DuneSandbox/Saved/Cloud", "windows", ""]
    ],
    "s": "1172710",
-   "x": ["3596810", "3596920"]
+   "x": ["3596810", "3596900", "3596920", "3596930", "3604200", "4156640"]
   },
   "Dune: Spice Wars": {
    "f": [
@@ -20628,6 +21113,12 @@
    ],
    "s": "57650"
   },
+  "Dungeons & Degenerate Gamblers": {
+   "f": [
+    ["<winAppData>/godot/app_userdata/Dungeons & Degenerate Gamblers/1/*.cfg", "windows", ""]
+   ],
+   "s": "2400510"
+  },
   "Dungeons & Dragons: Chronicles of Mystara": {
    "f": [
     ["<home>/Saved Games/Capcom/Dungeons & Dragons/Saved Games", "windows", ""]
@@ -20759,6 +21250,13 @@
    ],
    "s": "254320"
   },
+  "Duskfade": {
+   "f": [
+    ["<winLocalAppData>/Duskfade/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2542020",
+   "x": ["4023080", "4934950"]
+  },
   "Dust: An Elysian Tail": {
    "f": [
     ["<winDocuments>/SavedGames/DustAET/Game Save *.sav", "windows", ""],
@@ -20792,6 +21290,12 @@
     ["<home>/AppData/LocalLow/Invictus Games/Dustoff II/Saves", "windows", ""]
    ],
    "s": "553690"
+  },
+  "Dverghold": {
+   "f": [
+    ["<home>/AppData/LocalLow/Kvltgames/Dverghold/Saves", "windows", ""]
+   ],
+   "s": "4216280"
   },
   "Dwarf Fortress": {
    "f": [
@@ -20874,6 +21378,13 @@
     ["<winAppData>/Dynamite Jack", "windows", ""]
    ],
    "s": "202730"
+  },
+  "Dynasty Warriors 3: Complete Edition Remastered": {
+   "f": [
+    ["<winLocalAppData>/KoeiTecmo/DW3CE_RE/Saved/SaveGames", "windows", ""],
+    ["<winLocalAppData>/KoeiTecmo/DW3CE_RE/Saved/SaveGames_Backup", "windows", ""]
+   ],
+   "s": "3841510"
   },
   "Dynasty Warriors 4: Hyper": {
    "f": [
@@ -21445,7 +21956,8 @@
    "f": [
     ["<base>/saved", "windows", ""]
    ],
-   "s": "4834840"
+   "s": "4834840",
+   "x": ["5418140", "5418150"]
   },
   "Ecstatica II": {
    "f": [
@@ -21526,7 +22038,8 @@
   },
   "Eets": {
    "f": [
-    ["<base>/User/Profiles/*.prf", "windows", ""]
+    ["<base>/User/Profiles/*.prf", "windows", ""],
+    ["<base>/User/Profiles/*.prf", "linux", ""]
    ],
    "s": "6100"
   },
@@ -21813,6 +22326,13 @@
    ],
    "s": "716500"
   },
+  "Ellingby House": {
+   "f": [
+    ["<winAppData>/Jepfore Games Limited/Ellingby House/saved_games", "windows", ""]
+   ],
+   "s": "3247290",
+   "x": ["3737270"]
+  },
   "Elliot Quest": {
    "f": [
     ["<root>/userdata/<storeUserId>/293440/remote/eq_save_*.dat", "", "steam"]
@@ -21867,6 +22387,12 @@
     ["<home>/AppData/LocalLow/Hot Chili Games/Elypse/Elypse_Save.s", "windows", ""]
    ],
    "s": "1725340"
+  },
+  "Elysium": {
+   "f": [
+    ["<winLocalAppData>/Elysium/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "5219090"
   },
   "Embarrassed Shina-chan~ the Naked Wandering College Girl": {
    "f": [
@@ -22116,6 +22642,12 @@
    ],
    "s": "1137450"
   },
+  "Endacopia": {
+   "f": [
+    ["<home>/Saved Games/Endacopia", "windows", ""]
+   ],
+   "s": "2684630"
+  },
   "Ender Lilies: Quietus of the Knights": {
    "f": [
     ["<winLocalAppData>/EnderLilies/Saved/SaveGames", "windows", ""]
@@ -22161,7 +22693,7 @@
   },
   "Endless Legend 2": {
    "f": [
-    ["<winDocuments>/Endless Legend 2/Save Files", "windows", ""]
+    ["<winLocalAppData>/Amplitude Studios/Endless Legend 2/Save Files", "windows", ""]
    ],
    "s": "3407390"
   },
@@ -22328,9 +22860,15 @@
    ],
    "s": "284750"
   },
+  "Enotria: The Last Song": {
+   "f": [
+    ["<winLocalAppData>/Enotria/Saved/SaveGames/*.sav", "windows", ""]
+   ],
+   "s": "2102450"
+  },
   "Enshrouded": {
    "f": [
-    ["<root>/userdata/<storeUserId>/1203620/remote", "", "steam"]
+    ["<root>/userdata/<storeUserId>/1203620/remote/*.ksd", "", "steam"]
    ],
    "s": "1203620"
   },
@@ -22632,7 +23170,8 @@
     ["<base>/Pine Studio/Escape Simulator 2/LevelSaves/*.sav", "windows", ""],
     ["<home>/AppData/LocalLow/Pine Studio/Escape Simulator 2", "windows", ""]
    ],
-   "s": "2879840"
+   "s": "2879840",
+   "x": ["3499320", "3804140", "4575720"]
   },
   "Escape The Museum": {
    "f": [
@@ -22645,6 +23184,13 @@
     ["<base>/Saves/efmi*.gsv", "windows", ""]
    ],
    "s": "730830"
+  },
+  "Escape from Playtime": {
+   "f": [
+    ["<winLocalAppData>/EscapeFromPlaytime/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2087540",
+   "x": ["5309180", "5401680"]
   },
   "Escape the Backrooms": {
    "f": [
@@ -22776,6 +23322,14 @@
    ],
    "s": "1402110"
   },
+  "Eternity Lost: Mystery of Aurum": {
+   "f": [
+    ["<base>/userData/*.backup", "windows", ""],
+    ["<base>/userData/*.bin", "windows", ""],
+    ["<base>/userData/*.diff", "windows", ""]
+   ],
+   "s": "5095280"
+  },
   "Ethan: Meteor Hunter": {
    "f": [
     ["<winDocuments>/EthanMeteorHunter/<storeUserId>", "windows", ""]
@@ -22894,7 +23448,7 @@
     ["<xdgData>/Euro Truck Simulator 2/profiles", "linux", ""]
    ],
    "s": "227300",
-   "x": ["227310", "231120", "258460", "266930", "266931", "292320", "297790", "297791", "297792", "297793", "301180", "304020", "304140", "304210", "304211", "304212", "304213", "304214", "318500", "318510", "318511", "318520", "318521", "347190", "347210", "347211", "347212", "347213", "388470", "388471", "388472", "388473", "388474", "388475", "388476", "388477", "388478", "388479", "461240", "461241", "461242", "461243", "461244", "461245", "461246", "461247", "461248", "461249", "526950", "531130", "531131", "540720", "540721", "558240", "558241", "558242", "558243", "558244", "558245", "876980", "909640", "925580", "925650", "933610", "980590", "980591", "980592", "1056760", "1056761", "1068290", "1117140", "1159030", "1209460", "1918370", "2004210", "2604420", "2780800", "2780810", "2932420", "3034950", "4159240", "4348650"]
+   "x": ["227310", "231120", "258460", "266930", "266931", "292320", "297790", "297791", "297792", "297793", "301180", "304020", "304140", "304210", "304211", "304212", "304213", "304214", "318500", "318510", "318511", "318520", "318521", "347190", "347210", "347211", "347212", "347213", "388470", "388471", "388472", "388473", "388474", "388475", "388476", "388477", "388478", "388479", "461240", "461241", "461242", "461243", "461244", "461245", "461246", "461247", "461248", "461249", "526950", "531130", "531131", "540720", "540721", "558240", "558241", "558242", "558243", "558244", "558245", "876980", "909640", "925580", "925650", "933610", "980590", "980591", "980592", "1056760", "1056761", "1068290", "1117140", "1159030", "1209460", "1918370", "2004210", "2604420", "2780800", "2780810", "2932420", "3034950", "3796990", "4159240", "4348650"]
   },
   "EuroCops": {
    "f": [
@@ -23303,6 +23857,12 @@
    "s": "773370",
    "x": ["1595980"]
   },
+  "Exo Rally Championship": {
+   "f": [
+    ["<winLocalAppData>low/Exbleative/Exo Rally Championship/SteamUsers", "windows", ""]
+   ],
+   "s": "2262020"
+  },
   "ExoCross": {
    "f": [
     ["<base>/DRAG/config/game.sav", "windows", ""]
@@ -23413,6 +23973,11 @@
     ["<winLocalAppData>/ExtremeBurgerDefense", "windows", ""]
    ]
   },
+  "Extreme Mountain Biking": {
+   "f": [
+    ["<base>/HighScores.dat", "windows", ""]
+   ]
+  },
   "Extreme Tux Racer": {
    "f": [
     ["$HOME/.etr", "linux", ""],
@@ -23500,6 +24065,11 @@
     ["<base>/LOG", "windows", ""]
    ],
    "s": "776050"
+  },
+  "F1 2000": {
+   "f": [
+    ["<base>/Save", "windows", ""]
+   ]
   },
   "F1 2010": {
    "f": [
@@ -23668,6 +24238,22 @@
     ["<winAppData>/Local/fv/Saved/SaveGames", "windows", ""]
    ],
    "s": "2353280"
+  },
+  "FAR: Changing Tides": {
+   "f": [
+    ["<home>/AppData/LocalLow/Okomotive/FarChangingTides", "windows", ""],
+    ["<winLocalAppData>/Packages/FrontierDevelopmentsPlc.FARChangingTidesWindowsEdi_ft442cafaz8hg/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"]
+   ],
+   "s": "1570010",
+   "x": ["1684390"]
+  },
+  "FAR: Lone Sails": {
+   "f": [
+    ["<home>/AppData/LocalLow/Okomotive/FarLoneSails", "windows", ""],
+    ["<root>/userdata/<storeUserId>/609320/remote", "", "steam"]
+   ],
+   "s": "609320",
+   "x": ["837840", "837841", "1390550"]
   },
   "FATE": {
    "f": [
@@ -24021,10 +24607,11 @@
    ],
    "s": "1349850"
   },
-  "Fairtravel Battle": {
+  "Fairtravel Battle CCG": {
    "f": [
     ["<home>/.config/unity3d/Flaming Torch Games/Fairtravel Battle/Profiles", "linux", ""],
-    ["<winLocalAppData>/../LocalLow/Flaming Torch Games/Fairtravel Battle/Profiles", "windows", ""]
+    ["<winLocalAppData>/../LocalLow/Flaming Torch Games/Fairtravel Battle/Profiles", "windows", ""],
+    ["Same as the other platforms but with a subholder inside Profiles named after the player's steam ID", "", "steam"]
    ],
    "s": "917820"
   },
@@ -24392,22 +24979,6 @@
    ],
    "s": "3124540"
   },
-  "Far: Changing Tides": {
-   "f": [
-    ["<home>/AppData/LocalLow/Okomotive/FarChangingTides", "windows", ""],
-    ["<winLocalAppData>/Packages/FrontierDevelopmentsPlc.FARChangingTidesWindowsEdi_ft442cafaz8hg/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"]
-   ],
-   "s": "1570010",
-   "x": ["1684390"]
-  },
-  "Far: Lone Sails": {
-   "f": [
-    ["<home>/AppData/LocalLow/Okomotive/FarLoneSails", "windows", ""],
-    ["<root>/userdata/<storeUserId>/609320/remote", "", "steam"]
-   ],
-   "s": "609320",
-   "x": ["837840", "837841", "1390550"]
-  },
   "FarSky": {
    "f": [
     ["<home>/.FarSky/save", "linux", ""],
@@ -24491,6 +25062,12 @@
    ],
    "s": "3070880",
    "x": ["3479320"]
+  },
+  "Farming Incremental But With Guns": {
+   "f": [
+    ["<home>/AppData/LocalLow/Clementine Wolf Games/Farming Incremental But With Guns", "windows", ""]
+   ],
+   "s": "4651120"
   },
   "Farming Simulator 15": {
    "f": [
@@ -24642,7 +25219,9 @@
   "Fatal Twelve": {
    "f": [
     ["<base>/game/saves", "windows", ""],
-    ["<base>/game/saves", "linux", ""]
+    ["<base>/game/saves", "linux", ""],
+    ["<home>/.renpy/FATAL TWELVE", "linux", ""],
+    ["<winAppData>/RenPy/FATAL TWELVE", "windows", ""]
    ],
    "s": "620210",
    "x": ["620250", "838120", "838130", "838140"]
@@ -24847,6 +25426,12 @@
    "s": "699170",
    "x": ["1155320"]
   },
+  "Femboy Futa House": {
+   "f": [
+    ["<home>/AppData/LocalLow/Femboy Futa House", "windows", ""]
+   ],
+   "s": "3602290"
+  },
   "Femdemic": {
    "f": [
     ["<home>/AppData/LocalLow/Rel_Pink/Femdemic", "windows", ""]
@@ -24874,7 +25459,7 @@
   },
   "Fernbus Simulator": {
    "f": [
-    ["<winLocalAppData>/Fernbus/Saved", "windows", ""]
+    ["<winLocalAppData>/Fernbus/Saved/Profiles", "windows", ""]
    ],
    "s": "427100"
   },
@@ -25080,6 +25665,13 @@
     ["<winLocalAppData>/Packages/39EA002F.FINALFANTASYIX_n746a19ndrrjg/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "377840"
+  },
+  "Final Fantasy Resonance": {
+   "f": [
+    ["<winLocalAppData>/FFRS/Steam/<storeUserId>", "windows", ""]
+   ],
+   "s": "3259780",
+   "x": ["4347910"]
   },
   "Final Fantasy Tactics - The Ivalice Chronicles": {
    "f": [
@@ -25346,6 +25938,13 @@
    "s": "1608550",
    "x": ["1759030"]
   },
+  "Firestone Idle RPG": {
+   "f": [
+    ["Stored on the developer's servers.", "windows", ""],
+    ["Stored on the developer's servers.", "linux", ""]
+   ],
+   "s": "1013320"
+  },
   "Firewatch": {
    "f": [
     ["<home>/AppData/LocalLow/CampoSanto/Firewatch/saves", "windows", ""],
@@ -25400,6 +25999,13 @@
    ],
    "s": "33950"
   },
+  "Fish Lab": {
+   "f": [
+    ["<winAppData>/Fish Lab/save_game_*.bin", "windows", ""]
+   ],
+   "s": "4221990",
+   "x": ["4601570"]
+  },
   "Fish Season": {
    "f": [
     ["<home>/AppData/LocalLow/FishSeason/FishSeason/01", "windows", ""]
@@ -25411,6 +26017,12 @@
     ["<home>/AppData/LocalLow/Lilou Studio/Fishery/saved_games", "windows", ""]
    ],
    "s": "809730"
+  },
+  "Fishing Star World Tour": {
+   "f": [
+    ["<home>/AppData/LocalLow/fws/fishingstarworldtour/save", "windows", ""]
+   ],
+   "s": "4350360"
   },
   "Fishing: Barents Sea": {
    "f": [
@@ -25760,6 +26372,7 @@
   },
   "Flower": {
    "f": [
+    ["<winDocuments>/Flower/SAVEGAME.BIN", "windows", ""],
     ["<winLocalAppData>/GOG.com/Galaxy/Applications/51964741675694916/Storage/Shared/Files/SAVEGAME.BIN", "windows", "gog"]
    ],
    "s": "966330"
@@ -25861,7 +26474,8 @@
    "f": [
     ["<winLocalAppData>/Fobia/Saved/SaveGames", "windows", ""]
    ],
-   "s": "1298140"
+   "s": "1298140",
+   "x": ["1305020"]
   },
   "Focus on You": {
    "f": [
@@ -25899,12 +26513,6 @@
     ["<winDocuments>/Sports Interactive/Football Manager 2009", "windows", ""]
    ],
    "s": "10540"
-  },
-  "Football Manager 2010": {
-   "f": [
-    ["<winDocuments>/Sports Interactive/Football Manager 2010", "windows", ""]
-   ],
-   "s": "34009"
   },
   "Football Manager 2011": {
    "f": [
@@ -26101,6 +26709,13 @@
    "s": "1170080",
    "x": ["2012150", "2080330"]
   },
+  "Forever Ago": {
+   "f": [
+    ["<winLocalAppData>/Packages/57209AnnapurnaInteractive.ForeverAgo_c96c51jf6wkvm/SystemAppData/wgs", "windows", "microsoft"]
+   ],
+   "s": "1215940",
+   "x": ["5247710"]
+  },
   "Forever Skies": {
    "f": [
     ["<winLocalAppData>/ProjectZeppelin/Saved/SaveGames", "windows", ""]
@@ -26131,6 +26746,12 @@
    ],
    "s": "2272250",
    "x": ["2530770", "3297170", "3297180", "4110790"]
+  },
+  "Forgotten Haven: The First Call": {
+   "f": [
+    ["<home>/AppData/LocalLow/Infotrium Inc_/Forgotten Haven_ The First Call/savegame.json", "windows", ""]
+   ],
+   "s": "5051490"
   },
   "Forgotten Realms: Demon Stone": {
    "f": [
@@ -26295,14 +26916,16 @@
     ["<root>/userdata/<storeUserId>/1293830/remote", "", "steam"],
     ["<winLocalAppData>/Packages/Microsoft.SunriseBaseGame_8wekyb3d8bbwe/SystemAppData/wgs", "windows", "microsoft"]
    ],
-   "s": "1293830"
+   "s": "1293830",
+   "x": ["1443010", "1443011", "1443012", "1443013", "1443014", "1443015", "1443016", "1443017", "1443018", "1443019", "1443020", "1443021", "1443022", "1443023", "1443024", "1443025", "1443026", "1443027", "1443028", "1443029", "1443040"]
   },
   "Forza Horizon 5": {
    "f": [
     ["<root>/userdata/<storeUserId>/1551360/remote/<storeUserId>", "", "steam"],
     ["<winLocalAppData>/Packages/Microsoft.624F8B84B80_8wekyb3d8bbwe/SystemAppData/wgs", "windows", "microsoft"]
    ],
-   "s": "1551360"
+   "s": "1551360",
+   "x": ["1613280", "1613281", "1613282", "1613283", "1613284", "1613285", "1648020", "1764060", "1764061", "1764062", "1764063"]
   },
   "Forza Horizon 6": {
    "f": [
@@ -26684,6 +27307,18 @@
     ["<winAppData>/RenPy/FriendshipwithBenefits", "windows", ""]
    ],
    "s": "1299370"
+  },
+  "Fritz Chess 14": {
+   "f": [
+    ["<winDocuments>/ChessBase/MyWork", "windows", ""]
+   ],
+   "s": "276750",
+   "x": ["318770", "381960", "517750", "517751", "517752"]
+  },
+  "Frog (Superfrog)": {
+   "f": [
+    ["<base>/Frog.sav", "windows", ""]
+   ]
   },
   "Frog Detective 2: The Case of the Invisible Wizard": {
    "f": [
@@ -27523,6 +28158,12 @@
    ],
    "s": "1085510"
   },
+  "Garfield: Escape From Monday": {
+   "f": [
+    ["<winLocalAppData>/GFD/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3932790"
+  },
   "Garfield: Saving Arlene": {
    "f": [
     ["Game Directory/game.sav", "windows", ""]
@@ -27735,6 +28376,12 @@
    ],
    "s": "1899290"
   },
+  "Gen1Recomp (Pokemon Gen 1+2)": {
+   "f": [
+    ["<winAppData>/pokemon-love2d/saves", "windows", ""],
+    ["<base>/saves", "windows", ""]
+   ]
+  },
   "Gene Troopers": {
    "f": [
     ["<base>/saved_games", "windows", ""]
@@ -27828,6 +28475,13 @@
     ["<home>/AppData/LocalLow/Free Lives/Genital Jousting/Profile.penis", "windows", ""]
    ],
    "s": "469820"
+  },
+  "Gennady": {
+   "f": [
+    ["<winAppData>/Feed 64/Gennady/stable/345961400/savegame.dat", "windows", ""]
+   ],
+   "s": "2430010",
+   "x": ["5456610"]
   },
   "Genocide: Remixed Version": {
    "f": [
@@ -28001,6 +28655,13 @@
    ],
    "s": "347800"
   },
+  "Ghost Town": {
+   "f": [
+    ["<home>/AppData/LocalLow/Fireproof Games/Ghost Town", "windows", ""]
+   ],
+   "s": "2496180",
+   "x": ["3732460"]
+  },
   "Ghost Trick: Phantom Detective": {
    "f": [
     ["<root>/userdata/<storeUserId>/1967430/remote/win64_save/*.bin", "", "steam"]
@@ -28101,7 +28762,8 @@
     ["<home>/Saved Games/TangoGameworks/GhostWire Tokyo (STEAM)/Saved/SaveGames", "windows", "steam"],
     ["<winLocalAppData>/Packages/BethesdaSoftworks.ProjectSnowfall_3275kfvn8vcwc/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"]
    ],
-   "s": "1475810"
+   "s": "1475810",
+   "x": ["1702820", "1702821", "1944840", "2650130"]
   },
   "Giana Sisters: Twisted Dreams": {
    "f": [
@@ -28165,6 +28827,12 @@
     ["<base>/Option", "windows", ""]
    ],
    "s": "278930"
+  },
+  "Gigantosaurus: Dino Kart": {
+   "f": [
+    ["<winLocalAppData>/3DClouds/GIG/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "1770500"
   },
   "Gimmick! 2": {
    "f": [
@@ -28475,6 +29143,12 @@
    ],
    "s": "416310"
   },
+  "Goblin Nest": {
+   "f": [
+    ["<winLocalAppData>/goblin_nest/*.json", "windows", ""]
+   ],
+   "s": "3782910"
+  },
   "Goblin and Coins": {
    "f": [
     ["<home>/.config/Goblin_and_Coins", "linux", ""],
@@ -28645,6 +29319,12 @@
     ["<winDocuments>/SEGA Mega Drive Classics/0050", "windows", ""]
    ],
    "s": "211202"
+  },
+  "Golden Balloon (Diddy Kong Racing)": {
+   "f": [
+    ["<winAppData>/mdkr64/mdkr64/save", "windows", ""],
+    ["<base>/save", "windows", ""]
+   ]
   },
   "Golden Light": {
    "f": [
@@ -29008,6 +29688,11 @@
    ],
    "s": "12180"
   },
+  "Grand Theft Auto Advance": {
+   "f": [
+    ["<base>/userfiles/GTA3sf*.b", "windows", ""]
+   ]
+  },
   "Grand Theft Auto III": {
    "f": [
     ["<winDocuments>/GTA3 User Files/GTA3sf*.b", "windows", ""]
@@ -29171,6 +29856,13 @@
     ["<home>/AppData/LocalLow/Lazy Bear Games/Graveyard Keeper", "windows", ""]
    ],
    "s": "599140"
+  },
+  "Graveyard Keeper 2": {
+   "f": [
+    ["<home>/AppData/LocalLow/Lazy Bear Games/Graveyard Keeper 2/*.dat", "windows", ""],
+    ["<home>/AppData/LocalLow/Lazy Bear Games/Graveyard Keeper 2/*.info", "windows", ""]
+   ],
+   "s": "4358690"
   },
   "Gravitas": {
    "f": [
@@ -29503,6 +30195,13 @@
    "s": "661680",
    "x": ["1300510"]
   },
+  "Growing My Manhole": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Growing My Manhole/saves", "windows", ""]
+   ],
+   "s": "4415120",
+   "x": ["4487700"]
+  },
   "Growing Pains": {
    "f": [
     ["<winDocuments>/SavedGames/GrowingPains", "windows", ""],
@@ -29582,7 +30281,8 @@
   "Gubble 2": {
    "f": [
     ["<base>/gubble0*.sav", "windows", ""]
-   ]
+   ],
+   "s": "5511700"
   },
   "Guild of Dungeoneering": {
    "f": [
@@ -30458,6 +31158,12 @@
    ],
    "s": "550010"
   },
+  "Happy Wheels": {
+   "f": [
+    ["<winAppData>/HappyWheels", "windows", ""]
+   ],
+   "s": "4705510"
+  },
   "Haque": {
    "f": [
     ["<winLocalAppData>/Haque1_0_0_0/gamdat", "windows", ""]
@@ -30583,6 +31289,16 @@
    "s": "1008210",
    "x": ["1269220", "1269221"]
   },
+  "Harley-Davidson: Race Across America": {
+   "f": [
+    ["<base>/BESTTIMES.CFG", "windows", ""]
+   ]
+  },
+  "Harley-Davidson: Race Around the World": {
+   "f": [
+    ["<base>/HISCORES.CFG", "windows", ""]
+   ]
+  },
   "Harley-Davidson: Race to the Rally": {
    "f": [
     ["<winProgramData>/Harley-Davidson_ Race to the Rally Saves", "windows", ""]
@@ -30638,6 +31354,7 @@
   },
   "Harry Potter and the Prisoner of Azkaban": {
    "f": [
+    ["<winDocuments>/Harry Potter and the Prisoner of Azkaban/Save", "windows", ""],
     ["<winDocuments>/Harry Potter™ and the Prisoner of Azkaban/Save", "windows", ""]
    ]
   },
@@ -30844,6 +31561,13 @@
    ],
    "s": "2380340"
   },
+  "He Who Watches": {
+   "f": [
+    ["<home>/AppData/LocalLow/Danga Games/He Who Watches/*.sav", "windows", ""]
+   ],
+   "s": "1070500",
+   "x": ["2381760"]
+  },
   "He is Coming": {
    "f": [
     ["<winLocalAppData>/Packages/HoodedHorse.HeisComing_znaey1dw2bdpr/SystemAppData/wgs", "windows", "microsoft"]
@@ -30905,6 +31629,12 @@
     ["<base>/SETUP.CFG", "windows", ""]
    ]
   },
+  "Heart of Eternity": {
+   "f": [
+    ["<winDocuments>/Ñåðäöå Âå÷íîñòè", "windows", ""]
+   ],
+   "s": "3863600"
+  },
   "Heart of the Machine": {
    "f": [
     ["<base>/PlayerData/Saves/*.autosave", "windows", ""],
@@ -30912,7 +31642,8 @@
     ["<base>/PlayerData/Saves/*.save", "windows", ""],
     ["<base>/PlayerData/Saves/*.timeline", "windows", ""]
    ],
-   "s": "2001070"
+   "s": "2001070",
+   "x": ["4565610"]
   },
   "Heart of the Woods": {
    "f": [
@@ -31033,7 +31764,9 @@
   },
   "Heavy Rain": {
    "f": [
+    ["<home>/Saved Games/HeavyRain", "windows", "gog"],
     ["<home>/Saved Games/HeavyRain", "windows", "steam"],
+    ["<home>/Saved Games/HeavyRainJP", "windows", "steam"],
     ["<home>/Saved Games/HeavyRainNS", "windows", "epic"]
    ],
    "s": "960910"
@@ -31150,12 +31883,20 @@
    "f": [
     ["<winLocalAppData>/HellIsUs/Saved/SaveGames", "windows", ""]
    ],
-   "s": "1620730"
+   "s": "1620730",
+   "x": ["1237358", "2912150", "3494340", "3494350", "3494370", "3494380", "3494390"]
   },
   "Hellbender": {
    "f": [
     ["<base>/data/*.hel", "windows", ""]
    ]
+  },
+  "Hellblade II: Senua's Saga": {
+   "f": [
+    ["<winLocalAppData>/Hellblade2/Saved/SaveGames", "windows", "steam"],
+    ["<winLocalAppData>/Packages/Microsoft.Superb_8wekyb3d8bbwe/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"]
+   ],
+   "s": "2461850"
   },
   "Hellblade: Senua's Sacrifice": {
    "f": [
@@ -31530,7 +32271,9 @@
   "Heroes of Might and Magic III": {
    "f": [
     ["<base>/Games", "windows", ""]
-   ]
+   ],
+   "s": "4921760",
+   "x": ["5061200"]
   },
   "Heroes of Might and Magic III - HD Edition": {
    "f": [
@@ -31579,7 +32322,7 @@
     ["<home>/AppData/LocalLow/Oxymoron Games/Silence of the Siren/Saves", "windows", ""]
    ],
    "s": "2147380",
-   "x": ["4844630"]
+   "x": ["4844630", "4865610"]
   },
   "Heroes of Valor": {
    "f": [
@@ -31999,6 +32742,13 @@
    ],
    "s": "33500"
   },
+  "Hirotonfa's American Revolution Smuggler": {
+   "f": [
+    ["<winAppData>/HIROTONFA_AmericanRevolutionSmuggler/*.rmmzsave", "windows", ""]
+   ],
+   "s": "3789080",
+   "x": ["4129720"]
+  },
   "History Civil War: Secret Missions": {
    "f": [
     ["<base>/Profiles", "windows", ""]
@@ -32158,7 +32908,8 @@
     ["<winLocalAppData>/Packages/WarnerBros.Interactive.PHX_ktmk1xygcecda/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"],
     ["<winLocalAppData>/Phoenix/Saved/SaveGames/<storeUserId>", "windows", ""]
    ],
-   "s": "990080"
+   "s": "990080",
+   "x": ["1377040", "1386970", "1880830", "1880831", "1880832", "1880833", "1880837"]
   },
   "Hokko Life": {
    "f": [
@@ -32231,6 +32982,13 @@
    ],
    "s": "370770",
    "x": ["429310"]
+  },
+  "Holstin": {
+   "f": [
+    ["<home>/AppData/LocalLow/Sonka/Holstin", "windows", ""]
+   ],
+   "s": "2235430",
+   "x": ["2240560", "2443020"]
   },
   "Holy Potatoes! A Weapon Shop?!": {
    "f": [
@@ -32344,7 +33102,7 @@
   },
   "Homura Hime": {
    "f": [
-    ["<home>/AppData/LocalLow/Crimson Wings", "windows", ""]
+    ["<home>/AppData/LocalLow/CrimsonDusk/HomuraHime", "windows", ""]
    ],
    "s": "1820000",
    "x": ["4459880"]
@@ -32496,6 +33254,11 @@
    ],
    "s": "450540"
   },
+  "Hot Rod: Garage to Glory": {
+   "f": [
+    ["<base>/Saves/<storeUserId>.sav", "windows", ""]
+   ]
+  },
   "Hot Shot Burn": {
    "f": [
     ["<home>/AppData/LocalLow/Flaming Flamingo/HotShotBurn", "windows", ""],
@@ -32568,7 +33331,8 @@
    "f": [
     ["<home>/AppData/LocalLow/The Cult Games Ltd/HOTEL BARCELONA/*.data", "windows", ""]
    ],
-   "s": "2286600"
+   "s": "2286600",
+   "x": ["4582750"]
   },
   "Hotel Giant": {
    "f": [
@@ -32705,6 +33469,13 @@
    "f": [
     ["<base>/saves", "windows", ""]
    ]
+  },
+  "How to Fish": {
+   "f": [
+    ["<home>/AppData/LocalLow/Dazed Games/How to Fish/Saves/*.txt", "windows", ""]
+   ],
+   "s": "4001890",
+   "x": ["4539520"]
   },
   "How to Survive": {
    "f": [
@@ -33161,7 +33932,7 @@
     ["<home>/AppData/LocalLow/Strange Scaffold/I Am Your Beast/*.sav", "windows", ""]
    ],
    "s": "1876590",
-   "x": ["3258570"]
+   "x": ["3258570", "4578110"]
   },
   "I Can't Believe It's Not Gambling": {
    "f": [
@@ -33222,6 +33993,15 @@
    "f": [
     ["<base>/SAVED GAMES", "windows", ""]
    ]
+  },
+  "I Told You So!": {
+   "f": [
+    ["<base>/game/saves", "windows", ""],
+    ["<base>/game/saves", "linux", ""],
+    ["<home>/.renpy/ITYS-1603137035", "linux", ""],
+    ["<winAppData>/RenPy/ITYS-1603137035", "windows", ""]
+   ],
+   "s": "1802700"
   },
   "I Wani Hug that Gator!": {
    "f": [
@@ -33634,6 +34414,16 @@
    ],
    "s": "1175420"
   },
+  "Immortal Immanuel": {
+   "f": [
+    ["<base>/userdata/database/}", "windows", ""],
+    ["<base>/userdata/replay", "windows", ""],
+    ["<base>/userdata/save", "windows", ""],
+    ["<base>/userdata/snapshot", "windows", ""]
+   ],
+   "s": "2861740",
+   "x": ["3276850"]
+  },
   "Immortal Planet": {
    "f": [
     ["<winLocalAppData>/Immortal_Planet", "windows", ""]
@@ -33963,7 +34753,8 @@
    "f": [
     ["<winLocalAppData>/RaccoonCh1/Saved/SaveGames", "windows", ""]
    ],
-   "s": "2504480"
+   "s": "2504480",
+   "x": ["3722130"]
   },
   "Indika": {
    "f": [
@@ -34411,6 +35202,23 @@
     ["<base>/*.cmp", "windows", ""],
     ["<base>/savegame.dir", "windows", ""]
    ]
+  },
+  "Interstate '82": {
+   "f": [
+    ["<base>/save", "windows", ""]
+   ]
+  },
+  "Interstate Drifter 1999": {
+   "f": [
+    ["<winLocalAppData>/Interstate_Drifter_1999", "windows", ""]
+   ],
+   "s": "1383770"
+  },
+  "Interstate Drifter 2000": {
+   "f": [
+    ["<winLocalAppData>/Interstate_Drifter_2000", "windows", ""]
+   ],
+   "s": "1280950"
   },
   "Interstellar Marines": {
    "f": [
@@ -34926,6 +35734,12 @@
   "Jacked": {
    "f": [
     ["<base>/data/pc/savegame.txt", "windows", ""]
+   ]
+  },
+  "Jackie Chan Stuntmaster (ReChan)": {
+   "f": [
+    ["<base>/userfiles", "windows", ""],
+    ["unknown", "linux", ""]
    ]
   },
   "Jade Empire: Special Edition": {
@@ -35910,7 +36724,7 @@
   },
   "Katamari Damacy Reroll": {
    "f": [
-    ["<winLocalAppData>/BANDAI NAMCO Entertainment/kataramidamacy/Saved/SaveGames/<storeUserId>", "windows", ""],
+    ["<winLocalAppData>/BANDAI NAMCO Entertainment/katamaridamacy/Saved/SaveGames/<storeUserId>", "windows", ""],
     ["<winLocalAppData>/Packages/NAMCOBANDAIGamesInc.KatamariDamacyRerollWindows_gdy2aq6ez762w/SystemAppData", "windows", "microsoft"]
    ],
    "s": "848350"
@@ -36059,6 +36873,12 @@
    ],
    "s": "954850"
   },
+  "Kernel Hearts": {
+   "f": [
+    ["<winLocalAppData>/MahouPrototype/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2902170"
+  },
   "Kero Blaster": {
    "f": [
     ["<base>/rsc_k/profile", "windows", ""]
@@ -36166,7 +36986,7 @@
     ["<winAppData>/Godot/app_userdata/Kill The Music", "windows", ""]
    ],
    "s": "3093050",
-   "x": ["3858970"]
+   "x": ["3269370", "3858970"]
   },
   "Kill la Kill -IF": {
    "f": [
@@ -36445,6 +37265,11 @@
    "s": "1771300",
    "x": ["3118100", "3118110", "3118120", "3119920", "3368600", "3368620", "3406020"]
   },
+  "Kingdom Hearts 358/2 Days": {
+   "f": [
+    ["<base>/saves", "windows", ""]
+   ]
+  },
   "Kingdom Hearts HD 1.5 + 2.5 ReMIX": {
    "f": [
     ["<winDocuments>/KINGDOM HEARTS HD 1.5+2.5 ReMIX/Epic Games Store/<storeUserId>", "windows", "epic"],
@@ -36646,6 +37471,12 @@
     ["<root>/userdata/<storeUserId>/1985260/remote", "", "steam"]
    ],
    "s": "1985260"
+  },
+  "KinnikuNeko: Super Muscle Cat": {
+   "f": [
+    ["<home>/AppData/LocalLow/Kamotachi/KinnikuNeko SUPER MUSCLE CAT", "windows", ""]
+   ],
+   "s": "1332950"
   },
   "Kishin Hishou Demonbane": {
    "f": [
@@ -37017,13 +37848,16 @@
   },
   "Krush Kill 'N Destroy 2: Krossfire": {
    "f": [
+    ["<base>/Campaign", "", "steam"],
+    ["<base>/Savegame", "", "steam"],
     ["<base>/Savegame", "windows", ""]
    ],
    "s": "1292180"
   },
   "Krush Kill 'N Destroy Xtreme": {
    "f": [
-    ["<base>/game*.sav", "windows", ""]
+    ["<base>/game*.sav", "windows", ""],
+    ["<base>/savegame", "", "steam"]
    ],
    "s": "1292170"
   },
@@ -37469,6 +38303,12 @@
     ["<home>/AppData/LocalLow/Flametorch/LastEvil", "windows", ""]
    ],
    "s": "823910"
+  },
+  "Last Half of Darkness: Society of the Serpent Moon": {
+   "f": [
+    ["<root>/steamapps/common/Last Half of Darkness - Society of the Serpent Moon/demo/media/game", "windows", "steam"]
+   ],
+   "s": "384910"
   },
   "Last Horizon": {
    "f": [
@@ -38156,7 +38996,7 @@
     ["<home>/AppData/LocalLow/Assemble Entertainment/Leisure Suit Larry - Wet Dreams Don't Dry/savegames", "windows", ""]
    ],
    "s": "765870",
-   "x": ["938590", "975530"]
+   "x": ["938590", "975530", "1460880"]
   },
   "Leman": {
    "f": [
@@ -38434,7 +39274,8 @@
     ["<winDocuments>/My Games/LifeIsStrange3/Steam/<storeUserId>", "windows", ""],
     ["<winLocalAppData>/Packages/39C668CD.ProjectSiren_r7bfsmp40f67j/SystemAppData/wgs", "windows", "microsoft"]
    ],
-   "s": "936790"
+   "s": "936790",
+   "x": ["1266950", "1285380", "1319890", "1450570", "1450571", "1450572", "1571390", "2000100"]
   },
   "Life Makeover": {
    "f": [
@@ -38585,6 +39426,7 @@
    "f": [
     ["<base>/save_game/savegame.txt", "windows", ""],
     ["<root>/userdata/<storeUserId>/48000/remote", "", "steam"],
+    ["<winLocalAppData>/Packages/16902PlaydeadAPS.PlaydeadsLIMBO_2m6wzp0cmt084/SystemAppData/wgs", "windows", "microsoft"],
     ["<xdgData>/PlayDead/Limbo", "linux", ""]
    ],
    "s": "48000"
@@ -38611,7 +39453,9 @@
    "f": [
     ["<base>/SaveFiles", "windows", ""],
     ["<winLocalAppData>/Zelda_LA/SaveFiles", "windows", ""],
-    ["<xdgData>/Zelda_LA/SaveFiles", "linux", ""]
+    ["<winLocalAppData>/Zelda_LA/achievements", "windows", ""],
+    ["<xdgData>/Zelda_LA/SaveFiles", "linux", ""],
+    ["<xdgData>/Zelda_LA/achievements", "linux", ""]
    ]
   },
   "Lionessy Story": {
@@ -38642,14 +39486,17 @@
   },
   "Lisa: The First": {
    "f": [
-    ["<base>/*.lsd", "windows", ""]
+    ["<base>/*.lsd", "windows", ""],
+    ["<base>/Lisa_1/Lisa_1/*.lsd", "", "steam"]
    ],
    "s": "2743030"
   },
   "Lisa: The Painful": {
    "f": [
     ["<base>/*.rvdata2", "windows", ""],
-    ["<base>/Joyful/*.rvdata2", "windows", ""]
+    ["<base>/*.rvdata2", "linux", ""],
+    ["<base>/Joyful/*.rvdata2", "windows", ""],
+    ["<base>/Joyful/*.rvdata2", "linux", ""]
    ],
    "s": "335670",
    "x": ["336370", "379310"]
@@ -38806,6 +39653,12 @@
    ],
    "s": "262690"
   },
+  "Little Rocket Lab": {
+   "f": [
+    ["<home>/AppData/LocalLow/TeenageAstronauts/LittleRocketLab/*.save", "windows", ""]
+   ],
+   "s": "2451100"
+  },
   "Little Walker": {
    "f": [
     ["<base>/saves", "", "steam"]
@@ -38939,6 +39792,13 @@
    ],
    "s": "2492390"
   },
+  "Logic Town": {
+   "f": [
+    ["<home>/AppData/LocalLow/Divide The Plunder Limited/Logic Town", "windows", ""]
+   ],
+   "s": "2333240",
+   "x": ["2405240", "2703380", "2763580", "2829390", "3244260", "4742980"]
+  },
   "LogicBots": {
    "f": [
     ["<winDocuments>/My Games/Incandescent Games/LogicBots", "windows", ""]
@@ -39022,6 +39882,13 @@
     ["<winAppData>/RenPy/LongLiveTheQueen/*.save", "windows", ""]
    ],
    "s": "251990"
+  },
+  "Look Outside": {
+   "f": [
+    ["<base>/save", "windows", ""]
+   ],
+   "s": "3373660",
+   "x": ["3580350"]
   },
   "Looking for Aliens": {
    "f": [
@@ -39341,6 +40208,14 @@
    ],
    "s": "1462570"
   },
+  "Lost in Random: The Eternal Die": {
+   "f": [
+    ["<root>/userdata/<storeUserId>/2564520/remote", "", "steam"],
+    ["<root>/userdata/<storeUserId>/2564520/remote/settingsSave", "", "steam"]
+   ],
+   "s": "2564520",
+   "x": ["3478380", "3573930", "3639340"]
+  },
   "Lost: Via Domus": {
    "f": [
     ["<winDocuments>/Lost Via Domus", "windows", ""]
@@ -39450,6 +40325,13 @@
     ["<base>/saves", "windows", ""]
    ],
    "s": "615530"
+  },
+  "Love: Fall in Death": {
+   "f": [
+    ["<home>/AppData/LocalLow/SNR/Love Fall in Death", "windows", ""]
+   ],
+   "s": "3077540",
+   "x": ["5090500"]
   },
   "LoveKami -Useless Goddess-": {
    "f": [
@@ -39677,6 +40559,12 @@
    ],
    "s": "1713810",
    "x": ["1740210"]
+  },
+  "Lumina Veil": {
+   "f": [
+    ["<winLocalAppData>/EternalTerror/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2840000"
   },
   "Lumines Arise": {
    "f": [
@@ -39934,6 +40822,7 @@
   },
   "MIO: Memories in Orbit": {
    "f": [
+    ["<winLocalAppData>/MIO/Saves/Steam/<storeUserId>", "windows", "steam"],
     ["<winLocalAppData>/Packages/FocusHomeInteractiveSA.MioMemoriesinOrbit_4hny5m903y3g0/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "1672810"
@@ -40165,6 +41054,12 @@
    ],
    "s": "1519350"
   },
+  "Madden NFL 26": {
+   "f": [
+    ["<winDocuments>/Madden NFL 26", "windows", ""]
+   ],
+   "s": "3230400"
+  },
   "Made Man": {
    "f": [
     ["<base>/SaveGame", "windows", ""]
@@ -40181,7 +41076,7 @@
     ["<home>/AppData/LocalLow/BLOODIOUS GAMES LLC/MADiSON/Data", "windows", ""]
    ],
    "s": "1670870",
-   "x": ["1949860"]
+   "x": ["1949860", "2624150"]
   },
   "Madness: Project Nexus": {
    "f": [
@@ -40913,6 +41808,13 @@
    "s": "1997040",
    "x": ["4465130", "4465140", "4465150", "4465160", "4465170", "4465180", "4465190"]
   },
+  "Marvel Tōkon: Fighting Souls": {
+   "f": [
+    ["<winLocalAppData>/MTFSSteam/Saved/SAVE/<storeUserId>", "windows", "steam"]
+   ],
+   "s": "3787240",
+   "x": ["4839960", "4848500", "4848520", "4848530", "4848540", "4848580", "4848590", "4848600", "5030920", "5030930"]
+  },
   "Marvel vs. Capcom Fighting Collection: Arcade Classics": {
    "f": [
     ["<root>/userdata/<storeUserId>/2634890/remote", "", "steam"]
@@ -41246,6 +42148,12 @@
    ],
    "s": "853770"
   },
+  "Maze Dungeon": {
+   "f": [
+    ["<base>/Maze Dungeon_Data/Resources/*.json", "windows", ""]
+   ],
+   "s": "1904030"
+  },
   "Maze Mice": {
    "f": [
     ["<winAppData>/Godot/app_userdata/Maze Mice", "windows", ""]
@@ -41295,6 +42203,11 @@
     ["<winAppData>/RenPy/MechaAcademy<storeUserId>", "windows", ""]
    ],
    "s": "2593850"
+  },
+  "Mech Commander 2 open source engine": {
+   "f": [
+    ["<home>/.mechcommander2/savegame", "windows", ""]
+   ]
   },
   "Mech Engineer": {
    "f": [
@@ -41353,7 +42266,7 @@
     ["<winLocalAppData>/MW5Mercs/Saved/SavedLoadouts", "windows", ""]
    ],
    "s": "784080",
-   "x": ["1456180", "1456210", "1705820", "1969380", "2179800", "2489020", "2782050", "3799610", "4371500"]
+   "x": ["1456180", "1456210", "1705820", "1969380", "2179800", "2489020", "2782050", "3799610", "4371500", "4849350"]
   },
   "MechWarrior: Living Legends": {
    "f": [
@@ -41489,6 +42402,12 @@
    "f": [
     ["<winAppData>/Disney Interactive Studios/Meet The Robinsons/SaveGames", "windows", ""]
    ]
+  },
+  "Mega Coin Squad": {
+   "f": [
+    ["<xdgConfig>/unity3d/Big Pixel Studios/Mega Coin Squad/perfs", "linux", ""]
+   ],
+   "s": "312510"
   },
   "Mega Man 11": {
    "f": [
@@ -41685,7 +42604,8 @@
    "f": [
     ["<home>/AppData/LocalLow/Icetesy/Melody's Escape 2", "windows", "steam"]
    ],
-   "s": "1829470"
+   "s": "1829470",
+   "x": ["5007770"]
   },
   "Melty Blood Actress Again Current Code": {
    "f": [
@@ -41948,6 +42868,13 @@
    ],
    "s": "2131650"
   },
+  "Metal Gear Solid 4: Guns of the Patriots - Master Collection Version": {
+   "f": [
+    ["<base>/mgs4_savedata_win/<storeUserId>", "windows", ""]
+   ],
+   "s": "2492670",
+   "x": ["3859630", "4184400"]
+  },
   "Metal Gear Solid V: Ground Zeroes": {
    "f": [
     ["<root>/userdata/<storeUserId>/311340/remote", "windows", "steam"]
@@ -41975,11 +42902,25 @@
     ["<base>/records.vr", "windows", ""]
    ]
   },
+  "Metal Gear Solid: Peace Walker - Master Collection Version": {
+   "f": [
+    ["<base>/mgspw_savedata_win/<storeUserId>", "windows", ""]
+   ],
+   "s": "2492660",
+   "x": ["3859630", "4184360"]
+  },
   "Metal Gear Survive": {
    "f": [
     ["<root>/userdata/<storeUserId>/543900/remote", "windows", "steam"]
    ],
    "s": "543900"
+  },
+  "Metal Gear: Ghost Babel - Master Collection Version": {
+   "f": [
+    ["<base>/winbackup", "windows", ""]
+   ],
+   "s": "3036720",
+   "x": ["3859630", "4184420"]
   },
   "Metal Max Xeno Reborn": {
    "f": [
@@ -42120,7 +43061,7 @@
     ["<winDocuments>/4A Games/Metro 2033", "windows", ""]
    ],
    "s": "43110",
-   "x": ["43120", "43130", "43140"]
+   "x": ["43120", "43129", "43130", "43140"]
   },
   "Metro 2033 Redux": {
    "f": [
@@ -42168,7 +43109,8 @@
     ["<root>/userdata/<storeUserId>/43160", "", "steam"],
     ["<winDocuments>/4A Games/Metro LL", "windows", ""]
    ],
-   "s": "43160"
+   "s": "43160",
+   "x": ["245350"]
   },
   "Metro: Last Light Redux": {
    "f": [
@@ -42251,6 +43193,11 @@
   "Micro Commandos": {
    "f": [
     ["<base>/Users", "windows", ""]
+   ]
+  },
+  "Micro Machines V3": {
+   "f": [
+    ["<base>/savetest.bin", "windows", ""]
    ]
   },
   "Micro Machines V4": {
@@ -42707,6 +43654,12 @@
    ],
    "s": "1672970"
   },
+  "Minecraft Dungeons II": {
+   "f": [
+    ["<winLocalAppData>/Dungeons2/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "1912410"
+  },
   "Minecraft Legends": {
    "f": [
     ["<winAppData>/Minecraft Legends/<storeUserId>", "windows", ""]
@@ -42734,7 +43687,7 @@
   },
   "Minecraft: Story Mode - A Telltale Games Series": {
    "f": [
-    ["<winDocuments>/Telltale Games/Minecraft Story Mode", "windows", ""]
+    ["<winDocuments>/Telltale Games/Minecraft - Story Mode", "windows", ""]
    ],
    "s": "376870",
    "x": ["456630"]
@@ -43532,7 +44485,7 @@
     ["<home>/AppData/LocalLow/11BitStudios/Moonlighter 2 The Endless Vault/*.bin", "windows", ""]
    ],
    "s": "2350790",
-   "x": ["3670000", "4036250", "4935250"]
+   "x": ["3670000", "4935250", "5026660", "5031290"]
   },
   "Moonring": {
    "f": [
@@ -43732,6 +44685,13 @@
    "s": "1110910",
    "x": ["1672210"]
   },
+  "Mortal Shell II": {
+   "f": [
+    ["<winLocalAppData>/MortalShell2/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2584270",
+   "x": ["4711720", "4711740"]
+  },
   "Mortal Sin": {
    "f": [
     ["<home>/AppData/LocalLow/Doronik Games/Mortal Sin/*.sav", "windows", ""]
@@ -43911,6 +44871,7 @@
   },
   "Motor Town: Behind The Wheel": {
    "f": [
+    ["<home>/.local/share/Steam/steamapps/compatdata/1369670/pfx/drive_c/users/steamuser/AppData/Local/MotorTown/Saved", "linux", ""],
     ["<winLocalAppData>/MotorTown/Saved/SaveGames/Characters/*.sav", "windows", ""]
    ],
    "s": "1369670",
@@ -44047,6 +45008,12 @@
    ],
    "s": "1126750"
   },
+  "Mr. Pogo": {
+   "f": [
+    ["<winLocalAppData>/Mr_Pogo", "windows", ""]
+   ],
+   "s": "2272800"
+  },
   "Mr. Prepper": {
    "f": [
     ["<base>/Saves", "windows", ""]
@@ -44111,6 +45078,12 @@
     ["<base>/mc_complex.save", "linux", ""]
    ],
    "s": "383690"
+  },
+  "Muchi Muchi Pork! & PinkSweets Boosted": {
+   "f": [
+    ["<winAppData>/MUCHI_PINK", "windows", ""]
+   ],
+   "s": "4229200"
   },
   "MudRunner": {
    "f": [
@@ -44196,6 +45169,13 @@
    "s": "638070",
    "x": ["820010", "938610"]
   },
+  "Murders on the Yangtze River": {
+   "f": [
+    ["<home>/AppData/LocalLow/OMESCAPE/山河旅探/SaveData", "windows", ""]
+   ],
+   "s": "1746030",
+   "x": ["2068780", "2808420"]
+  },
   "Muri": {
    "f": [
     ["<base>/murisave.sav", "windows", ""],
@@ -44277,6 +45257,13 @@
     ["<root>/userdata/<storeUserId>/1080750/remote/UserDataV0.dat", "", "steam"]
    ],
    "s": "1080750"
+  },
+  "Mute Crimson DX": {
+   "f": [
+    ["<winDocuments>/SavedGames/MuteCrimsonDX/SaveData/AllPlayers", "windows", ""]
+   ],
+   "s": "2830430",
+   "x": ["2830790"]
   },
   "Mutropolis": {
    "f": [
@@ -44554,11 +45541,22 @@
     ["<base>/Save/Player", "windows", ""]
    ]
   },
+  "Mystery Case Files: Huntsville": {
+   "f": [
+    ["HKEY_CURRENT_USER/Software/Big Fish Games/Games/Mystery Case Files - Huntsville", "windows", ""]
+   ],
+   "s": "50960"
+  },
   "Mystery Case Files: Prime Suspects": {
    "f": [
     ["HKEY_CURRENT_USER/Software/Big Fish Games/Games/Mystery Case Files - Prime Suspects", "windows", ""]
    ],
    "s": "50980"
+  },
+  "Mystical Ninja Starring Goemon": {
+   "f": [
+    ["<winLocalAppData>/Goemon64Recompiled/saves", "windows", ""]
+   ]
   },
   "Mystical Power Plant": {
    "f": [
@@ -44758,6 +45756,12 @@
    ],
    "s": "1225330"
   },
+  "NBA 2K27": {
+   "f": [
+    ["<winLocalAppData>/Packages/79ACB67D.NBA2K27PC_yn88nk35a38zw/SystemAppData/wgs", "windows", "microsoft"]
+   ],
+   "s": "4356430"
+  },
   "NBA Live 07": {
    "f": [
     ["<winDocuments>/NBA LIVE 07", "windows", ""]
@@ -44865,6 +45869,11 @@
    "s": "1211360",
    "x": ["1219330"]
   },
+  "NFL Blitz 2000": {
+   "f": [
+    ["<base>/<storeUserId>.DAT", "windows", ""]
+   ]
+  },
   "NGU Idle": {
    "f": [
     ["<home>/AppData/LocalLow/NGU Industries/NGU Idle", "windows", ""]
@@ -44884,6 +45893,11 @@
   "NHL 97": {
    "f": [
     ["<base>/User", "windows", ""]
+   ]
+  },
+  "NHRA Drag Racing: Top Fuel Thunder": {
+   "f": [
+    ["<base>/UserData/Replay", "windows", ""]
    ]
   },
   "NIMBY Rails": {
@@ -45094,6 +46108,12 @@
    ],
    "s": "366870"
   },
+  "Nargül: Humans Are Among Us": {
+   "f": [
+    ["<home>/AppData/LocalLow/3DDDgames/NARGUL - Humans are among us", "windows", ""]
+   ],
+   "s": "1646810"
+  },
   "Narita Boy": {
    "f": [
     ["<home>/AppData/LocalLow/StudioKoba/Narita Boy/Steam/<storeUserId>", "windows", ""],
@@ -45149,6 +46169,7 @@
   "National Park Girls": {
    "f": [
     ["<base>/game/saves", "windows", ""],
+    ["<home>/.renpy/NationalParkGirlsLOPE", "linux", ""],
     ["<winAppData>/RenPy/NationalParkGirls-1531944291", "windows", ""],
     ["<winAppData>/RenPy/NationalParkGirlsLOPE", "windows", ""]
    ],
@@ -45514,6 +46535,11 @@
    ],
    "s": "31270"
   },
+  "Nelumbo (Lotus 1-3)": {
+   "f": [
+    ["<base>/Nelumbo.sav", "windows", ""]
+   ]
+  },
   "Nemezis: Mysterious Journey III": {
    "f": [
     ["<winLocalAppData>/NemezisIIIMysteriousJourney/Saved/SaveGames", "windows", ""]
@@ -45556,6 +46582,12 @@
     ["<home>/AppData/LocalLow/OKYO Games/Neon Beats/saveFile.json", "windows", ""]
    ],
    "s": "1064610"
+  },
+  "Neon Breaker: Endless Arcade": {
+   "f": [
+    ["<winLocalAppData>/NeonBreaker", "windows", ""]
+   ],
+   "s": "5054650"
   },
   "Neon Chrome": {
    "f": [
@@ -46423,6 +47455,12 @@
    ],
    "s": "482450"
   },
+  "Nivalis Nights": {
+   "f": [
+    ["<home>/AppData/LocalLow/ION LANDS/Nivalis Nights", "windows", ""]
+   ],
+   "s": "1488490"
+  },
   "No Case Should Remain Unsolved": {
    "f": [
     ["<home>/AppData/LocalLow/SOMI/NoCaseUnsolved", "windows", ""]
@@ -46466,6 +47504,13 @@
    ],
    "s": "1744330"
   },
+  "No More Room in Hell 2": {
+   "f": [
+    ["<winLocalAppData>/NMRiH2/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "292000",
+   "x": ["2089150", "4250540", "4250550", "4250630"]
+  },
   "No One Lives Forever 2: A Spy in H.A.R.M.'s Way": {
    "f": [
     ["<base>/Save/Player/SinglePlayer", "windows", ""]
@@ -46496,7 +47541,8 @@
    "f": [
     ["<home>/AppData/LocalLow/Moon Studios/NoRestForTheWicked/DataStore/*.dat", "windows", ""]
    ],
-   "s": "1371980"
+   "s": "1371980",
+   "x": ["4600710"]
   },
   "No Sleep For Kaname Date": {
    "f": [
@@ -46634,6 +47680,13 @@
     ["<home>/AppData/LocalLow/DeadleafGames/Nom Nom Apocalypse", "windows", ""]
    ],
    "s": "882760"
+  },
+  "Nomad Drive": {
+   "f": [
+    ["<home>/AppData/LocalLow/Indie Devil/Nomad Drive", "windows", ""]
+   ],
+   "s": "2223980",
+   "x": ["4451030", "4568400", "5199100"]
   },
   "Nomad Survival": {
    "f": [
@@ -47113,7 +48166,8 @@
     ["<winDocuments>/My Games/Octopath_Traveler/<storeUserId>/SaveGames", "windows", ""],
     ["<winLocalAppData>/Packages/39EA002F.FrigateMS_n746a19ndrrjg/SystemAppData/wgs", "windows", "microsoft"]
    ],
-   "s": "921570"
+   "s": "921570",
+   "x": ["1083770"]
   },
   "Octopath Traveler 0": {
    "f": [
@@ -47241,7 +48295,8 @@
    "f": [
     ["<home>/AppData/Local/ofAshAndSteelGame/Saved/SaveGames", "windows", ""]
    ],
-   "s": "2893820"
+   "s": "2893820",
+   "x": ["5059740"]
   },
   "Of Bird and Cage": {
    "f": [
@@ -47506,6 +48561,13 @@
    ],
    "s": "2025610"
   },
+  "Once Alive": {
+   "f": [
+    ["<winLocalAppData>/Once_Alive/Saved/SaveGames/*Slot*.sav", "windows", ""]
+   ],
+   "s": "2336440",
+   "x": ["3394140"]
+  },
   "Once Upon A Puppet": {
    "f": [
     ["<home>/AppData/LocalLow/FlatterThanEarth/OUAP/Saves", "windows", ""]
@@ -47711,6 +48773,12 @@
     ["persist.dat", "", ""]
    ]
   },
+  "Onigotchi": {
+   "f": [
+    ["<winLocalAppData>/Onigotchi/save.ini", "windows", ""]
+   ],
+   "s": "4184190"
+  },
   "Oniken": {
    "f": [
     ["<winAppData>/Joymasher/Oniken/save.dat", "windows", ""]
@@ -47749,7 +48817,8 @@
   },
   "Onimusha: Way of the Sword": {
    "f": [
-    ["<root>/userdata/<storeUserId>/3974650/remote/win64_save", "", "steam"]
+    ["<root>/userdata/<storeUserId>/2638890/remote/win64_save", "", "steam"],
+    ["<winAppData>/Capcom/OnimushaWotS/<storeUserId>", "windows", "epic"]
    ],
    "s": "2638890"
   },
@@ -48004,6 +49073,12 @@
     ["<home>/AppData/LocalLow/Nickervision Studios/orbt xl/*.orbtxl", "windows", ""]
    ],
    "s": "615610"
+  },
+  "Orc Incremental": {
+   "f": [
+    ["<home>/AppData/Roaming/OrcIncremental/CloudSave", "windows", ""]
+   ],
+   "s": "4047270"
   },
   "Orc Massage": {
    "f": [
@@ -48272,6 +49347,13 @@
    ],
    "s": "1419290"
   },
+  "Out of Sight": {
+   "f": [
+    ["<winLocalAppData>/OutOfSight/Saved", "windows", ""]
+   ],
+   "s": "2526310",
+   "x": ["4054300"]
+  },
   "Out of Space": {
    "f": [
     ["<home>/AppData/LocalLow/Behold Studios/Out of Space/progression-data.oos", "windows", ""]
@@ -48355,6 +49437,12 @@
    ],
    "s": "753640",
    "x": ["1622100"]
+  },
+  "Outhold": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Outhold", "windows", ""]
+   ],
+   "s": "3767740"
   },
   "Outland": {
    "f": [
@@ -48462,6 +49550,14 @@
    "f": [
     ["<winDocuments>/Activision/Over the Hedge/Save/savegame/slot*", "windows", ""]
    ]
+  },
+  "Over the Hill": {
+   "f": [
+    ["<home>/My Games/over the hill/Saves", "linux", ""],
+    ["<winDocuments>/My Games/over the hill/Saves", "windows", ""]
+   ],
+   "s": "2929250",
+   "x": ["5147400"]
   },
   "Overboard! (2021)": {
    "f": [
@@ -49541,6 +50637,12 @@
    ],
    "s": "1989760"
   },
+  "Pax Autocratica": {
+   "f": [
+    ["<home>/AppData/LocalLow/Multiverse/Pax Autocratica/Save", "windows", ""]
+   ],
+   "s": "1067360"
+  },
   "Pay Her Tribute! Jo'on-chan!!": {
    "f": [
     ["<base>/MitsugaseroJoonchan/sd", "windows", ""],
@@ -49593,6 +50695,12 @@
    "f": [
     ["<base>/SaveData/SaveData_Final.peeb", "windows", ""]
    ]
+  },
+  "Pegfinity": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Pegfinity", "windows", ""]
+   ],
+   "s": "3947040"
   },
   "Peggle": {
    "f": [
@@ -50017,6 +51125,13 @@
    ],
    "s": "989440"
   },
+  "Phantom Blade Zero": {
+   "f": [
+    ["<base>/ProjectPBZ/Saved/SaveGames/Steam/<storeUserId>", "windows", ""]
+   ],
+   "s": "4115450",
+   "x": ["5041150"]
+  },
   "Phantom Brave PC": {
    "f": [
     ["<root>/userdata/<storeUserId>/409870/remote/SAVEDATA/SAVE*.dat", "windows", "steam"]
@@ -50361,7 +51476,8 @@
    "f": [
     ["<home>/AppData/LocalLow/Atmos Games, LLC/Pinstripe", "windows", ""]
    ],
-   "s": "331480"
+   "s": "331480",
+   "x": ["332740", "616440"]
   },
   "Pipistrello and the Cursed Yoyo": {
    "f": [
@@ -50441,6 +51557,12 @@
     ["<root>/userdata/<storeUserId>/291860/local/save/preferences.xml", "", "steam"]
    ],
    "s": "291860"
+  },
+  "Pitfall Planet": {
+   "f": [
+    ["<home>/AppData/LocalLow/Bonfire Games/Pitfall Planet", "windows", ""]
+   ],
+   "s": "464900"
   },
   "Pitiri 1977": {
    "f": [
@@ -50739,7 +51861,7 @@
     ["<home>/Saved Games/Frontier Developments/Planet Coaster 2/<storeUserId>/Saves", "windows", ""]
    ],
    "s": "2688950",
-   "x": ["3091180", "3091190", "3337040", "3902620", "4129920", "4492160"]
+   "x": ["3091180", "3091190", "3337040", "3902620", "4129920", "4492160", "4961870"]
   },
   "Planet Diver": {
    "f": [
@@ -50787,7 +51909,8 @@
     ["<home>/AppData/LocalLow/Wishfully/Planet of Lana/*.sav", "windows", ""],
     ["<winLocalAppData>/Packages/Thunderful.PlanetofLana_8j53pwgd019sy/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"]
    ],
-   "s": "1608230"
+   "s": "1608230",
+   "x": ["4464580"]
   },
   "Planet of Lana II": {
    "f": [
@@ -50918,6 +52041,14 @@
     ["<winLocalAppData>/PLAYNE/Saved", "windows", ""]
    ],
    "s": "865540"
+  },
+  "Please Be Happy": {
+   "f": [
+    ["<home>/AppData/LocalLow/Studio Élan/Please Be Happy/*.json", "windows", ""],
+    ["<home>/AppData/LocalLow/Studio Élan/Please Be Happy/NaninovelData/Saves/*.json", "windows", ""],
+    ["<xdgConfig>/unity3d/Studio Élan/Please Be Happy/*.json", "linux", ""]
+   ],
+   "s": "844670"
   },
   "Please Fix the Road": {
    "f": [
@@ -51087,6 +52218,13 @@
    ],
    "s": "1917920"
   },
+  "Police Chief Simulator": {
+   "f": [
+    ["<winLocalAppData>/PoliceChiefSimulator/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2938460",
+   "x": ["4532800"]
+  },
   "Police Quest II: The Vengeance": {
    "f": [
     ["<base>/PQ2/PQSG.*", "windows", ""],
@@ -51167,6 +52305,13 @@
     ["<xdgConfig>/unity3d/Dry Cactus/Poly Bridge 3/Profiles/Default/progress", "linux", ""]
    ],
    "s": "1850160"
+  },
+  "Poly Fighter": {
+   "f": [
+    ["<home>/AppData/LocalLow/HeartLoop Games/Poly Fighter", "windows", ""]
+   ],
+   "s": "3977340",
+   "x": ["4398040"]
   },
   "Poly Universe": {
    "f": [
@@ -51261,6 +52406,13 @@
    ],
    "s": "1721470"
   },
+  "Popucom": {
+   "f": [
+    ["<base>/Save/<storeUserId>/*.sav", "windows", ""]
+   ],
+   "s": "2543180",
+   "x": ["3025670", "3025970", "3929360"]
+  },
   "Populous": {
    "f": [
     ["<base>/Game/Game/*.GAM", "windows", ""]
@@ -51307,6 +52459,12 @@
    "s": "620",
    "x": ["659", "660", "104600", "323180"]
   },
+  "Portal 2 Sixense Perceptual Pack": {
+   "f": [
+    ["<base>/portal2_sixense/SAVE/<storeUserId>", "windows", ""]
+   ],
+   "s": "247120"
+  },
   "Portal Knights": {
    "f": [
     ["<root>/userdata/<storeUserId>/374040/remote", "", "steam"]
@@ -51346,6 +52504,12 @@
     ["<base>/data/Maps", "windows", ""]
    ]
   },
+  "Possessor(s)": {
+   "f": [
+    ["<winLocalAppData>/Pose/Saved/SaveGames/<storeUserId>/*.sav", "windows", ""]
+   ],
+   "s": "2132890"
+  },
   "Post Master": {
    "f": [
     ["<winAppData>/Post Master", "windows", ""]
@@ -51368,7 +52532,7 @@
   },
   "Post Void": {
    "f": [
-    ["<winLocalAppData>/Post_Void/savedata.ini", "windows", ""]
+    ["<winLocalAppData>/Post_Void/*/savedata.dat", "windows", ""]
    ],
    "s": "1285670"
   },
@@ -51672,6 +52836,12 @@
     ["<winDocuments>/primalfears/Save", "windows", ""]
    ],
    "s": "211280"
+  },
+  "Primal Planet": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Primal Planet", "windows", ""]
+   ],
+   "s": "2350270"
   },
   "Primal Prey": {
    "f": [
@@ -52046,9 +53216,18 @@
    "s": "1751820",
    "x": ["2205440"]
   },
+  "Project P.I.T.T.": {
+   "f": [
+    ["<home>/.local/share/godot/app_userdata/Project P.I.T.T", "linux", ""],
+    ["<winAppData>/Godot/app_userdata/Project P.I.T.T", "windows", ""]
+   ],
+   "s": "4026250",
+   "x": ["4636730"]
+  },
   "Project Reignition": {
    "f": [
-    ["<base>/save/*.dat", "windows", ""]
+    ["<home>/deck/.local/share/godot/app_userdata/Sonic and the Secret Rings Remake/saves/*.dat", "linux", ""],
+    ["<winAppData>/Godot/app_userdata/Sonic and the Secret Rings Remake/saves/*.dat", "windows", ""]
    ]
   },
   "Project Remedium": {
@@ -52597,6 +53776,12 @@
     ["<home>/AppData/LocalLow/NPalacz/Qbik/*.*", "windows", ""]
    ],
    "s": "618470"
+  },
+  "Qliphah in Providence's Shadow": {
+   "f": [
+    ["<winLocalAppData>/Saved/SaveGames/<storeUserId>", "windows", ""]
+   ],
+   "s": "3882410"
   },
   "Qomp2": {
    "f": [
@@ -53345,7 +54530,8 @@
    "f": [
     ["<winLocalAppData>low/RatataArts/Ratatan", "windows", ""]
    ],
-   "s": "2949320"
+   "s": "2949320",
+   "x": ["3369960", "3449820", "3540170", "4838850", "4838860", "4838880", "4838890"]
   },
   "Ratatouille": {
    "f": [
@@ -53703,6 +54889,11 @@
     ["<winLocalAppData>/CNB/Saved/SaveGames", "windows", ""]
    ]
   },
+  "Reah: Face the Unknown": {
+   "f": [
+    ["<base>/Reah.s*", "windows", ""]
+   ]
+  },
   "Real Heroes: Firefighter": {
    "f": [
     ["<winDocuments>/Firefighter/save", "windows", ""]
@@ -53738,6 +54929,13 @@
    ],
    "s": "1379630"
   },
+  "Reality Break": {
+   "f": [
+    ["<home>/AppData/LocalLow/Element Games/Reality Break", "windows", ""]
+   ],
+   "s": "1473060",
+   "x": ["4012290"]
+  },
   "Really Big Sky": {
    "f": [
     ["<base>/record.dat", "windows", ""]
@@ -53754,7 +54952,8 @@
    "f": [
     ["<home>/AppData/LocalLow/MapleLeap/Realm of Ink/GameSave", "windows", ""]
    ],
-   "s": "2597080"
+   "s": "2597080",
+   "x": ["2708460", "2710500"]
   },
   "Realms of Arkania: Blade of Destiny (2013)": {
    "f": [
@@ -53823,6 +55022,11 @@
    ],
    "s": "1213300",
    "x": ["3573830", "3573840", "3573850", "3573860", "3573870", "3586100", "3594420"]
+  },
+  "Rebels: Prison Escape": {
+   "f": [
+    ["<base>/savegame", "windows", ""]
+   ]
   },
   "Rebound Dodgeball Evolved": {
    "f": [
@@ -54178,6 +55382,12 @@
    ],
    "s": "1035700"
   },
+  "Reflex Unit: Strike Ops": {
+   "f": [
+    ["<home>/AppData/LocalLow/Robosaru/StrikeOps/QuickSave/*.json", "windows", ""]
+   ],
+   "s": "2992700"
+  },
   "Refunct": {
    "f": [
     ["<home>/.config/Epic/Refunct/Saved/SaveGames", "linux", ""],
@@ -54265,7 +55475,8 @@
    "f": [
     ["<winAppData>/RekaGame/Saves/<storeUserId>/*.xml", "windows", ""]
    ],
-   "s": "1737870"
+   "s": "1737870",
+   "x": ["1783630", "3179550"]
   },
   "Reky": {
    "f": [
@@ -54350,6 +55561,13 @@
    ],
    "s": "1142390",
    "x": ["1427750"]
+  },
+  "Remothered: Red Nun's Legacy": {
+   "f": [
+    ["<winLocalAppData>/Remothered3/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3335310",
+   "x": ["5312420", "5312450", "5312670"]
   },
   "Remothered: Tormented Fathers": {
    "f": [
@@ -54631,6 +55849,11 @@
    "s": "287290",
    "x": ["319810", "320350", "320351", "320352", "320353", "320360", "320361", "320362", "320363", "320364", "320370", "320371", "320372", "320380", "320381", "320382", "320383", "320384", "320385", "320386", "320387", "320388"]
   },
+  "Resident Evil: The Umbrella Chronicles": {
+   "f": [
+    ["<base>/saves", "windows", ""]
+   ]
+  },
   "Residual": {
    "f": [
     ["<winAppData>/residual", "windows", ""]
@@ -54657,6 +55880,14 @@
     ["<winDocuments>/My Games/Resonance of Fate/SaveData", "windows", ""]
    ],
    "s": "645730"
+  },
+  "Resonance: A Plague Tale Legacy": {
+   "f": [
+    ["<root>/userdata/<storeUserId>/2713000/remote", "", "steam"],
+    ["<winLocalAppData>/Packages/FocusHomeInteractiveSA.APlagueTaleFelons_4hny5m903y3g0/SystemAppData/wgs", "windows", "microsoft"]
+   ],
+   "s": "2713000",
+   "x": ["3837640"]
   },
   "Restaurant Empire": {
    "f": [
@@ -54729,6 +55960,13 @@
     ["<winLocalAppData>/WayForward Technologies/RetroRealms/_savedata", "windows", ""]
    ],
    "s": "2158030"
+  },
+  "RetroSpace": {
+   "f": [
+    ["<home>/LocalLow/The Wild Gentlemen/Retrospace/Saves", "windows", ""]
+   ],
+   "s": "2067820",
+   "x": ["2783450", "5283820"]
   },
   "Retrovirus": {
    "f": [
@@ -54831,7 +56069,7 @@
     ["<home>/AppData/LocalLow/Abbey Games/造物主 2", "windows", ""]
    ],
    "s": "1875060",
-   "x": ["3010540", "3333960", "3564800", "4131780"]
+   "x": ["3010540", "3333960", "3564800", "4131780", "4704830"]
   },
   "Reveal The Deep": {
    "f": [
@@ -55569,7 +56807,8 @@
     ["<home>/Documents/Road Redemption/Saves", "linux", ""],
     ["<winDocuments>/Road Redemption/Saves", "windows", ""]
    ],
-   "s": "300380"
+   "s": "300380",
+   "x": ["524890", "625500", "725880", "727050", "727440", "1180010"]
   },
   "Road to Ballhalla": {
    "f": [
@@ -56094,6 +57333,13 @@
    ],
    "s": "550310"
   },
+  "Roots in the Sky: The Hand of Glory 2": {
+   "f": [
+    ["<winLocalAppData>/Madit Entertainment/Roots in the Sky - The Hand of Glory 2/Savegames", "windows", ""]
+   ],
+   "s": "2062380",
+   "x": ["2285560", "5167490"]
+  },
   "Roots of Pacha": {
    "f": [
     ["<home>/AppData/LocalLow/Soda Den/Roots of Pacha/saves/<storeUserId>", "windows", ""]
@@ -56153,6 +57399,11 @@
     ["<home>/AppData/LocalLow/Flashbulb/Rubber Bandits/<storeUserId>/Synced_dev", "windows", "steam"]
    ],
    "s": "1206610"
+  },
+  "Ruff (Ruff 'n' Tumble)": {
+   "f": [
+    ["<base>/Ruff.sav", "windows", ""]
+   ]
   },
   "Ruffy and the Riverside": {
    "f": [
@@ -56293,7 +57544,14 @@
    "f": [
     ["<winLocalAppData>/RSDragonwilds/Saved", "windows", ""]
    ],
-   "s": "1374490"
+   "s": "1374490",
+   "x": ["3637470", "4908050"]
+  },
+  "Runefall": {
+   "f": [
+    ["<winLocalAppData>/Runefall", "windows", ""]
+   ],
+   "s": "813650"
   },
   "Runespell: Overture": {
    "f": [
@@ -56576,6 +57834,13 @@
    ],
    "s": "404480"
   },
+  "SCAD": {
+   "f": [
+    ["<home>/AppData/LocalLow/NAISU/SCAD", "windows", ""]
+   ],
+   "s": "2854620",
+   "x": ["4756350"]
+  },
   "SCAR Squadra Corse Alfa Romeo": {
    "f": [
     ["<base>/saves", "windows", ""]
@@ -56770,6 +58035,12 @@
    ],
    "s": "1599660",
    "x": ["2193240", "2193241", "2206300", "2206301", "2206302", "2216230", "2228240", "2232501"]
+  },
+  "Sacrata": {
+   "f": [
+    ["<base>/Windows/SACRATA/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3201450"
   },
   "Sacred": {
    "f": [
@@ -57342,6 +58613,12 @@
    ],
    "s": "514670"
   },
+  "Satellite Odyssey: Prologue": {
+   "f": [
+    ["<base>/Satellite Odyssey Prologue_Data/Data/SavedGame", "windows", ""]
+   ],
+   "s": "2579270"
+  },
   "Satellite Reign": {
    "f": [
     ["<winLocalAppData>/SatelliteReign", "windows", ""],
@@ -57835,6 +59112,14 @@
     ["<base>/SaveGames", "windows", ""]
    ]
   },
+  "Seabun": {
+   "f": [
+    ["<home>/.local/share/Seabun", "linux", ""],
+    ["<winAppData>/Seabun", "windows", ""]
+   ],
+   "s": "4990820",
+   "x": ["5398240"]
+  },
   "Seafarer: The Ship Sim": {
    "f": [
     ["<winLocalAppData>/Orca/Saved/Config/SaveGames", "windows", ""]
@@ -57975,6 +59260,12 @@
     ["<home>/.secrets-of-raetikon/sync/master", "linux", ""]
    ],
    "s": "246680"
+  },
+  "Secrets of Velendar Castle - Escape Room": {
+   "f": [
+    ["<home>/AppData/LocalLow/mc2games/SecretsOfVelendarCastle", "windows", ""]
+   ],
+   "s": "4016880"
   },
   "Security Booth: Director's Cut": {
    "f": [
@@ -58250,13 +59541,6 @@
    ],
    "s": "503210"
   },
-  "Senua's Saga: Hellblade II": {
-   "f": [
-    ["<winLocalAppData>/Hellblade2/Saved/SaveGames", "windows", "steam"],
-    ["<winLocalAppData>/Packages/Microsoft.Superb_8wekyb3d8bbwe/SystemAppData/wgs/<storeUserId>", "windows", "microsoft"]
-   ],
-   "s": "2461850"
-  },
   "Sepia Tears": {
    "f": [
     ["<winAppData>/RenPy/Sepia Tears ~midwinter's reprise~-1251418373", "windows", ""],
@@ -58281,6 +59565,12 @@
     ["<winLocalAppData>/Seraph", "windows", ""]
    ],
    "s": "425670"
+  },
+  "Serene Estates: Last Guy": {
+   "f": [
+    ["<home>/AppData/LocalLow/Digital Escape Games/The Last Guy/save*.lg", "windows", ""]
+   ],
+   "s": "3724910"
   },
   "Serial Cleaner": {
    "f": [
@@ -58377,6 +59667,12 @@
    ],
    "s": "272620"
   },
+  "Serious Sam: Shatterverse": {
+   "f": [
+    ["<base>/SeriousSamShatterverse/Saved/SaveGames/*.sav", "windows", ""]
+   ],
+   "s": "2067210"
+  },
   "Serious Sam: Siberian Mayhem": {
    "f": [
     ["<root>/userdata/<storeUserId>/1792250/remote/SavedGames", "", "steam"]
@@ -58415,6 +59711,13 @@
     ["<winAppData>/RenPy/SermentFinal/*.save", "windows", ""]
    ],
    "s": "632900"
+  },
+  "Servant of the Lake": {
+   "f": [
+    ["<home>/AppData/LocalLow/RustyLake/ServantOfTheLake/Serialization/SaveFiles", "windows", ""]
+   ],
+   "s": "3636770",
+   "x": ["3996940"]
   },
   "Session": {
    "f": [
@@ -58605,7 +59908,8 @@
     ["<winLocalAppData>/Packages/DevolverDigital.ShadowWarrior3Win10_6kzv4j18v0c96/SystemAppData/wgs", "windows", "microsoft"],
     ["<winLocalAppData>/SW3/Saved/SaveGames", "windows", ""]
    ],
-   "s": "1036890"
+   "s": "1036890",
+   "x": ["677366", "677367", "1876260", "1895090", "1913640"]
   },
   "Shadow Warrior Classic Redux": {
    "f": [
@@ -59019,6 +60323,12 @@
    "s": "1281790",
    "x": ["1392160"]
   },
+  "Shell of a King": {
+   "f": [
+    ["<home>/AppData/LocalLow/RosuneStudios/Shell of a King/File*", "windows", ""]
+   ],
+   "s": "2384130"
+  },
   "ShellShock Live": {
    "f": [
     ["<home>/AppData/LocalLow/KChamp Games/ShellShock Live", "windows", ""]
@@ -59391,6 +60701,12 @@
    ],
    "s": "492800"
   },
+  "Shoot Many Robots": {
+   "f": [
+    ["<winLocalAppData>/Demiurge Studios/Shoot Many Robots/<storeUserId>", "windows", ""]
+   ],
+   "s": "96400"
+  },
   "Shoot Shoot My Waifu": {
    "f": [
     ["<home>/AppData/LocalLow/ZaiStudio/7SexySins Tadaima/PlayerData.dat", "windows", ""],
@@ -59599,6 +60915,14 @@
    ],
    "s": "1300",
    "x": ["1309"]
+  },
+  "SiN Reloaded": {
+   "f": [
+    ["<home>/Saved Games/Nightdive Studios/SiN Reloaded", "windows", ""],
+    ["<home>/Saved Games/Nightdive Studios/SiN Reloaded/base/save/*.pak.zst", "windows", ""]
+   ],
+   "s": "632950",
+   "x": ["4679680"]
   },
   "SiNKR": {
    "f": [
@@ -59824,6 +61148,12 @@
    ],
    "s": "19000"
   },
+  "Silent Hill: Townfall": {
+   "f": [
+    ["<home>/AppData/Local/Townfall/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "1636440"
+  },
   "Silent Hope": {
    "f": [
     ["<winLocalAppData>/NR/Saved/Config/SaveGames/<storeUserId>", "windows", ""]
@@ -59899,6 +61229,13 @@
     ["<winLocalAppData>/SilverChains/Saved", "windows", ""]
    ],
    "s": "975470"
+  },
+  "Silver Pines": {
+   "f": [
+    ["<home>/AppData/LocalLow/Wych Elm/Silver Pines/<storeUserId>", "windows", ""]
+   ],
+   "s": "2333000",
+   "x": ["4540100", "4677930", "5153460"]
   },
   "SimAirport": {
    "f": [
@@ -60621,6 +61958,13 @@
     ["<base>/resources/save", "windows", ""]
    ]
   },
+  "Smashing Bottles": {
+   "f": [
+    ["<winAppData>/Godot/app_userdata/Smashing Bottles", "windows", ""]
+   ],
+   "s": "4637870",
+   "x": ["4675800", "4995180", "4995210"]
+  },
   "Smelter": {
    "f": [
     ["<home>/AppData/LocalLow/XPlus Games/Smelter/Savegames", "windows", ""]
@@ -60882,7 +62226,8 @@
     ["<winDocuments>/My Games/SnowRunner/base/storage", "windows", ""],
     ["<winLocalAppData>/Packages/FocusHomeInteractiveSA.SnowRunnerWindows10_4hny5m903y3g0/SystemAppData/wgs", "windows", "microsoft"]
    ],
-   "s": "1465360"
+   "s": "1465360",
+   "x": ["1533000", "1533001", "1533002", "1533003", "1533004", "1533005", "1533006", "1533007", "1533008", "1533009", "1533010", "1533011"]
   },
   "Snowball!": {
    "f": [
@@ -60966,6 +62311,11 @@
    ],
    "s": "362620"
   },
+  "Sokoban": {
+   "f": [
+    ["<base>/*.sco", "windows", ""]
+   ]
+  },
   "Sokobond": {
    "f": [
     ["<home>/.appdata/com.sokobond/Local Store/#SharedObjects/sokobond.sol", "linux", ""],
@@ -60975,6 +62325,7 @@
   },
   "Sol Cesto": {
    "f": [
+    ["<winLocalAppData>/SolCesto/EBWebView/Default", "windows", "epic"],
     ["<winLocalAppData>/SolCesto/User Data/Default", "windows", ""]
    ],
    "s": "2738490"
@@ -61175,6 +62526,12 @@
    ],
    "s": "333330"
   },
+  "Songbird Symphony": {
+   "f": [
+    ["<winLocalAppData>/Joysteak/Songbird Symphony", "windows", ""]
+   ],
+   "s": "909820"
+  },
   "Songs for a Hero": {
    "f": [
     ["<home>/.config/SongsForAHero", "linux", ""],
@@ -61361,6 +62718,11 @@
     ["<base>/SaveFiles", "windows", ""]
    ]
   },
+  "Sonic Project Hero Rewired": {
+   "f": [
+    ["<base>/Sonic Project Hero Rewired_Data/hero_save.bin", "windows", ""]
+   ]
+  },
   "Sonic R": {
    "f": [
     ["<base>/sonicr.sav", "windows", ""]
@@ -61394,7 +62756,7 @@
   "Sonic Robo Blast 2 Kart": {
    "f": [
     ["<base>/kartdata.dat", "windows", ""],
-    ["<home>/.srb2k", "linux", ""]
+    ["<home>/.srb2kart/kartdata.dat", "linux", ""]
    ]
   },
   "Sonic Spinball": {
@@ -61589,6 +62951,11 @@
    ],
    "s": "1041780"
   },
+  "SoulTrap": {
+   "f": [
+    ["<base>/Games", "windows", ""]
+   ]
+  },
   "Soulash 2": {
    "f": [
     ["<winAppData>/WizardsOfTheCode/Soulash2/saves", "windows", "steam"]
@@ -61653,6 +63020,13 @@
    ],
    "s": "2066020",
    "x": ["2202970", "3615530"]
+  },
+  "Soulstonia": {
+   "f": [
+    ["<winLocalAppData>/RuneTime/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "4432150",
+   "x": ["4432160", "4432170", "4442140"]
   },
   "Sound of Drop - fall into poison -": {
    "f": [
@@ -62677,6 +64051,14 @@
    "s": "1549690",
    "x": ["2533460"]
   },
+  "Sprawl Zero": {
+   "f": [
+    ["<winLocalAppData>/Silas/Saved/SaveGames/Profiles.sav", "windows", ""],
+    ["<winLocalAppData>/Silas/Saved/SaveGames/SlotX_CHECKPOINT.sav", "windows", ""]
+   ],
+   "s": "3748520",
+   "x": ["4247830", "4993840", "5059870"]
+  },
   "Spring Falls": {
    "f": [
     ["<home>/AppData/LocalLow/SPARSE__GameDev/Spring Falls/savedata.txt", "windows", ""]
@@ -62696,6 +64078,12 @@
    ],
    "s": "311720",
    "x": ["357250"]
+  },
+  "Sputnika Game": {
+   "f": [
+    ["<home>/.config/unity3d/egunan/SputnikaGame/Saves/*.json", "linux", ""]
+   ],
+   "s": "2730270"
   },
   "Spy Fox in: Cheese Chase": {
    "f": [
@@ -63040,7 +64428,7 @@
     ["<winLocalAppData>/STVoyager/Saved/SaveGames/<storeUserId>/*.sav", "windows", ""]
    ],
    "s": "2643390",
-   "x": ["4054540", "4063520", "4861560", "4873370"]
+   "x": ["4054540", "4063520", "4861560", "4861570", "4873370"]
   },
   "Star Trek: Voyager - Elite Force": {
    "f": [
@@ -63190,6 +64578,12 @@
    ],
    "s": "356500"
   },
+  "Star Wars: Galactic Racer": {
+   "f": [
+    ["<winLocalAppData>/StarWarsGalacticRacer/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "4078430"
+  },
   "Star Wars: Imperial Assault - Legends of the Alliance": {
    "f": [
     ["<base>/Imperial Assault_Data/SavedGames", "windows", ""]
@@ -63329,6 +64723,13 @@
     ["<base>/BalanceOfPower/*.pl2", "windows", ""]
    ],
    "s": "361690"
+  },
+  "Star Wars: Zero Company": {
+   "f": [
+    ["<winLocalAppData>/SWZeroCompany/Saved/SaveGames/*.sav", "windows", ""]
+   ],
+   "s": "2075800",
+   "x": ["3701350"]
   },
   "Star Wolves": {
    "f": [
@@ -63795,6 +65196,11 @@
    "s": "209190",
    "x": ["209201", "209202"]
   },
+  "Stealth Combat: Ultimate War": {
+   "f": [
+    ["<base>/SavedGames", "windows", ""]
+   ]
+  },
   "Stealth Inc. 2: A Game of Clones": {
    "f": [
     ["<winLocalAppData>/Curve Digital/Stealth Inc. 2/savedata", "windows", ""]
@@ -63911,7 +65317,7 @@
     ["<root>/savegames/<storeUserId>/3280", "", "uplay"]
    ],
    "s": "460920",
-   "x": ["550040"]
+   "x": ["550040", "556390", "556391", "556392", "562850", "564360", "564410", "564411", "564412", "564413", "564414", "564415", "564416", "623290", "623291", "686890", "729770", "729771", "730470", "732380", "732381", "744850", "744851", "951660", "951661", "951662", "951663", "951664", "951665", "951666", "951667", "951668"]
   },
   "Steins;Gate": {
    "f": [
@@ -64109,11 +65515,16 @@
    ],
    "s": "1198590"
   },
+  "Stonemachia": {
+   "f": [
+    ["<winLocalAppData>/Stonemachia/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2982610"
+  },
   "Stoneshard": {
    "f": [
     ["<home>/.config/StoneShard", "linux", ""],
-    ["<home>/AppData/Local/StoneShard/characters_v1/*.map", "windows", ""],
-    ["<home>/AppData/Local/StoneShard/characters_v1/*.sav", "windows", ""]
+    ["<home>/AppData/Local/StoneShard/characters_v1", "windows", ""]
    ],
    "s": "625960",
    "x": ["869760"]
@@ -64228,10 +65639,14 @@
    ],
    "s": "621810"
   },
+  "Stranded (2003)": {
+   "f": [
+    ["<base>/sav", "windows", ""]
+   ]
+  },
   "Stranded Deep": {
    "f": [
     ["<home>/AppData/LocalLow/Beam Team Games/Stranded Deep/Data", "windows", ""],
-    ["<winLocalAppData>/Packages/BeamTeamPublishing.StrandedDeepPC_z3g0437ken9pg/SystemAppData/wgs", "windows", "microsoft"],
     ["<xdgConfig>/unity3d/Beam Team Games/Stranded Deep/Data", "linux", ""]
    ],
    "s": "313120"
@@ -64340,7 +65755,8 @@
    "f": [
     ["<winLocalAppData>/Hk_project/Saved/SaveGames/<storeUserId>/Slots/Slot_*/Data.sav", "windows", ""]
    ],
-   "s": "1332010"
+   "s": "1332010",
+   "x": ["2086160"]
   },
   "Stray Cat Crossing": {
    "f": [
@@ -64664,6 +66080,13 @@
     ["<base>/Save/*.dat", "windows", ""]
    ]
   },
+  "Stupid Never Dies": {
+   "f": [
+    ["<base>/StupidNeverDies/Saved/SaveGames/<storeUserId>", "windows", ""]
+   ],
+   "s": "3486530",
+   "x": ["4228930", "4880100"]
+  },
   "Stygian: Reign of the Old Ones": {
    "f": [
     ["<home>/.config/unity3d/Cultic Games/STYGIAN/Profiles", "linux", ""],
@@ -64880,7 +66303,7 @@
     ["<home>/AppData/LocalLow/Kite Games/Sudden Strike 5/SaveData/Steam/<storeUserId>/*.save", "windows", "steam"]
    ],
    "s": "2808550",
-   "x": ["4108030", "4108050"]
+   "x": ["4108030", "4108050", "4519150"]
   },
   "Sudeki": {
    "f": [
@@ -64922,7 +66345,8 @@
    "f": [
     ["<home>/AppData/LocalLow/Perfect Random/Sulfur/*.es3", "windows", ""]
    ],
-   "s": "2124120"
+   "s": "2124120",
+   "x": ["2845200", "3025640", "4268010"]
   },
   "Sulphur Nimbus: Hel's Elixir": {
    "f": [
@@ -65367,7 +66791,8 @@
   },
   "Super Mario Bros. Remastered": {
    "f": [
-    ["<winAppData>/SMB1R/saves", "windows", ""]
+    ["<winAppData>/SMB1R/saves", "windows", ""],
+    ["<xdgData>/SMB1R/saves", "linux", ""]
    ]
   },
   "Super Mario World": {
@@ -65912,6 +67337,12 @@
    ],
    "s": "929010"
   },
+  "Swan Song": {
+   "f": [
+    ["<home>/AppData/LocalLow/Business Goose Studios/Swan Song", "windows", ""]
+   ],
+   "s": "3265290"
+  },
   "Swarmriders": {
    "f": [
     ["<winLocalAppData>/SWARMRIDERS", "windows", ""]
@@ -66123,15 +67554,10 @@
    ],
    "s": "46500"
   },
-  "Syberia - Remastered": {
-   "f": [
-    ["<winLocalAppData>/Virtuallyz Gaming/Syberia - Remastered/SteamSaves/<storeUserId>/slot_*.dat", "windows", "steam"]
-   ],
-   "s": "3660220"
-  },
   "Syberia 3": {
    "f": [
-    ["<home>/AppData/LocalLow/Microids/Syberia3", "windows", ""]
+    ["<home>/AppData/LocalLow/Microids/Syberia3", "windows", ""],
+    ["<home>/AppData/LocalLow/Microids/Syberia3", "windows", "microsoft"]
    ],
    "s": "464340"
   },
@@ -66140,6 +67566,12 @@
     ["<winDocuments>/Syberia 2 Saves", "windows", ""]
    ],
    "s": "46510"
+  },
+  "Syberia: Remastered": {
+   "f": [
+    ["<winLocalAppData>/Virtuallyz Gaming/Syberia - Remastered/SteamSaves/<storeUserId>/slot_*.dat", "windows", "steam"]
+   ],
+   "s": "3660220"
   },
   "Syberia: The World Before": {
    "f": [
@@ -66305,7 +67737,8 @@
   },
   "TCG Card Shop Simulator": {
    "f": [
-    ["<home>/AppData/LocalLow/OPNeonGames/Card Shop Simulator/savedGames_*", "windows", ""]
+    ["<home>/AppData/LocalLow/OPNeonGames/Card Shop Simulator/savedGames_*", "windows", ""],
+    ["<winLocalAppData>/Packages/OPNEONGAMES.TCGCardShopSimulator_19j6by82ahhzr/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "3070070",
    "x": ["3083940", "3107460"]
@@ -66314,6 +67747,13 @@
    "f": [
     ["<base>/GameSaves/*.sav", "windows", ""]
    ]
+  },
+  "TFC2: Collapse of The Bronze Age": {
+   "f": [
+    ["<home>/.config/unity3d/Wield Interactive/TFC2/Saves", "linux", ""],
+    ["<home>/AppData/LocalLow/Wield Interactive/TFC2/Saves/*.txt", "windows", ""]
+   ],
+   "s": "4158610"
   },
   "TFC: The Fertile Crescent": {
    "f": [
@@ -66550,13 +67990,15 @@
    "f": [
     ["<base>/TOI_Data/Resources/SaveFiles/PlayerSettings.JSON", "windows", ""]
    ],
-   "s": "1283410"
+   "s": "1283410",
+   "x": ["1677120", "1792940", "2715450"]
   },
   "Tails of Iron 2: Whiskers of Winter": {
    "f": [
     ["<base>/TOI2_Data/Resources/SaveFiles", "windows", ""]
    ],
-   "s": "2473480"
+   "s": "2473480",
+   "x": ["3058540", "3119400", "3246590", "3349180"]
   },
   "Taima Miko Yuugi": {
    "f": [
@@ -66688,6 +68130,12 @@
     ["<root>/userdata/<storeUserId>/2331020/remote", "windows", "steam"]
    ],
    "s": "2331020"
+  },
+  "Tales of Eternia Remastered": {
+   "f": [
+    ["<winLocalAppData>/BANDAI NAMCO Entertainment/Tales of Eternia Remastered/Saved", "windows", ""]
+   ],
+   "s": "3470960"
   },
   "Tales of Graces f Remastered": {
    "f": [
@@ -66840,7 +68288,7 @@
   },
   "Tank Battle: 1944": {
    "f": [
-    ["<winLocalAppData>/TankBattle1944", "windows", ""]
+    ["<winLocalAppData>/Tank Battle 1944", "windows", ""]
    ],
    "s": "396320"
   },
@@ -66867,6 +68315,12 @@
     ["<winAppData>/MMFApplications/x1nntp.ini", "windows", ""]
    ],
    "s": "371570"
+  },
+  "TapSonic World Champion VR": {
+   "f": [
+    ["<home>/AppData/LocalLow/Neowiz/TapSonicWCVR/<storeUserId>", "windows", ""]
+   ],
+   "s": "837640"
   },
   "Tape to Tape": {
    "f": [
@@ -67150,6 +68604,13 @@
    ],
    "s": "593900"
   },
+  "Tenebris Somnia": {
+   "f": [
+    ["<winLocalAppData>/TenebrisSomnia/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2121510",
+   "x": ["2578120"]
+  },
   "Tengami": {
    "f": [
     ["<base>/Save/TengamiSaveData.bin", "windows", ""]
@@ -67202,7 +68663,7 @@
     ["<winDocuments>/My Games/Terminator Dark Fate/profiles", "windows", ""]
    ],
    "s": "1839950",
-   "x": ["2842170", "3650450"]
+   "x": ["2842170", "3650450", "4157110"]
   },
   "Terminator: Resistance": {
    "f": [
@@ -67495,6 +68956,12 @@
    ],
    "s": "2366980"
   },
+  "Thank You Bus Driver": {
+   "f": [
+    ["<winLocalAppData>/ThankYouBusDriver/Saved/SaveGames/*.sav", "windows", ""]
+   ],
+   "s": "5067360"
+  },
   "Tharsis": {
    "f": [
     ["<base>/Tharsis Data/savedata.sav", "windows", ""]
@@ -67503,7 +68970,7 @@
   },
   "That's Not My Neighbor": {
    "f": [
-    ["<winAppData>/Godot/app_userdata/That's not my neighbor", "windows", ""]
+    ["<winAppData>/That's not my Neighbor", "windows", ""]
    ],
    "s": "3431040"
   },
@@ -67725,6 +69192,14 @@
    ],
    "s": "979690"
   },
+  "The Aurora Chronicles": {
+   "f": [
+    ["<home>/AppData/LocalLow/Entropy/TheAuroraChronicles/Saves", "windows", ""],
+    ["<xdgConfig>/unity3d/Entropy/TheAuroraChronicles/Saves", "linux", ""]
+   ],
+   "s": "4262410",
+   "x": ["4287070"]
+  },
   "The Away Team": {
    "f": [
     ["<base>/save.json", "windows", ""]
@@ -67874,7 +69349,7 @@
     ["<xdgData>/binding of isaac rebirth", "linux", ""]
    ],
    "s": "250900",
-   "x": ["322660"]
+   "x": ["322660", "401920", "570660", "1426300", "3353470"]
   },
   "The Bizarre Adventures of Woodruff and the Schnibble": {
    "f": [
@@ -67895,6 +69370,14 @@
    ],
    "s": "80330"
   },
+  "The Blood of Dawnwalker": {
+   "f": [
+    ["<winLocalAppData>/Dawnwalker/Saved/GOGSaveGames", "windows", "gog"],
+    ["<winLocalAppData>/Dawnwalker/Saved/SaveGames/*.sav", "windows", ""]
+   ],
+   "s": "3751260",
+   "x": ["4417550"]
+  },
   "The Bloodline": {
    "f": [
     ["<winLocalAppData>/TheBloodline/Saved/SaveGames", "windows", ""]
@@ -67913,7 +69396,7 @@
     ["<winDocuments>/Book of Unwritten Tales/savegames", "windows", ""]
    ],
    "s": "215160",
-   "x": ["215200"]
+   "x": ["215180", "215200"]
   },
   "The Book of Unwritten Tales 2": {
    "f": [
@@ -68002,7 +69485,7 @@
   },
   "The Case of the Golden Idol": {
    "f": [
-    ["<winAppData>/Godot/app_userdata/The Case of The Golden Idol/local_savegame.save", "windows", ""],
+    ["<winAppData>/Godot/app_userdata/The Case of The Golden Idol/<storeUserId>_savegame.save", "windows", ""],
     ["<winLocalAppData>/Packages/PlayStack.TheCaseoftheGoldenIdol_3wcqaesafpzfy/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "1677770",
@@ -68275,7 +69758,8 @@
     ["<home>/AppData/LocalLow/FuliGames/Cruse Of Womanland/CloudData/Saves", "windows", ""],
     ["<home>/AppData/LocalLow/FuliGames/Cruse Of Womanland/CloudData/Saves", "windows", "steam"]
    ],
-   "s": "3995110"
+   "s": "3995110",
+   "x": ["4186990"]
   },
   "The Cursed Forest": {
    "f": [
@@ -69060,6 +70544,13 @@
    ],
    "s": "1087760"
   },
+  "The Hand of Glory": {
+   "f": [
+    ["<winLocalAppData>/The Hand of Glory/Savegames", "windows", ""]
+   ],
+   "s": "961010",
+   "x": ["989730", "1934010"]
+  },
   "The Happy Hereafter": {
    "f": [
     ["<winAppData>/AlawarEntertainment/Mirball/TheHappyHereafter", "windows", ""]
@@ -69476,8 +70967,8 @@
   },
   "The Journeyman Project 2: Buried in Time": {
    "f": [
-    ["&*42;.btg", "windows", ""],
-    ["&*42;.sav", "windows", ""]
+    ["<base>/*.btg", "windows", ""],
+    ["<base>/*.sav", "windows", ""]
    ]
   },
   "The Journeyman Project: Pegasus Prime": {
@@ -69996,7 +71487,8 @@
   "The Legend of Zelda: Ocarina of Time (Ship of Harkinian)": {
    "f": [
     ["<base>/Save/file*.sav", "windows", ""],
-    ["<base>/Save/file*.sav", "linux", ""]
+    ["<base>/Save/file*.sav", "linux", ""],
+    ["<xdgData>/soh/Save/file*.sav", "linux", ""]
    ]
   },
   "The Legend of Zelda: Twilight Princess (Dusklight)": {
@@ -70044,12 +71536,18 @@
    "s": "460430",
    "x": ["740370", "742350"]
   },
+  "The Liar Princess and the Blind Prince": {
+   "f": [
+    ["<winAppData>/Nippon Ichi Software, Inc/PrincessAndPrince/<storeUserId>", "windows", ""]
+   ],
+   "s": "3901910"
+  },
   "The Life and Suffering of Sir Brante": {
    "f": [
     ["<home>/AppData/LocalLow/SEVER/The Life and Suffering of Sir Brante/Saves", "windows", ""]
    ],
    "s": "1272160",
-   "x": ["1460090"]
+   "x": ["1460090", "1566770"]
   },
   "The Lift: Supernatural Handyman Simulator": {
    "f": [
@@ -70097,7 +71595,7 @@
     ["<winLocalAppData>/Mipumi/TLS/*.save", "windows", ""]
    ],
    "s": "437160",
-   "x": ["477040"]
+   "x": ["459140", "477020", "477030", "477040", "774871"]
   },
   "The Little Acre": {
    "f": [
@@ -70641,7 +72139,7 @@
     ["<home>/AppData/LocalLow/EQ Studios/The Painscreek Killings/SaveData/saveData.txt", "windows", ""]
    ],
    "s": "624270",
-   "x": ["1172960"]
+   "x": ["1172960", "4371030"]
   },
   "The Pale Beyond": {
    "f": [
@@ -70732,6 +72230,12 @@
     ["<root>/userdata/<storeUserId>/577410/remote", "windows", "steam"]
    ],
    "s": "577410"
+  },
+  "The Plan (2013)": {
+   "f": [
+    ["<home>/.config/unity3d/Krillbite Studio/The Plan/prefs", "linux", ""]
+   ],
+   "s": "250600"
   },
   "The Plane Effect": {
    "f": [
@@ -71339,6 +72843,13 @@
    "s": "750130",
    "x": ["887080", "975180", "990470", "990620", "1151760", "2765310"]
   },
+  "The Sinking City 2": {
+   "f": [
+    ["<winLocalAppData>/TSC2/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2825860",
+   "x": ["4265340", "4265420", "4265460", "4684710"]
+  },
   "The Sinking City Remastered": {
    "f": [
     ["<winLocalAppData>/TSCGame/Saved/SaveGames", "windows", ""]
@@ -71350,6 +72861,13 @@
     ["<home>/AppData/LocalLow/Microids/Sisters Party Of The Year", "windows", ""]
    ],
    "s": "1502540"
+  },
+  "The Skin Stapler": {
+   "f": [
+    ["<winLocalAppData>/TheSkinStapler/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "4310610",
+   "x": ["4343530", "4919810", "4919860"]
   },
   "The Slaverian Trucker": {
    "f": [
@@ -71408,6 +72926,12 @@
    ],
    "s": "313630"
   },
+  "The Sorting Bureau": {
+   "f": [
+    ["<home>/AppData/LocalLow/ApelsinkaGames/The Sorting Bureau", "windows", ""]
+   ],
+   "s": "4120790"
+  },
   "The Space Bar": {
    "f": [
     ["<base>/SPACEBAR.SAV", "windows", ""]
@@ -71423,8 +72947,8 @@
   },
   "The Spectrum Retreat": {
    "f": [
-    ["<winDocuments>/My Games/TheSpectrumRetreat/Saves/SpectrumData", "windows", ""],
-    ["<winPublic>/Documents/Steam/<storeUserId>/763250", "windows", "steam"]
+    ["<root>/userdata/<storeUserId>/763250/remote", "", "steam"],
+    ["<winDocuments>/My Games/TheSpectrumRetreat/Saves/SpectrumData", "windows", ""]
    ],
    "s": "763250"
   },
@@ -71789,7 +73313,8 @@
    "f": [
     ["<base>/Save", "windows", ""]
    ],
-   "s": "279640"
+   "s": "279640",
+   "x": ["4959150"]
   },
   "The Turing Test": {
    "f": [
@@ -71822,6 +73347,12 @@
    ],
    "s": "406970",
    "x": ["564030"]
+  },
+  "The Uncertain: Light at the End": {
+   "f": [
+    ["<winDocuments>/My Games/The Uncertain Light At The End", "windows", ""]
+   ],
+   "s": "925570"
   },
   "The UnderGarden": {
    "f": [
@@ -71873,7 +73404,8 @@
    "f": [
     ["<winDocuments>/My Games/The Vanishing of Ethan Carter Redux/SavedGames", "windows", ""]
    ],
-   "s": "400430"
+   "s": "400430",
+   "x": ["319930"]
   },
   "The Vanishing of Ethan Carter VR": {
    "f": [
@@ -71917,7 +73449,8 @@
    "f": [
     ["<winLocalAppData>/TWD/Saved/SaveGames", "windows", ""]
    ],
-   "s": "916840"
+   "s": "916840",
+   "x": ["1237830"]
   },
   "The Walking Dead: Season One": {
    "f": [
@@ -72126,7 +73659,7 @@
     ["<winDocuments>/The Witcher/saves", "windows", ""]
    ],
    "s": "20900",
-   "x": ["9810"]
+   "x": ["9810", "20902", "1229370"]
   },
   "The Witcher 2: Assassins of Kings": {
    "f": [
@@ -72134,7 +73667,8 @@
     ["<winDocuments>/Witcher 2/gamesaves", "windows", ""],
     ["<xdgData>/cdprojektred/witcher2/GameDocuments/Witcher 2/gamesaves", "linux", ""]
    ],
-   "s": "20920"
+   "s": "20920",
+   "x": ["206783", "228460", "1229350"]
   },
   "The Witcher 3: Wild Hunt": {
    "f": [
@@ -72152,9 +73686,17 @@
   },
   "The Wolf Among Us": {
    "f": [
-    ["<winDocuments>/Telltale Games/The Wolf Among Us", "windows", ""]
+    ["<winDocuments>/Telltale Games/The Wolf Among Us", "windows", ""],
+    ["<winLocalAppData>/Packages/TelltaleGames.TheWolfAmongUs-ATelltaleGamesSeries_4p9dzwrngadje/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "250320"
+  },
+  "The Wolf Among Us Remastered": {
+   "f": [
+    ["<winDocuments>/Telltale Games/The Wolf Among Us Remastered", "windows", "steam"]
+   ],
+   "s": "3884860",
+   "x": ["5280090"]
   },
   "The Wolf's Bite": {
    "f": [
@@ -72190,6 +73732,12 @@
    "f": [
     ["<base>/*.x", "windows", ""]
    ]
+  },
+  "The Zachtronics Solitaire Collection": {
+   "f": [
+    ["<winDocuments>/My Games/The Zachtronics Solitaire Collection/<storeUserId>/save.dat", "windows", ""]
+   ],
+   "s": "1988540"
   },
   "The Zodiac Trial": {
    "f": [
@@ -72281,7 +73829,8 @@
   "Theocracy": {
    "f": [
     ["<base>/save/*.tsg", "windows", ""]
-   ]
+   ],
+   "s": "4834790"
   },
   "Theocracy (2022)": {
    "f": [
@@ -73184,7 +74733,8 @@
    "f": [
     ["<winLocalAppData>/TokyoXtremeRacer/Saved/SaveGames", "windows", ""]
    ],
-   "s": "2634950"
+   "s": "2634950",
+   "x": ["3959440", "3959450", "4781590"]
   },
   "Tom Clancy's EndWar": {
    "f": [
@@ -73215,7 +74765,9 @@
   },
   "Tom Clancy's Ghost Recon Breakpoint": {
    "f": [
-    ["<root>/savegames/<storeUserId>/11903", "windows", "uplay"]
+    ["<root>/savegames/<storeUserId>/11903", "", "uplay"],
+    ["<root>/savegames/<storeUserId>/62412", "", "steam"],
+    ["<root>/savegames/<storeUserId>/62412", "", "uplay"]
    ],
    "s": "2231380",
    "x": ["2231410"]
@@ -73398,7 +74950,7 @@
    ],
    "s": "225320"
   },
-  "Tomb Raider IV-VI Remastered": {
+  "Tomb Raider IV–VI Remastered": {
    "f": [
     ["<winAppData>/TRX2/<storeUserId>/savegame.dat", "windows", ""]
    ],
@@ -73406,7 +74958,7 @@
   },
   "Tomb Raider I–III Remastered": {
    "f": [
-    ["<winAppData>/TRX/<storeUserId>/*.sav", "windows", ""],
+    ["<winAppData>/TRX/savegame.dat", "windows", ""],
     ["<winAppData>/TRX_EGS/<storeUserId>/savegame.dat", "windows", "epic"]
    ],
    "s": "2478970"
@@ -73475,6 +75027,11 @@
    ],
    "s": "290690"
   },
+  "Tonka Construction": {
+   "f": [
+    ["<winDir>/Tonka.ini", "windows", ""]
+   ]
+  },
   "Tony Hawk's American Wasteland": {
    "f": [
     ["<base>/Game/Save", "windows", ""]
@@ -73534,6 +75091,12 @@
     ["<base>/SAVE/*.sav", "windows", ""]
    ],
    "s": "356210"
+  },
+  "Too Many Toys!": {
+   "f": [
+    ["<home>/AppData/LocalLow/Jakub T & 4ydam/Too Many Toys!/*.es3", "windows", ""]
+   ],
+   "s": "5028390"
   },
   "Toodee and Topdee": {
    "f": [
@@ -73655,6 +75218,14 @@
     ["<winLocalAppData>/TormentorXPunisher", "windows", ""]
    ],
    "s": "500670"
+  },
+  "Tormentum II": {
+   "f": [
+    ["<home>/.config/unity3d/OhNoo Studio/Tormentum II", "linux", ""],
+    ["<home>/AppData/LocalLow/OhNoo Studio/Tormentum II", "windows", ""]
+   ],
+   "s": "931060",
+   "x": ["4733980"]
   },
   "Tormentum: Dark Sorrow": {
    "f": [
@@ -73928,6 +75499,13 @@
    ],
    "s": "1252320"
   },
+  "Touhou Koumakyou: New Classic - the Embodiment of Scarlet Devil": {
+   "f": [
+    ["<base>/replay/*.rpy", "windows", ""],
+    ["<base>/score.dat", "windows", ""]
+   ],
+   "s": "4659620"
+  },
   "Touhou La La Dui": {
    "f": [
     ["<base>/LaLaDui_Data/ScreenShot", "windows", ""],
@@ -74163,6 +75741,12 @@
    ],
    "s": "334230"
   },
+  "Townopolis": {
+   "f": [
+    ["<winAppData>/Lonely Troops/Townopolis", "windows", ""]
+   ],
+   "s": "462730"
+  },
   "Townscaper": {
    "f": [
     ["<home>/AppData/LocalLow/Oskar Stalberg/Townscaper/Saves", "windows", ""],
@@ -74186,6 +75770,12 @@
     ["<base>/ToyXXX.sav", "windows", ""]
    ]
   },
+  "Toy Story 3: Complete Edition": {
+   "f": [
+    ["<winAppData>/Roaming/Disney/Toy Story 3 Complete Edition/savedata", "windows", ""]
+   ],
+   "s": "4049180"
+  },
   "Toy Story 3: The Video Game": {
    "f": [
     ["<winDocuments>/Disney Interactive Studios/Toy Story 3/savedata", "windows", ""]
@@ -74197,6 +75787,14 @@
     ["<base>/SaveGames", "windows", ""]
    ],
    "s": "317580"
+  },
+  "Toy Story: Retro Roundup!": {
+   "f": [
+    ["<winAppData>/Disney/Toy Story Retro Roundup!/saves/*.bst0", "windows", ""],
+    ["<winAppData>/Disney/Toy Story Retro Roundup!/saves/*.bst1", "windows", ""],
+    ["<winAppData>/Disney/Toy Story Retro Roundup!/saves/*.bst2", "windows", ""]
+   ],
+   "s": "4049170"
   },
   "Toy Tinker Simulator": {
    "f": [
@@ -74323,6 +75921,12 @@
    "s": "3375780",
    "x": ["3447040", "3888330", "3888340", "3888350", "3888370", "3888380", "3888630", "3888640", "3888670", "3888680", "3888700", "3888710", "3888720", "3888740", "3888750", "3888760", "3888850", "3888860", "3888870", "3888880", "3888930", "3888940", "3888950", "3888960", "3888970", "3888990", "3889000", "3889020", "3889030", "3889040", "3889050", "3889060", "3889070", "3889100", "3889110", "3889120", "3889130", "3889140", "3889150", "3889160", "3889170", "3889180", "3889190", "3889200", "3889210", "3889220", "3889230", "3889240", "3889250", "3889260", "3889310", "3889320", "3889330", "3889340", "3889350", "3889370", "3889380", "3889390", "3889400"]
   },
+  "Trails in the Sky 2nd Chapter": {
+   "f": [
+    ["<home>/Saved Games/FALCOM/Trails in the Sky 2nd Chapter/savedata", "windows", ""]
+   ],
+   "s": "4225980"
+  },
   "Train Fever": {
    "f": [
     ["<root>/userdata/<storeUserId>/304730/local/save", "", "steam"]
@@ -74374,6 +75978,12 @@
     ["<winDocuments>/My Games/TrainSimWorld6/Saved/SaveGames", "windows", ""]
    ],
    "s": "3656800"
+  },
+  "Train Sim World 7": {
+   "f": [
+    ["<winDocuments>/My Games/TrainSimWorld7/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "4678800"
   },
   "Train Station Renovation": {
    "f": [
@@ -74515,6 +76125,17 @@
    ],
    "s": "1066780"
   },
+  "Transport Fever 3": {
+   "f": [
+    ["<home>/.local/share/Transport Fever 3/profile.lua", "linux", ""],
+    ["<home>/.local/share/Transport Fever 3/save", "linux", ""],
+    ["<root>/userdata/<storeUserId>/3493540/local/profile.lua", "", "steam"],
+    ["<root>/userdata/<storeUserId>/3493540/local/save", "", "steam"],
+    ["<winAppData>/Transport Fever 3/profile.lua", "windows", ""],
+    ["<winAppData>/Transport Fever 3/save", "windows", ""]
+   ],
+   "s": "3493540"
+  },
   "Transport Tycoon Deluxe": {
    "f": [
     ["<base>/TRT*.SV1", "windows", ""]
@@ -74532,6 +76153,14 @@
     ["<winAppData>/LocalLow/Khud0/Trash Bomber", "windows", ""]
    ],
    "s": "2067760"
+  },
+  "Trash Day": {
+   "f": [
+    ["<home>/AppData/LocalLow/OffByOne/Trash/achievements.json*", "windows", ""],
+    ["<home>/AppData/LocalLow/OffByOne/Trash/save_*", "windows", ""]
+   ],
+   "s": "3314580",
+   "x": ["5386580", "5394290"]
   },
   "Trauma": {
    "f": [
@@ -74569,6 +76198,12 @@
    "s": "2313250",
    "x": ["2426940"]
   },
+  "Traverser": {
+   "f": [
+    ["<base>/Saves/SaveGameState", "windows", ""]
+   ],
+   "s": "327520"
+  },
   "Travis Strikes Again: No More Heroes": {
    "f": [
     ["<winLocalAppData>/TSANMH/Saved/SaveGames", "windows", ""]
@@ -74585,7 +76220,8 @@
   "Treasure Adventure Game": {
    "f": [
     ["<base>/save_data", "windows", ""]
-   ]
+   ],
+   "s": "863940"
   },
   "Treasure Adventure World": {
    "f": [
@@ -74924,6 +76560,7 @@
   },
   "Tropico 4": {
    "f": [
+    ["<winAppData>/Tropico 4/Users.lua", "windows", ""],
     ["<winAppData>/Tropico 4/users", "windows", ""]
    ],
    "s": "57690",
@@ -75228,6 +76865,7 @@
   },
   "Twisted Tower": {
    "f": [
+    ["<home>/AppData/LocalLow/Atmos Games, LLC/Twisted Tower", "windows", ""],
     ["<home>/AppData/LocalLow/Atmos Games, LLC/Twisted Tower Demo", "windows", ""]
    ],
    "s": "1575990"
@@ -75406,6 +77044,12 @@
    "f": [
     ["<winDocuments>/UK Truck Simulator/save", "windows", ""]
    ]
+  },
+  "UMAMI": {
+   "f": [
+    ["<home>/AppData/LocalLow/Mimmox/UMAMI/*.sav", "windows", ""]
+   ],
+   "s": "3669360"
   },
   "UP": {
    "f": [
@@ -76027,7 +77671,8 @@
    "f": [
     ["<winLocalAppData>/U9/Saved/SaveGames", "windows", ""]
    ],
-   "s": "1477940"
+   "s": "1477940",
+   "x": ["2280170", "2385220", "2385221", "2385222", "2385223"]
   },
   "Unleashed Recompiled": {
    "f": [
@@ -76505,7 +78150,8 @@
     ["<root>/userdata/<storeUserId>/892970", "", "steam"],
     ["<xdgConfig>/unity3d/IronGate/Valheim", "linux", ""]
    ],
-   "s": "892970"
+   "s": "892970",
+   "x": ["1620250"]
   },
   "Valiant Hearts: Coming Home": {
    "f": [
@@ -76563,6 +78209,13 @@
    "f": [
     ["<home>/AppData/LocalLow/TubClub/ValleyPeaks/QuickSave", "windows", ""]
    ]
+  },
+  "Valor Mortis": {
+   "f": [
+    ["<winLocalAppData>/ValorMortis/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "2828710",
+   "x": ["4641840", "5250300"]
   },
   "Vambrace: Cold Soul": {
    "f": [
@@ -76745,6 +78398,12 @@
    "s": "1182420",
    "x": ["2085110"]
   },
+  "Ved: Recure": {
+   "f": [
+    ["<home>/AppData/LocalLow/SummerClip/VED/VedGameSave", "windows", ""]
+   ],
+   "s": "3255500"
+  },
   "Vegas: Make It Big": {
    "f": [
     ["<base>/SavedGames", "windows", ""]
@@ -76789,6 +78448,13 @@
    ],
    "s": "338140"
   },
+  "Vengeful Guardian: Moonrider": {
+   "f": [
+    ["<winAppData>/vengeful-guardian-moonrider", "windows", ""]
+   ],
+   "s": "1942010",
+   "x": ["2118480", "2216530"]
+  },
   "Venice": {
    "f": [
     ["<winProgramData>/Steam/Venice/userdata", "windows", ""]
@@ -76830,6 +78496,12 @@
     ["<winLocalAppData>/verminian_trap_1_1/hiscore.ini", "windows", ""]
    ]
   },
+  "Vernal Edge": {
+   "f": [
+    ["<winLocalAppData>/VernalEdge/default/save", "windows", ""]
+   ],
+   "s": "1546710"
+  },
   "Verne: The Shape of Fantasy": {
    "f": [
     ["<home>/AppData/LocalLow/Gametopia Studios/Verne/offline-user", "windows", ""]
@@ -76862,6 +78534,13 @@
     ["<base>/Save", "windows", ""]
    ],
    "s": "694770"
+  },
+  "Vholume": {
+   "f": [
+    ["<winLocalAppData>/VHOLUME/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "4131730",
+   "x": ["4245250", "5133400"]
   },
   "Victor Vran": {
    "f": [
@@ -76984,11 +78663,6 @@
    ],
    "s": "2109460"
   },
-  "Villains' Revenge": {
-   "f": [
-    ["<base>/SaveGame", "windows", ""]
-   ]
-  },
   "Vilmonic": {
    "f": [
     ["<winLocalAppData>/Vilmonic/saves", "windows", ""]
@@ -77003,6 +78677,7 @@
   },
   "Vintage Story": {
    "f": [
+    ["<home>/.config/VintagestoryData/Saves", "linux", ""],
     ["<home>/.var/app/at.vintagestory.VintageStory/config/VintagestoryData/Saves", "linux", ""],
     ["<home>/ApplicationData/vintagestory/Saves", "linux", ""],
     ["<winAppData>/VintagestoryData/Saves", "windows", ""]
@@ -77068,7 +78743,8 @@
   },
   "Virtua Fighter 5 R.E.V.O. World Stage": {
    "f": [
-    ["<winAppData>/SEGA/VFREVO/Steam/<storeUserId>/system", "windows", ""]
+    ["<winAppData>/SEGA/VFREVO/Steam/<storeUserId>/system", "windows", ""],
+    ["<winLocalAppData>/Packages/SEGAofAmericaInc.a9115ca5cs_s751p9cej88mt/SystemAppData/wgs", "windows", "microsoft"]
    ],
    "s": "3112260"
   },
@@ -77817,6 +79493,19 @@
     ["<home>/Saved Games/Warcraft III", "windows", ""]
    ]
   },
+  "Wardogs": {
+   "f": [
+    ["<winLocalAppData>/Wardogs/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "1867240",
+   "x": ["4809930", "4809960"]
+  },
+  "Warfare Legacy Collection": {
+   "f": [
+    ["<home>/AppData/LocalLow/Armor Games Studios/Warfare/Saves/*/*.json", "windows", ""]
+   ],
+   "s": "2745870"
+  },
   "Warfork": {
    "f": [
     ["<root>/userdata/<storeUserId>/671610", "", "steam"],
@@ -78448,6 +80137,12 @@
    ],
    "s": "204180"
   },
+  "Wavekin": {
+   "f": [
+    ["<base>/PlayerData/*.sav", "windows", ""]
+   ],
+   "s": "3930190"
+  },
   "Wavetale": {
    "f": [
     ["<winLocalAppData>/LocalLow/Thunderful/Wavetale", "windows", ""]
@@ -78770,6 +80465,13 @@
    "s": "785790",
    "x": ["813330", "1620450"]
   },
+  "WheelMates": {
+   "f": [
+    ["<winLocalAppData>/CarGame/Saved/SaveGames", "windows", ""]
+   ],
+   "s": "3905450",
+   "x": ["5108990"]
+  },
   "Wheelman": {
    "f": [
     ["<winLocalAppData>/Wheelman", "windows", ""]
@@ -78900,6 +80602,12 @@
    ],
    "s": "466130"
   },
+  "White Knuckle": {
+   "f": [
+    ["<home>/AppData/LocalLow/Dark Machine/White Knuckle", "windows", ""]
+   ],
+   "s": "3195790"
+  },
   "White Names Spoiled Past": {
    "f": [
     ["<base>/script/Th_wnsp/data", "windows", ""],
@@ -78976,6 +80684,13 @@
    ],
    "s": "359400"
   },
+  "Wicked Seed": {
+   "f": [
+    ["<home>/AppData/LocalLow/Dead Right Games/Wicked Seed", "windows", ""]
+   ],
+   "s": "2767530",
+   "x": ["3634260"]
+  },
   "Wide Ocean Big Jacket": {
    "f": [
     ["<xdgConfig>/unity3d/Turnfollow/Wide Ocean Big Jacket", "linux", ""]
@@ -79008,7 +80723,9 @@
   },
   "Wild Metal Country": {
    "f": [
-    ["<base>/WinEnv/Configs/FrontEnd/PLAYERS", "windows", ""]
+    ["<base>/WinEnv/Configs/FrontEnd/PLAYERS", "windows", ""],
+    ["<base>/WinEnv/Scenes/ARCHIVE", "windows", ""],
+    ["<base>/WinEnv/Scenes/Level*.scn", "windows", ""]
    ],
    "s": "12190"
   },
@@ -79378,7 +81095,7 @@
     ["<home>/AppData/LocalLow/Moonless Formless/Withering Rooms/<storeUserId>", "windows", ""]
    ],
    "s": "2006140",
-   "x": ["2197120"]
+   "x": ["2197120", "2926600"]
   },
   "Without Escape": {
    "f": [
@@ -79408,6 +81125,16 @@
     ["<winAppData>/RenPy/wowi3-1409958485/*.save", "windows", ""]
    ],
    "s": "676130"
+  },
+  "Without a Voice": {
+   "f": [
+    ["<base>/game/saves", "windows", ""],
+    ["<base>/game/saves", "linux", ""],
+    ["<home>/.renpy/WithoutaVoice", "linux", ""],
+    ["<winAppData>/RenPy/WithoutaVoice", "windows", ""]
+   ],
+   "s": "1262190",
+   "x": ["1262200"]
   },
   "Wizard And Minion Idle": {
    "f": [
@@ -79550,6 +81277,11 @@
    ],
    "s": "1056960"
   },
+  "Wolfschanze": {
+   "f": [
+    ["<base>/Data/*.sav", "windows", ""]
+   ]
+  },
   "Wonder Ball": {
    "f": [
     ["<winLocalAppData>/WonderBall/Saved/SaveGames", "windows", ""]
@@ -79597,6 +81329,12 @@
     ["<winAppData>/Upper Byte/Wooden Sen'Sey", "windows", ""]
    ],
    "s": "259830"
+  },
+  "Woodle Tree Adventures": {
+   "f": [
+    ["<home>/.config/unity3d/Administrator/WoodleTree/prefs", "linux", ""]
+   ],
+   "s": "299460"
   },
   "Woody Woodpecker: Escape from Buzz Buzzard Park": {
    "f": [
@@ -79778,7 +81516,7 @@
     ["<xdgConfig>/unity3d/Noble Empire/World of Guns", "linux", ""]
    ],
    "s": "262410",
-   "x": ["304310", "304320", "304330", "304360", "307420", "310400", "350130", "393910", "464210", "519950", "526070", "535130", "558630", "578270", "641440", "653570", "660050", "660060", "674290", "674300", "709210", "724020", "850440", "917250", "917260", "969070", "1083250"]
+   "x": ["304310", "304320", "304330", "304360", "307420", "310400", "350130", "393910", "464210", "519950", "526070", "535130", "558630", "578270", "641440", "653570", "660050", "660060", "674290", "674300", "709210", "724020", "850440", "917250", "917260", "969070", "1083250", "4944540", "4972740", "4972760", "5130590", "5130600", "5130610", "5130730"]
   },
   "World of Horror": {
    "f": [
@@ -79888,7 +81626,8 @@
     ["<root>/userdata/<storeUserId>/200170", "", "steam"],
     ["<winDocuments>/My Games/Worms Revolution", "windows", ""]
    ],
-   "s": "200170"
+   "s": "200170",
+   "x": ["200172", "200173", "200174", "200175", "200176", "200177", "200178", "200179", "200180", "200181", "200182", "200183", "200185", "200186", "200187", "200188", "200189", "235230", "2028056"]
   },
   "Worms Ultimate Mayhem": {
    "f": [
@@ -80068,6 +81807,12 @@
    ],
    "s": "7760"
   },
+  "X-Force Under Attack": {
+   "f": [
+    ["<home>/AppData/LocalLow/Cube Games/X-Force Under Attack/*.cgsave", "windows", ""]
+   ],
+   "s": "2446740"
+  },
   "X-Men Legends II: Rise of Apocalypse": {
    "f": [
     ["<winDocuments>/Activision/X-Men Legends 2/Save", "windows", ""]
@@ -80093,6 +81838,12 @@
    "f": [
     ["<base>/Profile0.prf", "windows", ""]
    ]
+  },
+  "X-Out: Resurfaced": {
+   "f": [
+    ["<home>/AppData/LocalLow/United Games Entertainment GmbH/X-Out/XOut", "windows", ""]
+   ],
+   "s": "3047070"
   },
   "X-Tension": {
    "f": [
@@ -80253,11 +82004,24 @@
    ],
    "s": "538030"
   },
+  "Xenosensory": {
+   "f": [
+    ["<winLocalAppData>/Xenosensory", "windows", ""]
+   ],
+   "s": "4037830",
+   "x": ["4289240"]
+  },
   "Xenus II: White Gold": {
    "f": [
     ["<winPublic>/Documents/White Gold/SAVE", "windows", ""]
    ],
    "s": "546230"
+  },
+  "Xmas Apocalypse": {
+   "f": [
+    ["<home>/AppData/LocalLow/gypynkt games/Xmas Apocalypse/save.json", "windows", ""]
+   ],
+   "s": "2197050"
   },
   "Xotic": {
    "f": [
@@ -80520,6 +82284,12 @@
    ],
    "s": "2459750"
   },
+  "Yoiyami Biscuit": {
+   "f": [
+    ["<base>/*.ybs", "windows", ""]
+   ],
+   "s": "3619760"
+  },
   "Yoiyami Dancers: Twilight Danmaku Dancers": {
    "f": [
     ["<base>/game_Save.ydn", "windows", ""]
@@ -80626,8 +82396,10 @@
   },
   "You Are Empty": {
    "f": [
-    ["<winDocuments>/My Games/YaE/savegames", "windows", ""]
-   ]
+    ["<winDocuments>/My Games/YaE/savegames", "windows", ""],
+    ["<winDocuments>/My Games/YaE_Absolute/savegames/Save*", "windows", ""]
+   ],
+   "s": "4760480"
   },
   "You Have to Win the Game": {
    "f": [
@@ -80990,7 +82762,11 @@
   "Zero Wing": {
    "f": [
     ["<home>/Saved Games/Zero Wing 2P GoG", "windows", "gog"],
-    ["<home>/Saved Games/Zero Wing GoG", "windows", "gog"]
+    ["<home>/Saved Games/Zero Wing 2P/<storeUserId>", "windows", "steam"],
+    ["<home>/Saved Games/Zero Wing GoG", "windows", "gog"],
+    ["<home>/Saved Games/Zero Wing/<storeUserId>/SaveGames", "windows", "steam"],
+    ["<home>/Saved Games/Zero Wing/<storeUserId>/hiscore.bin", "windows", "steam"],
+    ["<home>/Saved Games/Zero Wing/<storeUserId>/settings.cfg", "windows", "steam"]
    ],
    "s": "2011900"
   },
@@ -81198,6 +82974,12 @@
     ["<winLocalAppData>/Zoo_Single/Saved/SaveGames", "windows", ""]
    ],
    "s": "2458560"
+  },
+  "Zool Redimensioned": {
+   "f": [
+    ["<winAppData>/ZoolRedimensioned/savedata.json", "windows", ""]
+   ],
+   "s": "1647730"
   },
   "Zooloretto": {
    "f": [
