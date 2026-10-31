@@ -1,0 +1,162 @@
+{
+  "name": "Final Fantasy: Resonance",
+  "game_id": "Final_Fantasy__Resonance",
+  "exe_name": "FFRS/Binaries/Win64/FFRS-Win64-Shipping.exe",
+  "exe_name_alts": [],
+  "deploy_type": "ue5",
+  "mod_data_path": "FFRS",
+  "steam_id": "3259780",
+  "nexus_game_domain": "finalfantasyresonance",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
+  "hexium_community": "",
+  "image_url": "https://shared.fastly.steamstatic.com/community_assets/images/apps/3259780/eae0626d824ad8f359348f4c0fcf4be43c391182.ico",
+  "auto_install_deps": [
+    "vcredist"
+  ],
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "LICENSE",
+    "*.md",
+    "*read*.txt",
+    "*change*.txt",
+    "*license*.txt",
+    "*.ffrspack"
+  ],
+  "conflict_ignore_foldernames": [
+    "licenses",
+    "build"
+  ],
+  "mod_folder_strip_prefixes_post": [
+    "FFRS",
+    "Content",
+    "Paks",
+    "~mods",
+    "Binaries",
+    "Win64"
+  ],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [
+    "FFRS",
+    "Content",
+    "Paks",
+    "~mods",
+    "Binaries",
+    "Win64"
+  ],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "dwmpapi": "native,builtin",
+    "dxgi": "native,builtin",
+    "winmm": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "Content/Splash",
+      "rule_id": "legacy:ad2c5f6fc0fa6935453a",
+      "filenames": [
+        "Splash.bmp"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Movies",
+      "rule_id": "legacy:ff84446acaa73ba35201",
+      "extensions": [
+        ".mp4"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Content/Paks",
+      "rule_id": "legacy:e2effe4944f31f272723",
+      "folders": [
+        "LogicMods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "rule_id": "legacy:2ad5a3e0e2ff0f79150c",
+      "folders": [
+        "ue4ss"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "rule_id": "legacy:56f7d84269e2c4499c9a",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "rule_id": "legacy:a8ddb9ecefa0a4a7488d",
+      "extensions": [
+        ".asi"
+      ],
+      "companion_extensions": [
+        ".ini",
+        ".toml"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:51a1364ff7a2ec2d4f3b",
+      "folders": [
+        "scripts"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:f571bfabb6c897614d6d",
+      "filenames": [
+        "enabled.txt"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:36b84032b1c3bc97518b",
+      "folders": [
+        "dlls"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:adddac823ba9cc449c0a",
+      "filenames": [
+        "mods.txt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Unused",
+      "rule_id": "user:319d0c66f0fd4ace81bd52e215d75b50",
+      "filenames": [
+        "*.txt"
+      ],
+      "loose_only": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "UE4SS": "Binaries/Win64/dwmapi.dll"
+  },
+  "version": 1,
+  "editable": false
+}
