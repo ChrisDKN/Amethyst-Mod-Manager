@@ -405,7 +405,23 @@ class RequirementsSummary(QWidget):
         self._render()
 
     def show_report(self, report, request=None):
-        self._rows = list(report.checks)
+        self._rows = []
+        manual_downloads = []
+        for check in report.checks:
+            if check.status == "manual" and check.name == "Manual download":
+                manual_downloads.append(check)
+                if len(manual_downloads) > 1:
+                    continue
+            self._rows.append(check)
+        if len(manual_downloads) > 1:
+            first = self._rows.index(manual_downloads[0])
+            self._rows[first] = Check(
+                "manual", self.tr("Manual downloads"),
+                self.tr("{0} files need to be downloaded through your browser during installation.").format(
+                    f"{len(manual_downloads):,}"),
+                explanation=self.tr("Free Nexus accounts and some download sites require browser downloads."),
+                resolution=self.tr("Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below."),
+                items=tuple(check.detail for check in manual_downloads))
         if request is not None:
             from Utils.ui.config import load_dev_mode
             if load_dev_mode():
