@@ -1913,7 +1913,7 @@ def run_collection_install(
         _manual_real_file[mod.file_id] = (real_name, real_size)
         return real_name, real_size
 
-    def _wait_for_manual_file(mod, request_id: int) -> "Path | None":
+    def _wait_for_manual_file(mod, request_id: int, prompt: dict) -> "Path | None":
         """Poll download folders until the mod's archive appears, or the user
         picks a file / skips / pauses / cancels."""
         if manual_archive_paths is not None:
@@ -1948,6 +1948,7 @@ def run_collection_install(
                            Path(_real_name).stem,
                            str(_eff_mod_id) if _eff_mod_id else "")
                        if _real_name else (mod.file_name or mod.mod_name or ""))
+        prompted = False
         while not _col_stop.is_set():
             try:
                 item = ctl.manual_queue.get_nowait()
@@ -1982,6 +1983,9 @@ def run_collection_install(
                     expected_md5=_exp_md5)
                 if found and is_complete:
                     return found
+            if not prompted:
+                cb.on_manual_mod(prompt)
+                prompted = True
             _col_stop.wait(2.0)
         return None  # paused / cancelled
 
@@ -2015,7 +2019,7 @@ def run_collection_install(
                 _real_name, _real_size = _supplied.name, _supplied.stat().st_size
             else:
                 _real_name, _real_size = _resolve_manual_file(mod)
-            cb.on_manual_mod({
+            prompt = {
                 "request_id": i + 1,
                 "file_id": mod.file_id,
                 "idx": _pre_done + i + 1,
@@ -2030,9 +2034,9 @@ def run_collection_install(
                 "url": _manual_url(mod),
                 "upcoming": [(m.mod_name or f"Mod {m.mod_id}", _manual_url(m))
                              for m in mods_seq[i + 1:i + 5]],
-            })
+            }
 
-            archive = _wait_for_manual_file(mod, i + 1)
+            archive = _wait_for_manual_file(mod, i + 1, prompt)
             cb.on_manual_resolved(i + 1)
             if _col_stop.is_set():
                 with _dl_lock:
