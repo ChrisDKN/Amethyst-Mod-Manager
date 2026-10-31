@@ -442,47 +442,45 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         return False
 
     def reshade_install_subdir(self, game_path: "Path") -> "Path | None":
-        """ReShade must sit next to the real rendering binary, which in Unreal
-        Engine games lives under ``<Project>/Binaries/Win64/`` rather than the
-        bootstrap launcher at the game root (the official ReShade installer
-        follows the launcher's embedded ``IDI_EXEC_FILE`` resource to find it).
-
-        Locate the ``Binaries/Win64`` folder that holds the shipping exe and
-        return it relative to *game_path*.  Falls back to the base behaviour
-        (parent of :attr:`exe_name`) if the layout can't be found on disk.
-        """
+        """Locate the rendering binary rather than the root bootstrap launcher."""
+        executable_dir = super().reshade_install_subdir(game_path)
         if game_path is not None and Path(game_path).is_dir():
             root = Path(game_path)
+            if executable_dir is not None and tuple(
+                    part.casefold() for part in executable_dir.parts[-2:]) == ("binaries", "win64"):
+                names = {Path(name.replace("\\", "/")).name.casefold()
+                         for name in (self.exe_name, *self.exe_name_alts) if name}
+                try:
+                    if any(path.is_file() and path.name.casefold() in names
+                           for path in (root / executable_dir).iterdir()):
+                        return executable_dir
+                except OSError:
+                    pass
             candidates: list[Path] = []
-            # get_game_path() already resolves to the UE project root, so
-            # Binaries/Win64 usually sits directly under it; allow a couple of
-            # nesting levels in case a handler points at the install root.
-            for pattern in ("Binaries/Win64", "*/Binaries/Win64", "*/*/Binaries/Win64"):
-                for win64 in root.glob(pattern):
-                    if win64.is_dir():
-                        candidates.append(win64)
-                if candidates:
-                    break
+            for directory, folders, _files in os.walk(root):
+                relative = Path(directory).relative_to(root)
+                folders[:] = sorted(name for name in folders
+                                    if name.casefold() != "engine"
+                                    and not (Path(directory) / name).is_symlink())
+                if tuple(part.casefold() for part in relative.parts[-2:]) == ("binaries", "win64"):
+                    candidates.append(Path(directory))
+                    folders.clear()
+                elif len(relative.parts) >= 4:
+                    folders.clear()
 
             def _has_shipping_exe(d: Path) -> bool:
                 try:
-                    return any(p.name.lower().endswith("-shipping.exe") for p in d.iterdir())
+                    return any(p.is_file() and p.name.lower().endswith("-shipping.exe")
+                               for p in d.iterdir())
                 except OSError:
                     return False
 
-            # Prefer a Win64 folder that actually contains a *-Shipping.exe.
             best = next((c for c in candidates if _has_shipping_exe(c)), None)
             if best is None and candidates:
                 best = min(candidates, key=lambda p: len(p.parts))
             if best is not None:
-                try:
-                    return best.relative_to(root)
-                except ValueError:
-                    return best
+                return best.relative_to(root)
 
-        # Disk probe failed (game not installed yet, etc.). UE projects always
-        # render from Binaries/Win64 relative to the project root, so default
-        # there rather than the bootstrap launcher's folder.
         return Path("Binaries/Win64")
 
     # -----------------------------------------------------------------------

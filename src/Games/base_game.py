@@ -1805,8 +1805,27 @@ class BaseGame(ABC):
         the on-disk layout.  Return ``None`` to mean "the game root itself"
         (no subdir).
         """
-        exe = self.exe_name or ""
-        subdir = Path(exe).parent if exe else Path(".")
+        from Utils.games.frameworks import resolve_file_ci
+
+        executables = [Path(name.replace("\\", "/"))
+                       for name in (self.exe_name, *self.exe_name_alts) if name]
+        if not executables:
+            return None
+        if any(exe.is_absolute() or ".." in exe.parts for exe in executables):
+            raise ValueError("Invalid ReShade executable path.")
+        root = Path(game_path) if game_path is not None else None
+        if root is not None and root.is_dir():
+            for exe in executables:
+                found = resolve_file_ci(root, exe)
+                if found is not None:
+                    return found.relative_to(root).parent
+            names = {exe.name.casefold() for exe in executables}
+            for directory, folders, files in os.walk(root):
+                folders.sort()
+                for name in sorted(files):
+                    if name.casefold() in names and (Path(directory) / name).is_file():
+                        return Path(directory).relative_to(root)
+        subdir = executables[0].parent
         return None if subdir == Path(".") else subdir
 
     @property

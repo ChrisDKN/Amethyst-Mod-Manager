@@ -670,9 +670,8 @@ def prune_shaders_to_preset(shaders_dir: Path, wanted: set[str], *, checkpoint=l
 # Install (file copy + Wine override)
 # ---------------------------------------------------------------------------
 
-def resolve_install_paths(game: "BaseGame", dest: str, mod_name: str) -> tuple[Path, Path, Path]:
-    from Utils.mods.names import sanitize_mod_folder_name
-
+def resolve_install_subdir(game: "BaseGame", dest: str) -> Path:
+    """Return the executable folder relative to the selected deployment base."""
     game_root = game.get_game_path()
     if game_root is None:
         raise RuntimeError("Game path is not configured.")
@@ -681,14 +680,27 @@ def resolve_install_paths(game: "BaseGame", dest: str, mod_name: str) -> tuple[P
     game_root = game_root.resolve()
     if subdir.is_absolute() or ".." in subdir.parts:
         raise RuntimeError("Invalid ReShade executable directory.")
-    target = game_root / subdir
     if dest == "game":
-        return game_root, target, target
+        return subdir
+    if dest not in ("root_folder", "mod"):
+        raise ValueError("Unknown ReShade installation destination.")
     root_getter = getattr(game, "get_root_deploy_path", None)
     deploy_root = root_getter() if callable(root_getter) else game_root
     if deploy_root is None:
         raise RuntimeError("Root deployment path is not configured.")
-    relative = target.relative_to(Path(deploy_root).resolve())
+    return (game_root / subdir).relative_to(Path(deploy_root).resolve())
+
+
+def resolve_install_paths(game: "BaseGame", dest: str, mod_name: str) -> tuple[Path, Path, Path]:
+    from Utils.mods.names import sanitize_mod_folder_name
+
+    relative = resolve_install_subdir(game, dest)
+    game_root = Path(game.get_game_path()).resolve()
+    if dest == "game":
+        target = game_root / relative
+        return game_root, target, target
+    deploy_root = game.get_root_deploy_path() if hasattr(game, "get_root_deploy_path") else game_root
+    target = Path(deploy_root).resolve() / relative
     if dest == "mod":
         if not mod_name or mod_name != sanitize_mod_folder_name(mod_name):
             raise ValueError("Enter a valid mod folder name without slashes or reserved characters.")

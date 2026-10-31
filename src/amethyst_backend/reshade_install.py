@@ -169,18 +169,17 @@ def _materialize(root, dll, bundle, dll_name, mode, metadata, cancel):
 @contextmanager
 def _prepared(game, profile, dll_path, shader_path, dll_name, mode, cancel):
     from Utils.wizards.payload import PreparedPayload, archive_token
-    from Utils.wizards.reshade import API_CHOICES
+    from Utils.wizards.reshade import API_CHOICES, resolve_install_subdir
 
     if dll_name not in {name for _label, name in API_CHOICES}:
         raise JobError("invalid_reshade_dll", "Choose a ReShade proxy DLL from the options API.")
     selected = _selected_game(game, profile)
     if not selected.is_configured():
         raise JobError("game_not_configured", "Configure the game before installing ReShade.")
-    game_path = selected.get_game_path()
-    subdir = selected.reshade_install_subdir(game_path)
-    subdir = Path(subdir) if subdir is not None else Path(".")
-    if subdir.is_absolute() or any(part in ("..", "") for part in subdir.parts):
-        raise JobError("invalid_reshade_destination", "The game's ReShade install folder is unsafe.")
+    try:
+        subdir = resolve_install_subdir(selected, "root_folder" if mode == "root" else mode)
+    except (ValueError, RuntimeError) as exc:
+        raise JobError("invalid_reshade_destination", str(exc)) from exc
     dll, dll_meta, dll_state = _source(dll_path, "reshade_dll", cancel)
     bundle, shader_meta, shader_state = _source(shader_path, "reshade_shaders", cancel)
     with tempfile.TemporaryDirectory(prefix="amethyst-reshade-install-") as raw:
