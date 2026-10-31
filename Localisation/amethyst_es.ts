@@ -3575,11 +3575,11 @@ La configuración del perfil predeterminado no se ve afectada.</translation>
     </message>
     <message>
       <source>A previous deployment needs restoring before you can change locations. You can restore it here before adding the game.</source>
-      <translation type="unfinished">A previous deployment needs restoring before you can change locations. You can restore it here before adding the game.</translation>
+      <translation>Un despliegue anterior necesita restaurar antes de poder cambiar ubicaciones. Puedes restaurarlo aquí antes de añadir el juego.</translation>
     </message>
     <message>
       <source>Restore previous deployment</source>
-      <translation type="unfinished">Restore previous deployment</translation>
+      <translation>Restaurar despliegue anterior</translation>
     </message>
     <message>
       <source>Configured</source>
@@ -3635,11 +3635,11 @@ La configuración del perfil predeterminado no se ve afectada.</translation>
     </message>
     <message>
       <source>Previous deployment's staging folder. Restore before changing it.</source>
-      <translation type="unfinished">Previous deployment's staging folder. Restore before changing it.</translation>
+      <translation>Carpeta de staging del despliegue anterior. Restaurar antes de cambiarlo.</translation>
     </message>
     <message>
       <source>Found via launcher plugin.</source>
-      <translation type="unfinished">Found via launcher plugin.</translation>
+      <translation>Encontrado a través del plugin del lanzador.</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -3781,29 +3781,29 @@ Flatpak aplica un nuevo acceso al sistema de archivos en el próximo lanzamiento
       <source>Restore the previous deployment of {0} using its saved locations?
 
 Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</source>
-      <translation type="unfinished">Restore the previous deployment of {0} using its saved locations?
+      <translation>¿Restaurar el despliegue anterior de {0} usando sus ubicaciones guardadas?
 
-Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</translation>
+Los cambios de ubicación no guardados se mantendrán en este formulario. Después de restaurar con éxito, guárdalo para terminar de añadir o reconfigurar el juego.</translation>
     </message>
     <message>
       <source>Restoring previous deployment…</source>
-      <translation type="unfinished">Restoring previous deployment…</translation>
+      <translation>Restaurando despliegue anterior…</translation>
     </message>
     <message>
       <source>Unexpected restore failure.</source>
-      <translation type="unfinished">Unexpected restore failure.</translation>
+      <translation>Error inesperado de restauración.</translation>
     </message>
     <message>
       <source>Previous deployment restored. Save to finish configuring the game.</source>
-      <translation type="unfinished">Previous deployment restored. Save to finish configuring the game.</translation>
+      <translation>Se ha restaurado el despliegue anterior. Guarda para terminar de configurar el juego.</translation>
     </message>
     <message>
       <source>The staging folder can now be changed.</source>
-      <translation type="unfinished">The staging folder can now be changed.</translation>
+      <translation>La carpeta de staging ahora puede ser cambiada.</translation>
     </message>
     <message>
       <source>Restore failed: {0}</source>
-      <translation type="unfinished">Restore failed: {0}</translation>
+      <translation>Restauración fallida: {0}</translation>
     </message>
     <message>
       <source>Yes</source>
@@ -3841,7 +3841,7 @@ Remove recorded mod files and links to staged mods, restore vanilla backups, and
     </message>
     <message>
       <source>Game folder cleanup complete.</source>
-      <translation type="unfinished">Game folder cleanup complete.</translation>
+      <translation>Limpieza de carpeta de juegos completada.</translation>
     </message>
     <message>
       <source>Clean Game Folder - {0}</source>
@@ -3849,7 +3849,7 @@ Remove recorded mod files and links to staged mods, restore vanilla backups, and
     </message>
     <message>
       <source>Cannot clean the game folder while a VFS deployment exists. Use Restore first. If game files are already missing, recover them from the VFS view before restoring.</source>
-      <translation type="unfinished">Cannot clean the game folder while a VFS deployment exists. Use Restore first. If game files are already missing, recover them from the VFS view before restoring.</translation>
+      <translation>No se puede limpiar la carpeta del juego mientras exista una implementación de VFS. Utilice Restaurar primero. Si los archivos de juego ya faltan, recuperarlos de la vista VFS antes de restaurar.</translation>
     </message>
     <message>
       <source>Cleaning game folder…</source>
@@ -5479,7 +5479,7 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
     <name>DetachableTabWidget</name>
     <message>
       <source>Detach</source>
-      <translation type="unfinished">Detach</translation>
+      <translation>Detach</translation>
     </message>
     <message>
       <source>Pin to Modlist Panel</source>
@@ -5495,19 +5495,19 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
     <message>
       <source>Close Others</source>
-      <translation type="unfinished">Close Others</translation>
+      <translation>Cerrar otros</translation>
     </message>
     <message>
       <source>Close All to the Right</source>
-      <translation type="unfinished">Close All to the Right</translation>
+      <translation>Cerrar todo a la derecha</translation>
     </message>
     <message>
       <source>Close Tab</source>
-      <translation type="unfinished">Close Tab</translation>
+      <translation>Cerrar pestaña</translation>
     </message>
   </context>
   <context>
@@ -6953,7 +6953,7 @@ Prefijo de Proton: haga clic en 'Instalar Java en prefijo' una vez, luego se eje
     </message>
     <message>
       <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix for the tool, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
-      <translation type="unfinished">Game default uses the game's prefix. A specific Proton version uses an isolated prefix for the tool, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+      <translation>El juego por defecto utiliza el prefijo del juego. Una versión específica de Proton utiliza un prefijo aislado para la herramienta, o un prefijo compartido cuando se selecciona a continuación. Para los juegos de Bethesda la ruta del juego (registro), plugins.txt y Mis juegos INI se configuran en el prefijo automáticamente al iniciar.</translation>
     </message>
     <message>
       <source>Game loaders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
@@ -7068,7 +7068,7 @@ Prefijo de Proton: haga clic en 'Instalar Java en prefijo' una vez, luego se eje
     </message>
     <message>
       <source>Mod provider</source>
-      <translation type="unfinished">Mod provider</translation>
+      <translation>Mod provider</translation>
     </message>
     <message>
       <source>Direct</source>
@@ -7132,11 +7132,11 @@ Prefijo de Proton: haga clic en 'Instalar Java en prefijo' una vez, luego se eje
     </message>
     <message>
       <source>Include saves</source>
-      <translation type="unfinished">Include saves</translation>
+      <translation>Incluye ahorros</translation>
     </message>
     <message>
       <source>Include a Saves tab export in the profile archive. Importing the profile will offer to restore these saves.</source>
-      <translation type="unfinished">Include a Saves tab export in the profile archive. Importing the profile will offer to restore these saves.</translation>
+      <translation>Incluye una exportación de fichas de guardado en el archivo de perfil. Importar el perfil se ofrecerá para restaurar estos guardados.</translation>
     </message>
     <message>
       <source>Mod Name</source>
@@ -7232,7 +7232,7 @@ Prefijo de Proton: haga clic en 'Instalar Java en prefijo' una vez, luego se eje
     </message>
     <message>
       <source>This mod has no portable provider source.</source>
-      <translation type="unfinished">This mod has no portable provider source.</translation>
+      <translation>Este mod no tiene fuente de proveedor portátil.</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -7332,7 +7332,7 @@ Eso está bien para tu propia copia de seguridad. No comparta ni suba el archivo
     </message>
     <message>
       <source>Packing saves: {0}</source>
-      <translation type="unfinished">Packing saves: {0}</translation>
+      <translation>Guardado de pago: {0}</translation>
     </message>
     <message>
       <source>Packing mod: {0}</source>
@@ -7509,7 +7509,7 @@ Haga clic en Hecho para limpiar los archivos extraídos y cerrar.</translation>
     </message>
     <message>
       <source>Open as tab</source>
-      <translation type="unfinished">Open as tab</translation>
+      <translation>Abrir como pestaña</translation>
     </message>
   </context>
   <context>
@@ -8060,58 +8060,58 @@ Puede ser modificada. Verifique los archivos de juego en Steam/Heroic para obten
     <name>GameRepositoriesOverlay</name>
     <message>
       <source>Custom game repositories</source>
-      <translation type="unfinished">Custom game repositories</translation>
+      <translation>Repositorios de juegos personalizados</translation>
     </message>
     <message>
       <source>Choose a folder containing custom game handler JSON files. Blank branch uses the default branch; blank folder uses the repository root. Close to sync changes. Use Game sources to choose between handlers with the same game ID. Disabling or removing a repository keeps downloaded games.</source>
-      <translation type="unfinished">Choose a folder containing custom game handler JSON files. Blank branch uses the default branch; blank folder uses the repository root. Close to sync changes. Use Game sources to choose between handlers with the same game ID. Disabling or removing a repository keeps downloaded games.</translation>
+      <translation>Elija una carpeta que contenga archivos JSON del gestor de juegos personalizados. La rama en blanco utiliza la rama predeterminada; la carpeta en blanco utiliza la raíz del repositorio. Cerca de los cambios de sincronización. Usa las fuentes del juego para elegir entre manejadores con el mismo ID del juego. Desactivar o eliminar un repositorio mantiene los juegos descargados.</translation>
     </message>
     <message>
       <source>Repository removed. Downloaded games are kept.</source>
-      <translation type="unfinished">Repository removed. Downloaded games are kept.</translation>
+      <translation>Repositorio removido. Los juegos descargados son de t.</translation>
     </message>
     <message>
       <source>Game sources…</source>
-      <translation type="unfinished">Game sources…</translation>
+      <translation>Fuentes de juegos…</translation>
     </message>
   </context>
   <context>
     <name>GameSourcesOverlay</name>
     <message>
       <source>Game handler sources</source>
-      <translation type="unfinished">Game handler sources</translation>
+      <translation>Fuentes del manejador de juegos</translation>
     </message>
     <message>
       <source>Choose one handler source for each game ID. The game's existing name is kept so saved paths and profiles continue to work. Other downloaded versions are kept. Disabled or removed repositories keep their last downloaded version.</source>
-      <translation type="unfinished">Choose one handler source for each game ID. The game's existing name is kept so saved paths and profiles continue to work. Other downloaded versions are kept. Disabled or removed repositories keep their last downloaded version.</translation>
+      <translation>Elija una fuente de manejador para cada ID del juego. El nombre existente del juego se mantiene así que las rutas y perfiles guardados siguen funcionando. Otras versiones descargadas son las siguientes. Los repositorios deshabilitados o eliminados mantienen su última versión descargada.</translation>
     </message>
     <message>
       <source>Use selected source</source>
-      <translation type="unfinished">Use selected source</translation>
+      <translation>Usar la fuente seleccionada</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
     <message>
       <source>{0} sources</source>
-      <translation type="unfinished">{0} sources</translation>
+      <translation>Fuentes {0}</translation>
     </message>
     <message>
       <source>No downloaded handlers. Close the repositories window to sync first.</source>
-      <translation type="unfinished">No downloaded handlers. Close the repositories window to sync first.</translation>
+      <translation>No hay gestores descargados. Cierre la ventana de los repositorios para sincronizar primero.</translation>
     </message>
     <message>
       <source>Local definition</source>
-      <translation type="unfinished">Local definition</translation>
+      <translation>Definición local</translation>
     </message>
     <message>
       <source>Retained download; updates disabled</source>
-      <translation type="unfinished">Retained download; updates disabled</translation>
+      <translation>Descarga conservada; actualizaciones desactivadas</translation>
     </message>
     <message>
       <source>Handler source selected.</source>
-      <translation type="unfinished">Handler source selected.</translation>
+      <translation>Fuente del manipulador seleccionada.</translation>
     </message>
   </context>
   <context>
@@ -8703,126 +8703,126 @@ Directorio gestionado: {2}</translation>
     <name>LootReportOverlay</name>
     <message>
       <source>LOOT diagnostics</source>
-      <translation type="unfinished">LOOT diagnostics</translation>
+      <translation>Diagnóstico LOOT</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
   </context>
   <context>
     <name>LootReportView</name>
     <message>
       <source>LOOT has not run for this profile yet. Use Sort Plugins or Refresh to generate a report.</source>
-      <translation type="unfinished">LOOT has not run for this profile yet. Use Sort Plugins or Refresh to generate a report.</translation>
+      <translation>LOOT no se ha ejecutado para este perfil todavía. Utilice Ordenar complementos o Actualizar para generar un informe.</translation>
     </message>
     <message>
       <source>Last LOOT run: {0}</source>
-      <translation type="unfinished">Last LOOT run: {0}</translation>
+      <translation>Última LOOT ejecutada: {0}</translation>
     </message>
     <message>
       <source>{0} plugin(s) with metadata</source>
-      <translation type="unfinished">{0} plugin(s) with metadata</translation>
+      <translation>Complemento(s) {0} con metadatos</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation type="unfinished">Error</translation>
+      <translation>Error</translation>
     </message>
     <message>
       <source>Warning</source>
-      <translation type="unfinished">Warning</translation>
+      <translation>Advertencia</translation>
     </message>
     <message>
       <source>Note</source>
-      <translation type="unfinished">Note</translation>
+      <translation>Nota</translation>
     </message>
     <message>
       <source>General</source>
-      <translation type="unfinished">General</translation>
+      <translation>General</translation>
     </message>
     <message>
       <source>The masterlist reported no general messages.</source>
-      <translation type="unfinished">The masterlist reported no general messages.</translation>
+      <translation>La lista maestra no ha informado de mensajes generales.</translation>
     </message>
     <message>
       <source>The masterlist has no metadata for the loaded plugins.</source>
-      <translation type="unfinished">The masterlist has no metadata for the loaded plugins.</translation>
+      <translation>La lista maestra no tiene metadatos para los plugins cargados.</translation>
     </message>
     <message>
       <source>Errors</source>
-      <translation type="unfinished">Errors</translation>
+      <translation>Errores</translation>
     </message>
     <message>
       <source>Warnings</source>
-      <translation type="unfinished">Warnings</translation>
+      <translation>Advertencias</translation>
     </message>
     <message>
       <source>Dirty plugins</source>
-      <translation type="unfinished">Dirty plugins</translation>
+      <translation>Plugins sucios</translation>
     </message>
     <message>
       <source>Notes</source>
-      <translation type="unfinished">Notes</translation>
+      <translation>Notas</translation>
     </message>
     <message>
       <source>Messages</source>
-      <translation type="unfinished">Messages</translation>
+      <translation>Mensajes</translation>
     </message>
     <message>
       <source>Requirements</source>
-      <translation type="unfinished">Requirements</translation>
+      <translation>Requisitos</translation>
     </message>
     <message>
       <source>Incompatibilities</source>
-      <translation type="unfinished">Incompatibilities</translation>
+      <translation>Incompatibilidad</translation>
     </message>
     <message>
       <source>Locations</source>
-      <translation type="unfinished">Locations</translation>
+      <translation>Ubicaciones</translation>
     </message>
     <message>
       <source>Dirty edits</source>
-      <translation type="unfinished">Dirty edits</translation>
+      <translation>Ediciones suaves</translation>
     </message>
     <message>
       <source>Verified clean</source>
-      <translation type="unfinished">Verified clean</translation>
+      <translation>Limpieza verificada</translation>
     </message>
     <message>
       <source>Bash Tags</source>
-      <translation type="unfinished">Bash Tags</translation>
+      <translation>Etiquetas Bash</translation>
     </message>
     <message>
       <source>{0} ITM</source>
-      <translation type="unfinished">{0} ITM</translation>
+      <translation>{0} ITM</translation>
     </message>
     <message>
       <source>{0} UDR</source>
-      <translation type="unfinished">{0} UDR</translation>
+      <translation>UDR {0}</translation>
     </message>
     <message>
       <source>{0} deleted navmesh</source>
-      <translation type="unfinished">{0} deleted navmesh</translation>
+      <translation>{0} ha eliminado la malla de navegación</translation>
     </message>
     <message>
       <source>CRC {0}</source>
-      <translation type="unfinished">CRC {0}</translation>
+      <translation>CRC {0}</translation>
     </message>
     <message>
       <source>clean with</source>
-      <translation type="unfinished">clean with</translation>
+      <translation>limpiar con</translation>
     </message>
     <message>
       <source>Current</source>
-      <translation type="unfinished">Current</translation>
+      <translation>Actual</translation>
     </message>
     <message>
       <source>Suggested (add)</source>
-      <translation type="unfinished">Suggested (add)</translation>
+      <translation>Sugerido (añadir)</translation>
     </message>
     <message>
       <source>Suggested (remove)</source>
-      <translation type="unfinished">Suggested (remove)</translation>
+      <translation>Sugerido (eliminar)</translation>
     </message>
   </context>
   <context>
@@ -11639,15 +11639,15 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
     </message>
     <message>
       <source>Handler not found in an enabled game repository.</source>
-      <translation type="unfinished">Handler not found in an enabled game repository.</translation>
+      <translation>Handler no encontrado en un repositorio de juegos habilitado.</translation>
     </message>
     <message>
       <source>Select a configured game before opening a provider install link.</source>
-      <translation type="unfinished">Select a configured game before opening a provider install link.</translation>
+      <translation>Seleccione un juego configurado antes de abrir un enlace de instalación del proveedor.</translation>
     </message>
     <message>
       <source>The install link requires exactly one enabled provider for the selected game.</source>
-      <translation type="unfinished">The install link requires exactly one enabled provider for the selected game.</translation>
+      <translation>El enlace de instalación requiere exactamente un proveedor habilitado para el juego seleccionado.</translation>
     </message>
     <message>
       <source>Received a malformed MODL link.</source>
@@ -11971,11 +11971,11 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
     </message>
     <message>
       <source>Mod providers: {0} updates</source>
-      <translation type="unfinished">Mod providers: {0} updates</translation>
+      <translation>Mod providers: {0} updates</translation>
     </message>
     <message>
       <source>{0} provider checks failed; see log</source>
-      <translation type="unfinished">{0} provider checks failed; see log</translation>
+      <translation>La comprobación del proveedor {0} falló; vea el registro</translation>
     </message>
     <message>
       <source>Rolled back {0} of {1} mod(s).</source>
@@ -12223,7 +12223,7 @@ Presiona Desplegar para aplicar tus mods, luego inicia el juego desde Steam, Her
     </message>
     <message>
       <source>Finish the plugin store operation before closing Amethyst.</source>
-      <translation type="unfinished">Finish the plugin store operation before closing Amethyst.</translation>
+      <translation>Termina la operación de la tienda de complementos antes de cerrar Amethyst.</translation>
     </message>
     <message>
       <source>Wait for Wabbajack list removal to finish before closing Amethyst.</source>
@@ -12243,11 +12243,11 @@ Presiona Desplegar para aplicar tus mods, luego inicia el juego desde Steam, Her
     </message>
     <message>
       <source>Deploy failed: {0}</source>
-      <translation type="unfinished">Deploy failed: {0}</translation>
+      <translation>Implicación fallida: {0}</translation>
     </message>
     <message>
       <source>Deployment failed</source>
-      <translation type="unfinished">Deployment failed</translation>
+      <translation>Despliegue fallido</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -12263,43 +12263,43 @@ Presiona Desplegar para aplicar tus mods, luego inicia el juego desde Steam, Her
     </message>
     <message>
       <source>No plugins available</source>
-      <translation type="unfinished">No plugins available</translation>
+      <translation>No hay plugins disponibles</translation>
     </message>
     <message>
       <source>{0} (theme pack)</source>
-      <translation type="unfinished">{0} (theme pack)</translation>
+      <translation>{0} (paquete de temas)</translation>
     </message>
     <message>
       <source>{0} (icon pack)</source>
-      <translation type="unfinished">{0} (icon pack)</translation>
+      <translation>{0} (paquete de iconos)</translation>
     </message>
     <message>
       <source>Some plugins could not be loaded…</source>
-      <translation type="unfinished">Some plugins could not be loaded…</translation>
+      <translation>Algunos plugins no pudieron cargarse…</translation>
     </message>
     <message>
       <source>Browse plugins…</source>
-      <translation type="unfinished">Browse plugins…</translation>
+      <translation>Navegar plugins…</translation>
     </message>
     <message>
       <source>Open Plugins Folder…</source>
-      <translation type="unfinished">Open Plugins Folder…</translation>
+      <translation>Abrir carpeta de plugins…</translation>
     </message>
     <message>
       <source>Plugin store</source>
-      <translation type="unfinished">Plugin store</translation>
+      <translation>Tienda de complementos</translation>
     </message>
     <message>
       <source>Wait for the current manager operation to finish.</source>
-      <translation type="unfinished">Wait for the current manager operation to finish.</translation>
+      <translation>Espere a que la operación actual del administrador termine.</translation>
     </message>
     <message>
       <source>Wait for the mod list to finish refreshing.</source>
-      <translation type="unfinished">Wait for the mod list to finish refreshing.</translation>
+      <translation>Espere a que la lista de mod termine de actualizarse.</translation>
     </message>
     <message>
       <source>Could not open plugin: {0}</source>
-      <translation type="unfinished">Could not open plugin: {0}</translation>
+      <translation>No se pudo abrir el plugin: {0}</translation>
     </message>
     <message>
       <source>Wizard Settings…</source>
@@ -12497,7 +12497,7 @@ Ejecute el mago de Downgrade para recortar el juego de nuevo a una versión comp
     </message>
     <message>
       <source>Mod providers</source>
-      <translation type="unfinished">Mod providers</translation>
+      <translation>Mod providers</translation>
     </message>
     <message>
       <source>None</source>
@@ -13010,71 +13010,71 @@ El perfil y los archivos de descarga compartidos se repartirán.</translation>
     <name>ManagerPluginOverlay</name>
     <message>
       <source>Run only plugins you trust. Plugin scripts have the same file access as Amethyst.</source>
-      <translation type="unfinished">Run only plugins you trust. Plugin scripts have the same file access as Amethyst.</translation>
+      <translation>Ejecutar sólo plugins en los que confíes. Los scripts de plugins tienen el mismo acceso al archivo que Amethyst.</translation>
     </message>
     <message>
       <source>Ready to run.</source>
-      <translation type="unfinished">Ready to run.</translation>
+      <translation>Listo para ejecutar.</translation>
     </message>
     <message>
       <source>Show requested API operation</source>
-      <translation type="unfinished">Show requested API operation</translation>
+      <translation>Mostrar la operación API solicitada</translation>
     </message>
     <message>
       <source>Run</source>
-      <translation type="unfinished">Run</translation>
+      <translation>Ejecutar</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation type="unfinished">Apply</translation>
+      <translation>Aplicar</translation>
     </message>
     <message>
       <source>Cancel changes</source>
-      <translation type="unfinished">Cancel changes</translation>
+      <translation>Cancelar cambios</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
     <message>
       <source>Could not save plugin settings: {0}</source>
-      <translation type="unfinished">Could not save plugin settings: {0}</translation>
+      <translation>No se pudo guardar la configuración del plugin: {0}</translation>
     </message>
     <message>
       <source>Stop</source>
-      <translation type="unfinished">Stop</translation>
+      <translation>Parar</translation>
     </message>
     <message>
       <source>Running…</source>
-      <translation type="unfinished">Running…</translation>
+      <translation>Ejecutando…</translation>
     </message>
     <message>
       <source>Review changes</source>
-      <translation type="unfinished">Review changes</translation>
+      <translation>Revisar cambios</translation>
     </message>
     <message>
       <source>Applying changes…</source>
-      <translation type="unfinished">Applying changes…</translation>
+      <translation>Aplicando cambios…</translation>
     </message>
     <message>
       <source>Cancelling changes…</source>
-      <translation type="unfinished">Cancelling changes…</translation>
+      <translation>Cancelando cambios…</translation>
     </message>
     <message>
       <source>Plugin failed. See the log below.</source>
-      <translation type="unfinished">Plugin failed. See the log below.</translation>
+      <translation>Falló el plugin. Ver el registro a continuación.</translation>
     </message>
     <message>
       <source>Stopped. Any completed changes remain applied.</source>
-      <translation type="unfinished">Stopped. Any completed changes remain applied.</translation>
+      <translation>Detenido. Todos los cambios completados permanecen aplicados.</translation>
     </message>
     <message>
       <source>Plugin finished.</source>
-      <translation type="unfinished">Plugin finished.</translation>
+      <translation>Plugin terminado.</translation>
     </message>
     <message>
       <source>Stopping. Waiting for accepted manager operations to finish…</source>
-      <translation type="unfinished">Stopping. Waiting for accepted manager operations to finish…</translation>
+      <translation>Parando. Esperando a que las operaciones de administrador aceptadas terminen…</translation>
     </message>
   </context>
   <context>
@@ -14141,7 +14141,7 @@ Esto no se puede deshacer.</translation>
     </message>
     <message>
       <source>Read-only entry managed by a plugin.</source>
-      <translation type="unfinished">Read-only entry managed by a plugin.</translation>
+      <translation>Entrada de sólo lectura administrada por un plugin.</translation>
     </message>
   </context>
   <context>
@@ -14310,7 +14310,7 @@ Haga clic en Hecho para cerrar.</translation>
     </message>
     <message>
       <source>Update available from mod provider</source>
-      <translation type="unfinished">Update available from mod provider</translation>
+      <translation>Actualización disponible desde el proveedor de mod</translation>
     </message>
     <message>
       <source>Endorsed</source>
@@ -16286,7 +16286,7 @@ Diarias: {1}</translation>
     </message>
     <message>
       <source>Choose which mod manager receives this game's Nexus links. The choice is remembered. Amethyst uses the matching configured game, or the current game for links from other domains.</source>
-      <translation type="unfinished">Choose which mod manager receives this game's Nexus links. The choice is remembered. Amethyst uses the matching configured game, or the current game for links from other domains.</translation>
+      <translation>Elegir qué gestor de mod recibe los enlaces Nexus de este juego. La opción se recuerda. Amethyst utiliza el juego configurado, o el juego actual para enlaces de otros dominios.</translation>
     </message>
     <message>
       <source>Nexus game domain</source>
@@ -17227,19 +17227,19 @@ Re-se puede verificar.</translation>
     <name>PluginCommands</name>
     <message>
       <source>The active game or profile changed. Run the command again.</source>
-      <translation type="unfinished">The active game or profile changed. Run the command again.</translation>
+      <translation>El juego activo o el perfil cambiado. Ejecuta el comando de nuevo.</translation>
     </message>
     <message>
       <source>The plugin changed. Run the command again.</source>
-      <translation type="unfinished">The plugin changed. Run the command again.</translation>
+      <translation>El plugin cambió. Ejecute el comando de nuevo.</translation>
     </message>
     <message>
       <source>This command does not match the current selection.</source>
-      <translation type="unfinished">This command does not match the current selection.</translation>
+      <translation>Este comando no coincide con la selección actual.</translation>
     </message>
     <message>
       <source>A selected item is no longer available.</source>
-      <translation type="unfinished">A selected item is no longer available.</translation>
+      <translation>Un elemento seleccionado ya no está disponible.</translation>
     </message>
   </context>
   <context>
@@ -17462,19 +17462,19 @@ Re-se puede verificar.</translation>
     <name>PluginMenuController</name>
     <message>
       <source>Plugins</source>
-      <translation type="unfinished">Plugins</translation>
+      <translation>Plugins</translation>
     </message>
     <message>
       <source>Preview with {0}</source>
-      <translation type="unfinished">Preview with {0}</translation>
+      <translation>Vista previa con {0}</translation>
     </message>
     <message>
       <source>The active game or profile changed. Reopen the menu.</source>
-      <translation type="unfinished">The active game or profile changed. Reopen the menu.</translation>
+      <translation>El juego activo o perfil cambiado. Vuelve a abrir el menú.</translation>
     </message>
     <message>
       <source>The plugin changed. Reopen the menu.</source>
-      <translation type="unfinished">The plugin changed. Reopen the menu.</translation>
+      <translation>El plugin cambió. Vuelva a abrir el menú.</translation>
     </message>
   </context>
   <context>
@@ -17500,217 +17500,217 @@ Re-se puede verificar.</translation>
     <name>PluginNotifications</name>
     <message>
       <source>Open report</source>
-      <translation type="unfinished">Open report</translation>
+      <translation>Abrir informe</translation>
     </message>
     <message>
       <source>{0}: {1} new or updated diagnostics</source>
-      <translation type="unfinished">{0}: {1} new or updated diagnostics</translation>
+      <translation>{0}: {1} diagnósticos nuevos o actualizados</translation>
     </message>
     <message>
       <source>Select the notification's game and profile before using this action.</source>
-      <translation type="unfinished">Select the notification's game and profile before using this action.</translation>
+      <translation>Selecciona el juego y perfil de la notificación antes de usar esta acción.</translation>
     </message>
     <message>
       <source>This plugin changed or is no longer available.</source>
-      <translation type="unfinished">This plugin changed or is no longer available.</translation>
+      <translation>Este plugin ha cambiado o ya no está disponible.</translation>
     </message>
     <message>
       <source>An affected item is no longer available. Refresh the diagnostic.</source>
-      <translation type="unfinished">An affected item is no longer available. Refresh the diagnostic.</translation>
+      <translation>Un elemento afectado ya no está disponible. Actualice el diagnóstico.</translation>
     </message>
     <message>
       <source>The action no longer matches these items.</source>
-      <translation type="unfinished">The action no longer matches these items.</translation>
+      <translation>La acción ya no coincide con estos elementos.</translation>
     </message>
   </context>
   <context>
     <name>PluginPanelControls</name>
     <message>
       <source>Sort Plugins</source>
-      <translation type="unfinished">Sort Plugins</translation>
+      <translation>Ordenar plugins</translation>
     </message>
     <message>
       <source>Refresh Plugins</source>
-      <translation type="unfinished">Refresh Plugins</translation>
+      <translation>Actualizar Plugins</translation>
     </message>
     <message>
       <source>Sync</source>
-      <translation type="unfinished">Sync</translation>
+      <translation>Sincronizar</translation>
     </message>
     <message>
       <source>Groups</source>
-      <translation type="unfinished">Groups</translation>
+      <translation>Grupos</translation>
     </message>
     <message>
       <source>Plugin Rules</source>
-      <translation type="unfinished">Plugin Rules</translation>
+      <translation>Reglas de Plugin</translation>
     </message>
     <message>
       <source>LOOT</source>
-      <translation type="unfinished">LOOT</translation>
+      <translation>LOOT</translation>
     </message>
     <message>
       <source>Show LOOT diagnostics</source>
-      <translation type="unfinished">Show LOOT diagnostics</translation>
+      <translation>Mostrar diagnóstico LOOT</translation>
     </message>
     <message>
       <source>Match plugin load order to modlist priority</source>
-      <translation type="unfinished">Match plugin load order to modlist priority</translation>
+      <translation>Coincidir orden de carga de plugins con prioridad de modlist</translation>
     </message>
     <message>
       <source>Search plugins…</source>
-      <translation type="unfinished">Search plugins…</translation>
+      <translation>Buscar plugins…</translation>
     </message>
     <message>
       <source>Pack BSA</source>
-      <translation type="unfinished">Pack BSA</translation>
+      <translation>Empacar BSA</translation>
     </message>
     <message>
       <source>Unpack BSA</source>
-      <translation type="unfinished">Unpack BSA</translation>
+      <translation>Desempacar BSA</translation>
     </message>
     <message>
       <source>⊞ Expand all</source>
-      <translation type="unfinished">⊞ Expand all</translation>
+      <translation>(Aplausos) Expandir todo</translation>
     </message>
     <message>
       <source>Open</source>
-      <translation type="unfinished">Open</translation>
+      <translation>Abrir</translation>
     </message>
     <message>
       <source>Reset</source>
-      <translation type="unfinished">Reset</translation>
+      <translation>Reset</translation>
     </message>
     <message>
       <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
-      <translation type="unfinished">Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</translation>
+      <translation>Deshacer los cambios en los archivos de Mod de este mod (nivel superior, raíz, desactivar). Los archivos de Mod no son tocados.</translation>
     </message>
     <message>
       <source>Search files… (try !.dds)</source>
-      <translation type="unfinished">Search files… (try !.dds)</translation>
+      <translation>Buscar archivos… (pruebe !.dds)</translation>
     </message>
     <message>
       <source>Blacklist</source>
-      <translation type="unfinished">Blacklist</translation>
+      <translation>Lista negra</translation>
     </message>
     <message>
       <source>Routing Rules</source>
-      <translation type="unfinished">Routing Rules</translation>
+      <translation>Reglas de ruta</translation>
     </message>
     <message>
       <source>⊟ Collapse all</source>
-      <translation type="unfinished">⊟ Collapse all</translation>
+      <translation>► Colapsar todo</translation>
     </message>
     <message>
       <source>↻ Refresh</source>
-      <translation type="unfinished">↻ Refresh</translation>
+      <translation>Ahorrar</translation>
     </message>
     <message>
       <source>Open folder</source>
-      <translation type="unfinished">Open folder</translation>
+      <translation>Abrir carpeta</translation>
     </message>
     <message>
       <source>Export</source>
-      <translation type="unfinished">Export</translation>
+      <translation>Exportar</translation>
     </message>
     <message>
       <source>Import</source>
-      <translation type="unfinished">Import</translation>
+      <translation>Importar</translation>
     </message>
     <message>
       <source>Search saves… (try !.ess)</source>
-      <translation type="unfinished">Search saves… (try !.ess)</translation>
+      <translation>Buscar ahorros… (pruebe !.ess)</translation>
     </message>
     <message>
       <source>Install Selected</source>
-      <translation type="unfinished">Install Selected</translation>
+      <translation>Instalar seleccionados</translation>
     </message>
     <message>
       <source>Move Selected</source>
-      <translation type="unfinished">Move Selected</translation>
+      <translation>Mover seleccionados</translation>
     </message>
     <message>
       <source>Hide Selected</source>
-      <translation type="unfinished">Hide Selected</translation>
+      <translation>Ocultar seleccionados</translation>
     </message>
     <message>
       <source>Remove Selected</source>
-      <translation type="unfinished">Remove Selected</translation>
+      <translation>Eliminar seleccionados</translation>
     </message>
     <message>
       <source>Locations</source>
-      <translation type="unfinished">Locations</translation>
+      <translation>Ubicaciones</translation>
     </message>
     <message>
       <source>Search downloads…</source>
-      <translation type="unfinished">Search downloads…</translation>
+      <translation>Buscar descargas…</translation>
     </message>
     <message>
       <source>Unhide Selected</source>
-      <translation type="unfinished">Unhide Selected</translation>
+      <translation>Mostrar seleccionados</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>Find in files:</source>
-      <translation type="unfinished">Find in files:</translation>
+      <translation>Buscar en archivos:</translation>
     </message>
     <message>
       <source>Text to search for…</source>
-      <translation type="unfinished">Text to search for…</translation>
+      <translation>Texto a buscar…</translation>
     </message>
     <message>
       <source>Search</source>
-      <translation type="unfinished">Search</translation>
+      <translation>Buscar</translation>
     </message>
     <message>
       <source>Search Content</source>
-      <translation type="unfinished">Search Content</translation>
+      <translation>Buscar contenido</translation>
     </message>
     <message>
       <source>Content: "{0}"</source>
-      <translation type="unfinished">Content: "{0}"</translation>
+      <translation>Contenido: "{0}"</translation>
     </message>
     <message>
       <source>Clear Content</source>
-      <translation type="unfinished">Clear Content</translation>
+      <translation>Borrar contenido</translation>
     </message>
     <message>
       <source>Pack {0}</source>
-      <translation type="unfinished">Pack {0}</translation>
+      <translation>Empacar {0}</translation>
     </message>
     <message>
       <source>Unpack {0}</source>
-      <translation type="unfinished">Unpack {0}</translation>
+      <translation>Desempacar {0}</translation>
     </message>
     <message>
       <source>File location</source>
-      <translation type="unfinished">File location</translation>
+      <translation>Ubicación del archivo</translation>
     </message>
     <message>
       <source>P:{0} / Non-ESL:{1}</source>
-      <translation type="unfinished">P:{0} / Non-ESL:{1}</translation>
+      <translation>P:{0} / Non-ESL:{1}</translation>
     </message>
     <message>
       <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
-      <translation type="unfinished">{0} plugins ({1} ESL, {2} non-ESL)</translation>
+      <translation>{0} plugins ({1} ESL, {2} non-ESL)</translation>
     </message>
   </context>
   <context>
     <name>PluginRepositoriesOverlay</name>
     <message>
       <source>Plugin repositories</source>
-      <translation type="unfinished">Plugin repositories</translation>
+      <translation>Repositorios de plugins</translation>
     </message>
     <message>
       <source>Choose a folder containing plugin subfolders, or a single plugin's folder. Blank branch uses the default branch; blank folder uses the repository root.</source>
-      <translation type="unfinished">Choose a folder containing plugin subfolders, or a single plugin's folder. Blank branch uses the default branch; blank folder uses the repository root.</translation>
+      <translation>Elija una carpeta que contenga subcarpetas de plugins, o una carpeta de un solo plugin. La rama en blanco utiliza la rama por defecto; la carpeta en blanco utiliza la raíz del repositorio.</translation>
     </message>
     <message>
       <source>Repository removed. Installed plugins are kept.</source>
-      <translation type="unfinished">Repository removed. Installed plugins are kept.</translation>
+      <translation>Repositorio removido. Los plugins instalados son de .</translation>
     </message>
   </context>
   <context>
@@ -17752,365 +17752,365 @@ Arrastra un complemento desde el panel de la izquierda para añadir una regla.</
     <name>PluginSettingsOverlay</name>
     <message>
       <source>{0} settings</source>
-      <translation type="unfinished">{0} settings</translation>
+      <translation>Ajustes de {0}</translation>
     </message>
     <message>
       <source>Icon changes take effect after restarting Amethyst.</source>
-      <translation type="unfinished">Icon changes take effect after restarting Amethyst.</translation>
+      <translation>Los cambios de icono surten efecto después de reiniciar Ametist.</translation>
     </message>
     <message>
       <source>Settings are used on the plugin's next run or refresh.</source>
-      <translation type="unfinished">Settings are used on the plugin's next run or refresh.</translation>
+      <translation>Los ajustes se utilizan en la próxima ejecución o actualización del plugin.</translation>
     </message>
     <message>
       <source>Restore defaults</source>
-      <translation type="unfinished">Restore defaults</translation>
+      <translation>Restaurar por defecto</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>Cancelar</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Guardar</translation>
     </message>
     <message>
       <source>Plugin settings could not be read: {0}</source>
-      <translation type="unfinished">Plugin settings could not be read: {0}</translation>
+      <translation>No se pudo leer la configuración del plugin: {0}</translation>
     </message>
     <message>
       <source>Reset damaged settings</source>
-      <translation type="unfinished">Reset damaged settings</translation>
+      <translation>Restablecer ajustes dañados</translation>
     </message>
     <message>
       <source>Could not save plugin settings: {0}</source>
-      <translation type="unfinished">Could not save plugin settings: {0}</translation>
+      <translation>No se pudo guardar la configuración del plugin: {0}</translation>
     </message>
     <message>
       <source>Could not reset plugin settings: {0}</source>
-      <translation type="unfinished">Could not reset plugin settings: {0}</translation>
+      <translation>No se pudo restablecer la configuración del plugin: {0}</translation>
     </message>
     <message>
       <source>Settings reset. Original settings saved to {0}.</source>
-      <translation type="unfinished">Settings reset. Original settings saved to {0}.</translation>
+      <translation>Configuración restablecida. Configuración original guardada en {0}.</translation>
     </message>
     <message>
       <source>Settings reset.</source>
-      <translation type="unfinished">Settings reset.</translation>
+      <translation>Ajustes restablecidos.</translation>
     </message>
   </context>
   <context>
     <name>PluginStoreView</name>
     <message>
       <source>Plugin store</source>
-      <translation type="unfinished">Plugin store</translation>
+      <translation>Tienda de complementos</translation>
     </message>
     <message>
       <source>Plugins run Python with the same file access as Amethyst. Install only plugins you trust.</source>
-      <translation type="unfinished">Plugins run Python with the same file access as Amethyst. Install only plugins you trust.</translation>
+      <translation>Plugins ejecutan Python con el mismo acceso de archivo que Amethyst. Instalar sólo plugins en los que confíes.</translation>
     </message>
     <message>
       <source>Search plugins</source>
-      <translation type="unfinished">Search plugins</translation>
+      <translation>Buscar plugins</translation>
     </message>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>Refrescar</translation>
     </message>
     <message>
       <source>Repositories…</source>
-      <translation type="unfinished">Repositories…</translation>
+      <translation>Repositorios…</translation>
     </message>
     <message>
       <source>Details</source>
-      <translation type="unfinished">Details</translation>
+      <translation>Detalles</translation>
     </message>
     <message>
       <source>README</source>
-      <translation type="unfinished">README</translation>
+      <translation>LIMPIAR</translation>
     </message>
     <message>
       <source>Download</source>
-      <translation type="unfinished">Download</translation>
+      <translation>Descargar</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Eliminar</translation>
     </message>
     <message>
       <source>Disable</source>
-      <translation type="unfinished">Disable</translation>
+      <translation>Desactivar</translation>
     </message>
     <message>
       <source>Settings…</source>
-      <translation type="unfinished">Settings…</translation>
+      <translation>Ajustes…</translation>
     </message>
     <message>
       <source>Cancel pending change</source>
-      <translation type="unfinished">Cancel pending change</translation>
+      <translation>Cancelar cambio pendiente</translation>
     </message>
     <message>
       <source>Restart manager</source>
-      <translation type="unfinished">Restart manager</translation>
+      <translation>Reiniciar gestor</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
     <message>
       <source>Enabled</source>
-      <translation type="unfinished">Enabled</translation>
+      <translation>Activado</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>Deshabilitado</translation>
     </message>
     <message>
       <source>Pending change</source>
-      <translation type="unfinished">Pending change</translation>
+      <translation>Cambio pendiente</translation>
     </message>
     <message>
       <source>Installed locally · source unknown</source>
-      <translation type="unfinished">Installed locally · source unknown</translation>
+      <translation>Instalado localmente · fuente desconocida</translation>
     </message>
     <message>
       <source>Version {0}</source>
-      <translation type="unfinished">Version {0}</translation>
+      <translation>Versión {0}</translation>
     </message>
     <message>
       <source>Version unknown</source>
-      <translation type="unfinished">Version unknown</translation>
+      <translation>Versión desconocida</translation>
     </message>
     <message>
       <source>Not installed</source>
-      <translation type="unfinished">Not installed</translation>
+      <translation>No instalado</translation>
     </message>
     <message>
       <source>{0} change(s) waiting for restart. Changes apply on the next manager launch.</source>
-      <translation type="unfinished">{0} change(s) waiting for restart. Changes apply on the next manager launch.</translation>
+      <translation>Cambio(s) {0} a la espera de reinicio. Los cambios se aplican en el próximo inicio del administrador.</translation>
     </message>
     <message>
       <source>Plugin changes take effect after restarting Amethyst.</source>
-      <translation type="unfinished">Plugin changes take effect after restarting Amethyst.</translation>
+      <translation>Los cambios de plugins surtirán efecto después de reiniciar Ametist.</translation>
     </message>
     <message>
       <source>No plugins found.</source>
-      <translation type="unfinished">No plugins found.</translation>
+      <translation>No se encontraron plugins.</translation>
     </message>
     <message>
       <source>Installed locally · version unknown</source>
-      <translation type="unfinished">Installed locally · version unknown</translation>
+      <translation>Instalado localmente · versión desconocida</translation>
     </message>
     <message>
       <source>Author: {0}</source>
-      <translation type="unfinished">Author: {0}</translation>
+      <translation>Autor: {0}</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>Desconocido</translation>
     </message>
     <message>
       <source>Available version: {0}</source>
-      <translation type="unfinished">Available version: {0}</translation>
+      <translation>Versión disponible: {0}</translation>
     </message>
     <message>
       <source>Not in the current catalogue</source>
-      <translation type="unfinished">Not in the current catalogue</translation>
+      <translation>No en el catálogo actual</translation>
     </message>
     <message>
       <source>Installed version: {0}</source>
-      <translation type="unfinished">Installed version: {0}</translation>
+      <translation>Versión instalada: {0}</translation>
     </message>
     <message>
       <source>Minimum manager version: {0}</source>
-      <translation type="unfinished">Minimum manager version: {0}</translation>
+      <translation>Versión mínima del administrador: {0}</translation>
     </message>
     <message>
       <source>Not specified</source>
-      <translation type="unfinished">Not specified</translation>
+      <translation>No especificado</translation>
     </message>
     <message>
       <source>Repository: {0}</source>
-      <translation type="unfinished">Repository: {0}</translation>
+      <translation>Repositorio: {0}</translation>
     </message>
     <message>
       <source>Branch: {0}</source>
-      <translation type="unfinished">Branch: {0}</translation>
+      <translation>Rama: {0}</translation>
     </message>
     <message>
       <source>Default branch</source>
-      <translation type="unfinished">Default branch</translation>
+      <translation>Rama por defecto</translation>
     </message>
     <message>
       <source>Folder: {0}</source>
-      <translation type="unfinished">Folder: {0}</translation>
+      <translation>Carpeta: {0}</translation>
     </message>
     <message>
       <source>State: {0}</source>
-      <translation type="unfinished">State: {0}</translation>
+      <translation>Estado: {0}</translation>
     </message>
     <message>
       <source>Installed from: {0} [{1}:{2}]</source>
-      <translation type="unfinished">Installed from: {0} [{1}:{2}]</translation>
+      <translation>Instalado desde: {0} [{1}:{2}]</translation>
     </message>
     <message>
       <source>default</source>
-      <translation type="unfinished">default</translation>
+      <translation>por defecto</translation>
     </message>
     <message>
       <source>Installed source: Unknown</source>
-      <translation type="unfinished">Installed source: Unknown</translation>
+      <translation>Origen instalada: desconocido</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation type="unfinished">Update</translation>
+      <translation>Actualizar</translation>
     </message>
     <message>
       <source>Replace from this repository…</source>
-      <translation type="unfinished">Replace from this repository…</translation>
+      <translation>Reemplazar desde este repositorio…</translation>
     </message>
     <message>
       <source>Replace with store version</source>
-      <translation type="unfinished">Replace with store version</translation>
+      <translation>Reemplazar con la versión de tienda</translation>
     </message>
     <message>
       <source>The installed plugin is up to date or newer.</source>
-      <translation type="unfinished">The installed plugin is up to date or newer.</translation>
+      <translation>El plugin instalado está actualizado o más reciente.</translation>
     </message>
     <message>
       <source>Duplicate installed plugin id. Resolve the duplicate folders first.</source>
-      <translation type="unfinished">Duplicate installed plugin id. Resolve the duplicate folders first.</translation>
+      <translation>Duplicar el ID del plugin instalado. Resuelve primero las carpetas duplicadas.</translation>
     </message>
     <message>
       <source>Removal</source>
-      <translation type="unfinished">Removal</translation>
+      <translation>Eliminar</translation>
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Activar</translation>
     </message>
     <message>
       <source>Install version {0}</source>
-      <translation type="unfinished">Install version {0}</translation>
+      <translation>Instalar la versión {0}</translation>
     </message>
     <message>
       <source>Pending: {0}</source>
-      <translation type="unfinished">Pending: {0}</translation>
+      <translation>Pendiente: {0}</translation>
     </message>
     <message>
       <source>Pending repository: {0}</source>
-      <translation type="unfinished">Pending repository: {0}</translation>
+      <translation>Repositorio pendiente: {0}</translation>
     </message>
     <message>
       <source>Plugin dependencies: {0}</source>
-      <translation type="unfinished">Plugin dependencies: {0}</translation>
+      <translation>Dependencias del plugin: {0}</translation>
     </message>
     <message>
       <source>Plugin conflicts: {0}</source>
-      <translation type="unfinished">Plugin conflicts: {0}</translation>
+      <translation>Conflictos de plugin: {0}</translation>
     </message>
     <message>
       <source>Loading README…</source>
-      <translation type="unfinished">Loading README…</translation>
+      <translation>Cargando README…</translation>
     </message>
     <message>
       <source>Could not load README: {0}</source>
-      <translation type="unfinished">Could not load README: {0}</translation>
+      <translation>No se pudo cargar README: {0}</translation>
     </message>
     <message>
       <source>Change saved. Restart Amethyst to apply it.</source>
-      <translation type="unfinished">Change saved. Restart Amethyst to apply it.</translation>
+      <translation>Cambio guardado. Reinicie Amethyst para aplicarlo.</translation>
     </message>
     <message>
       <source>Loading plugin catalogue…</source>
-      <translation type="unfinished">Loading plugin catalogue…</translation>
+      <translation>Cargando catálogo de plugins…</translation>
     </message>
     <message>
       <source>Catalogue loaded.</source>
-      <translation type="unfinished">Catalogue loaded.</translation>
+      <translation>Catálogo cargado.</translation>
     </message>
     <message>
       <source>Replace</source>
-      <translation type="unfinished">Replace</translation>
+      <translation>Reemplazar</translation>
     </message>
     <message>
       <source>Delete saved data</source>
-      <translation type="unfinished">Delete saved data</translation>
+      <translation>Borrar datos guardados</translation>
     </message>
     <message>
       <source>Downloading and validating plugin…</source>
-      <translation type="unfinished">Downloading and validating plugin…</translation>
+      <translation>Descargando y validando plugin…</translation>
     </message>
     <message>
       <source>Replace plugin from this repository?</source>
-      <translation type="unfinished">Replace plugin from this repository?</translation>
+      <translation>¿Reemplazar plugin de este repositorio?</translation>
     </message>
     <message>
       <source>Replace {0} with version {1} from {2} after restart? Saved settings and data will be preserved, and the old folder backed up.</source>
-      <translation type="unfinished">Replace {0} with version {1} from {2} after restart? Saved settings and data will be preserved, and the old folder backed up.</translation>
+      <translation>¿Reemplazar {0} con la versión {1} de {2} después de reiniciar? Se conservarán los ajustes y los datos guardados y se respaldará la carpeta antigua.</translation>
     </message>
     <message>
       <source>Remove plugin?</source>
-      <translation type="unfinished">Remove plugin?</translation>
+      <translation>¿Eliminar plugin?</translation>
     </message>
     <message>
       <source>Remove {0} after restart? Saved data is kept for reinstalling unless you choose to delete it. Deletion also removes this plugin's store backups.</source>
-      <translation type="unfinished">Remove {0} after restart? Saved data is kept for reinstalling unless you choose to delete it. Deletion also removes this plugin's store backups.</translation>
+      <translation>¿Eliminar {0} después de reiniciar? Los datos guardados se guardan para reinstalar a menos que decida eliminarlos. La eliminación también elimina las copias de seguridad de este plugin.</translation>
     </message>
     <message>
       <source>Queuing plugin removal…</source>
-      <translation type="unfinished">Queuing plugin removal…</translation>
+      <translation>Eliminar plugin en cola…</translation>
     </message>
     <message>
       <source>Cancelling pending change…</source>
-      <translation type="unfinished">Cancelling pending change…</translation>
+      <translation>Cancelando cambio pendiente…</translation>
     </message>
     <message>
       <source>Pending change cancelled.</source>
-      <translation type="unfinished">Pending change cancelled.</translation>
+      <translation>Cambio pendiente cancelado.</translation>
     </message>
     <message>
       <source>Queuing plugin enablement change…</source>
-      <translation type="unfinished">Queuing plugin enablement change…</translation>
+      <translation>Cambiando… en cola de activación del plugin</translation>
     </message>
     <message>
       <source>Settings saved. Restart Amethyst to apply icon changes.</source>
-      <translation type="unfinished">Settings saved. Restart Amethyst to apply icon changes.</translation>
+      <translation>Configuración guardada. Reinicie Amethyst para aplicar los cambios de iconos.</translation>
     </message>
     <message>
       <source>Settings saved.</source>
-      <translation type="unfinished">Settings saved.</translation>
+      <translation>Ajustes guardados.</translation>
     </message>
     <message>
       <source>Wait for current manager operations to finish before restarting.</source>
-      <translation type="unfinished">Wait for current manager operations to finish before restarting.</translation>
+      <translation>Espere a que finalicen las operaciones actuales del administrador antes de reiniciar.</translation>
     </message>
   </context>
   <context>
     <name>PluginUIController</name>
     <message>
       <source>More plugin controls</source>
-      <translation type="unfinished">More plugin controls</translation>
+      <translation>Más controles de plugins</translation>
     </message>
     <message>
       <source>Commands…</source>
-      <translation type="unfinished">Commands…</translation>
+      <translation>Comandos…</translation>
     </message>
     <message>
       <source>Some interface elements could not be loaded…</source>
-      <translation type="unfinished">Some interface elements could not be loaded…</translation>
+      <translation>Algunos elementos de la interfaz no se pudieron cargar…</translation>
     </message>
     <message>
       <source>Plugin interface</source>
-      <translation type="unfinished">Plugin interface</translation>
+      <translation>Interfaz de plugins</translation>
     </message>
     <message>
       <source>Some plugin services could not be loaded…</source>
-      <translation type="unfinished">Some plugin services could not be loaded…</translation>
+      <translation>Algunos servicios de plugin no se pudieron cargar…</translation>
     </message>
     <message>
       <source>Plugin services</source>
-      <translation type="unfinished">Plugin services</translation>
+      <translation>Servicios de plugins</translation>
     </message>
   </context>
   <context>
@@ -18129,7 +18129,7 @@ Arrastra un complemento desde el panel de la izquierda para añadir una regla.</
     </message>
     <message>
       <source>Open as tab</source>
-      <translation type="unfinished">Open as tab</translation>
+      <translation>Abrir como pestaña</translation>
     </message>
   </context>
   <context>
@@ -18267,7 +18267,7 @@ Arrastra un complemento desde el panel de la izquierda para añadir una regla.</
     </message>
     <message>
       <source>Wizard tools each run in their own Wine prefix (created in Applications, next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</source>
-      <translation type="unfinished">Wizard tools each run in their own Wine prefix (created in Applications, next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</translation>
+      <translation>Herramientas de asistente ejecutadas en su propio prefijo de Wine (creado en Aplicaciones, junto al exe de la herramienta o en la carpeta de configuración de la aplicación). Eliminar sólo un espacio en disco Recuperación - se recrea automáticamente la próxima vez que se ejecute la herramienta.</translation>
     </message>
     <message>
       <source>Scanning for prefixes…</source>
@@ -18514,39 +18514,39 @@ Sus mods enumerados se copian en la propia carpeta mods del perfil (pendiendo de
     <name>ProfileSavesTransfer</name>
     <message>
       <source>Could not resolve save folders.</source>
-      <translation type="unfinished">Could not resolve save folders.</translation>
+      <translation>No se pudo resolver guardar carpetas.</translation>
     </message>
     <message>
       <source>No save folders found for this game.</source>
-      <translation type="unfinished">No save folders found for this game.</translation>
+      <translation>No se encontraron carpetas guardadas para este juego.</translation>
     </message>
     <message>
       <source> [profile saves]</source>
-      <translation type="unfinished"> [profile saves]</translation>
+      <translation> [ahorro de perfil]</translation>
     </message>
     <message>
       <source>Choose save folder to import into</source>
-      <translation type="unfinished">Choose save folder to import into</translation>
+      <translation>Elegir carpeta de guardado en la que importar</translation>
     </message>
     <message>
       <source>Choose save folder to export</source>
-      <translation type="unfinished">Choose save folder to export</translation>
+      <translation>Elegir carpeta de guardado para exportar</translation>
     </message>
     <message>
       <source>Select</source>
-      <translation type="unfinished">Select</translation>
+      <translation>Seleccionar</translation>
     </message>
     <message>
       <source>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</source>
-      <translation type="unfinished">The current contents are moved aside to a "{0}" folder first, so nothing is lost.</translation>
+      <translation>El contenido actual se mueve primero a una carpeta "{0}", por lo que no se pierde nada.</translation>
     </message>
     <message>
       <source>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</source>
-      <translation type="unfinished">The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</translation>
+      <translation>Los archivos {0} actuales se mueven a un lado a una carpeta "{1}" primero, por lo que no se pierde nada.</translation>
     </message>
     <message>
       <source>Import bundled saves?</source>
-      <translation type="unfinished">Import bundled saves?</translation>
+      <translation>¿Importar guardados en paquete?</translation>
     </message>
     <message>
       <source>This profile includes a saves archive.
@@ -18555,24 +18555,24 @@ Extract it into
 {0}
 
 {1}</source>
-      <translation type="unfinished">This profile includes a saves archive.
+      <translation>Este perfil incluye un archivo guardado.
 
-Extract it into
+Extraerlo en
 {0}
 
 {1}</translation>
     </message>
     <message>
       <source>Import</source>
-      <translation type="unfinished">Import</translation>
+      <translation>Importar</translation>
     </message>
     <message>
       <source>Skip</source>
-      <translation type="unfinished">Skip</translation>
+      <translation>Saltar</translation>
     </message>
     <message>
       <source>Extracting saves…</source>
-      <translation type="unfinished">Extracting saves…</translation>
+      <translation>Extrayendo partidas…</translation>
     </message>
     <message>
       <source>Imported {0} save file(s) ({1}).</source>
@@ -18580,11 +18580,11 @@ Extract it into
     </message>
     <message>
       <source>Save import failed: {0}</source>
-      <translation type="unfinished">Save import failed: {0}</translation>
+      <translation>Error al guardar importación: {0}</translation>
     </message>
     <message>
       <source>Save import failed.</source>
-      <translation type="unfinished">Save import failed.</translation>
+      <translation>Error al guardar importación.</translation>
     </message>
   </context>
   <context>
@@ -18747,7 +18747,7 @@ This removes the entire collection profile, including its personal mods and appe
     </message>
     <message>
       <source>{0} runs in its own Wine prefix, separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
-      <translation type="unfinished">{0} runs in its own Wine prefix, separate from the game's prefix, so you can pick any Proton version without affecting the game.</translation>
+      <translation>{0} se ejecuta en su propio prefijo de Wine, separado del prefijo del juego, para que puedas elegir cualquier versión de Proton sin afectar el juego.</translation>
     </message>
     <message>
       <source>Use 64-bit version</source>
@@ -18906,51 +18906,51 @@ tiene problemas - se recrea automáticamente en el siguiente paso.</translation>
     <name>ProviderOverlay</name>
     <message>
       <source>Loading provider details…</source>
-      <translation type="unfinished">Loading provider details…</translation>
+      <translation>Cargando los detalles del proveedor…</translation>
     </message>
     <message>
       <source>Install selected version</source>
-      <translation type="unfinished">Install selected version</translation>
+      <translation>Instalar versión seleccionada</translation>
     </message>
     <message>
       <source>Download and install</source>
-      <translation type="unfinished">Download and install</translation>
+      <translation>Descargar e instalar</translation>
     </message>
     <message>
       <source>Apply selected action</source>
-      <translation type="unfinished">Apply selected action</translation>
+      <translation>Aplicar acción seleccionada</translation>
     </message>
     <message>
       <source>Open website</source>
-      <translation type="unfinished">Open website</translation>
+      <translation>Abrir sitio web</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
     <message>
       <source>Update listed mods</source>
-      <translation type="unfinished">Update listed mods</translation>
+      <translation>Actualizar mods listados</translation>
     </message>
     <message>
       <source>Review the proposed provider updates below.</source>
-      <translation type="unfinished">Review the proposed provider updates below.</translation>
+      <translation>Revise las actualizaciones propuestas a continuación.</translation>
     </message>
     <message>
       <source>Choose a version or repository action. Installation replaces the selected mod.</source>
-      <translation type="unfinished">Choose a version or repository action. Installation replaces the selected mod.</translation>
+      <translation>Elija una versión o acción del repositorio. La instalación reemplaza el mod seleccionado.</translation>
     </message>
     <message>
       <source>Review the downloads and dependencies below, then choose Download and install.</source>
-      <translation type="unfinished">Review the downloads and dependencies below, then choose Download and install.</translation>
+      <translation>Revise las descargas y dependencias de abajo, luego seleccione Descargar e instalar.</translation>
     </message>
     <message>
       <source>Operation completed.</source>
-      <translation type="unfinished">Operation completed.</translation>
+      <translation>Operación completada.</translation>
     </message>
     <message>
       <source>Waiting for the active operation to finish…</source>
-      <translation type="unfinished">Waiting for the active operation to finish…</translation>
+      <translation>Esperando a que la operación activa termine…</translation>
     </message>
   </context>
   <context>
@@ -19160,7 +19160,7 @@ Si el juego sigue roto, verifique los archivos del juego a través de Steam.</tr
     </message>
     <message>
       <source>Shader packs: {0}/{1}</source>
-      <translation type="unfinished">Shader packs: {0}/{1}</translation>
+      <translation>Packs de sombreado: {0}/{1}</translation>
     </message>
     <message>
       <source>Trimmed shaders to {0} preset effect(s).</source>
@@ -19500,66 +19500,66 @@ Elige «Conservar» si se trata de una variante opcional o alternativa, en lugar
     <name>ReportOverlay</name>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
   </context>
   <context>
     <name>RepositoriesOverlay</name>
     <message>
       <source>Default branch</source>
-      <translation type="unfinished">Default branch</translation>
+      <translation>Rama por defecto</translation>
     </message>
     <message>
       <source>Repository root</source>
-      <translation type="unfinished">Repository root</translation>
+      <translation>Raíz del repositorio</translation>
     </message>
     <message>
       <source>Repository URL</source>
-      <translation type="unfinished">Repository URL</translation>
+      <translation>URL del repositorio</translation>
     </message>
     <message>
       <source>Branch</source>
-      <translation type="unfinished">Branch</translation>
+      <translation>Rama</translation>
     </message>
     <message>
       <source>Folder</source>
-      <translation type="unfinished">Folder</translation>
+      <translation>Carpeta</translation>
     </message>
     <message>
       <source>Enable this repository</source>
-      <translation type="unfinished">Enable this repository</translation>
+      <translation>Habilitar este repositorio</translation>
     </message>
     <message>
       <source>New</source>
-      <translation type="unfinished">New</translation>
+      <translation>Nuevo</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Guardar</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Eliminar</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
     <message>
       <source>Enabled</source>
-      <translation type="unfinished">Enabled</translation>
+      <translation>Activado</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>Deshabilitado</translation>
     </message>
     <message>
       <source>Built-in</source>
-      <translation type="unfinished">Built-in</translation>
+      <translation>Integrado</translation>
     </message>
     <message>
       <source>Repository saved.</source>
-      <translation type="unfinished">Repository saved.</translation>
+      <translation>Repositorio guardado.</translation>
     </message>
   </context>
   <context>
@@ -20757,11 +20757,11 @@ Reinicia el asistente e instala primero Script Merger.</translation>
     <name>SettingField</name>
     <message>
       <source>Browse…</source>
-      <translation type="unfinished">Browse…</translation>
+      <translation>Navegar…</translation>
     </message>
     <message>
       <source>Select path</source>
-      <translation type="unfinished">Select path</translation>
+      <translation>Seleccionar ruta</translation>
     </message>
   </context>
   <context>
@@ -21848,7 +21848,7 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Unassigned</source>
-      <translation type="unfinished">Unassigned</translation>
+      <translation>Sin asignar</translation>
     </message>
     <message>
       <source>Reset {0} to {1}</source>
@@ -26868,7 +26868,7 @@ Siga las instrucciones en la ventana del terminal. YeetPatch requiere curl, jq, 
     </message>
     <message>
       <source>Unassigned</source>
-      <translation type="unfinished">Unassigned</translation>
+      <translation>Sin asignar</translation>
     </message>
     <message>
       <source>Press key</source>
@@ -26879,7 +26879,7 @@ Siga las instrucciones en la ventana del terminal. YeetPatch requiere curl, jq, 
     <name>_DownloadMenuButton</name>
     <message>
       <source>Downloads</source>
-      <translation type="unfinished">Downloads</translation>
+      <translation>Descargas</translation>
     </message>
   </context>
   <context>
@@ -27021,7 +27021,7 @@ Siga las instrucciones en la ventana del terminal. YeetPatch requiere curl, jq, 
     <name>_Popover</name>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Cerrar</translation>
     </message>
   </context>
   <context>
@@ -27196,11 +27196,11 @@ Publishing hace que esta revisión se instale un usuario. No puede ser inédito,
     </message>
     <message>
       <source>Mod provider</source>
-      <translation type="unfinished">Mod provider</translation>
+      <translation>Mod provider</translation>
     </message>
     <message>
       <source>Download the pinned archive using its installed plugin</source>
-      <translation type="unfinished">Download the pinned archive using its installed plugin</translation>
+      <translation>Descargar el archivo anclado usando su plugin instalado</translation>
     </message>
     <message>
       <source>Browse page</source>
@@ -27292,7 +27292,7 @@ Publishing hace que esta revisión se instale un usuario. No puede ser inédito,
     <name>app</name>
     <message>
       <source>Applying plugin changes…</source>
-      <translation type="unfinished">Applying plugin changes…</translation>
+      <translation>Aplicando cambios de plugin…</translation>
     </message>
   </context>
   <context>
@@ -27322,7 +27322,7 @@ Publishing hace que esta revisión se instale un usuario. No puede ser inédito,
     <name>self.host</name>
     <message>
       <source>Filters</source>
-      <translation type="unfinished">Filters</translation>
+      <translation>Filtros</translation>
     </message>
   </context>
   <context>
@@ -27356,47 +27356,47 @@ Publishing hace que esta revisión se instale un usuario. No puede ser inédito,
     </message>
     <message>
       <source>Plugin filters and saved views</source>
-      <translation type="unfinished">Plugin filters and saved views</translation>
+      <translation>Filtros de plugins y vistas guardadas</translation>
     </message>
     <message>
       <source>Plugin filters</source>
-      <translation type="unfinished">Plugin filters</translation>
+      <translation>Filtros de plugins</translation>
     </message>
     <message>
       <source>Include matches</source>
-      <translation type="unfinished">Include matches</translation>
+      <translation>Incluye partidas</translation>
     </message>
     <message>
       <source>Exclude matches</source>
-      <translation type="unfinished">Exclude matches</translation>
+      <translation>Excluir partidas</translation>
     </message>
     <message>
       <source>At most 64 saved views are supported.</source>
-      <translation type="unfinished">At most 64 saved views are supported.</translation>
+      <translation>Como mucho se admiten 64 vistas guardadas.</translation>
     </message>
     <message>
       <source>Saved views</source>
-      <translation type="unfinished">Saved views</translation>
+      <translation>Vistas guardadas</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation type="unfinished">Apply</translation>
+      <translation>Aplicar</translation>
     </message>
     <message>
       <source>Delete</source>
-      <translation type="unfinished">Delete</translation>
+      <translation>Eliminar</translation>
     </message>
     <message>
       <source>Save view</source>
-      <translation type="unfinished">Save view</translation>
+      <translation>Guardar vista</translation>
     </message>
     <message>
       <source>View name:</source>
-      <translation type="unfinished">View name:</translation>
+      <translation>Ver nombre:</translation>
     </message>
     <message>
       <source>Save current view…</source>
-      <translation type="unfinished">Save current view…</translation>
+      <translation>Guardar vista actual…</translation>
     </message>
   </context>
   <context>

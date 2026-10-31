@@ -3575,11 +3575,11 @@ The default profile's settings are not affected.</source>
     </message>
     <message>
       <source>A previous deployment needs restoring before you can change locations. You can restore it here before adding the game.</source>
-      <translation type="unfinished">A previous deployment needs restoring before you can change locations. You can restore it here before adding the game.</translation>
+      <translation>場所を変更する前に、以前のデプロイメントを復元する必要があります。ゲームを追加する前に、ここで復元できます。</translation>
     </message>
     <message>
       <source>Restore previous deployment</source>
-      <translation type="unfinished">Restore previous deployment</translation>
+      <translation>以前のデプロイを復元</translation>
     </message>
     <message>
       <source>Configured</source>
@@ -3635,11 +3635,11 @@ The default profile's settings are not affected.</source>
     </message>
     <message>
       <source>Previous deployment's staging folder. Restore before changing it.</source>
-      <translation type="unfinished">Previous deployment's staging folder. Restore before changing it.</translation>
+      <translation>以前のデプロイ先のステージングフォルダ。変更する前に復元します。</translation>
     </message>
     <message>
       <source>Found via launcher plugin.</source>
-      <translation type="unfinished">Found via launcher plugin.</translation>
+      <translation>ランチャープラグイン経由で見つかりました。</translation>
     </message>
     <message>
       <source>Game executable not found on any drive.</source>
@@ -3781,9 +3781,9 @@ Flatpakは次の起動時に新しいファイルシステムアクセスを適�
       <source>Restore the previous deployment of {0} using its saved locations?
 
 Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</source>
-      <translation type="unfinished">Restore the previous deployment of {0} using its saved locations?
+      <translation>保存された場所を使用して {0} の以前のデプロイを復元しますか？
 
-Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</translation>
+保存されていない場所の変更はこのフォームに保存されます。 復元に成功したら、ゲームの追加または再構成を完了するために保存します。</translation>
     </message>
     <message>
       <source>Restoring previous deployment…</source>
@@ -3791,19 +3791,19 @@ Your unsaved location changes will be kept in this form. After Restore succeeds,
     </message>
     <message>
       <source>Unexpected restore failure.</source>
-      <translation type="unfinished">Unexpected restore failure.</translation>
+      <translation>予期しない復元に失敗しました。</translation>
     </message>
     <message>
       <source>Previous deployment restored. Save to finish configuring the game.</source>
-      <translation type="unfinished">Previous deployment restored. Save to finish configuring the game.</translation>
+      <translation>以前のデプロイが復元されました。ゲームの構成を完了するには保存してください。</translation>
     </message>
     <message>
       <source>The staging folder can now be changed.</source>
-      <translation type="unfinished">The staging folder can now be changed.</translation>
+      <translation>ステージングフォルダを変更できるようになりました。</translation>
     </message>
     <message>
       <source>Restore failed: {0}</source>
-      <translation type="unfinished">Restore failed: {0}</translation>
+      <translation>復元に失敗しました: {0}</translation>
     </message>
     <message>
       <source>Yes</source>
@@ -3841,7 +3841,7 @@ Remove recorded mod files and links to staged mods, restore vanilla backups, and
     </message>
     <message>
       <source>Game folder cleanup complete.</source>
-      <translation type="unfinished">Game folder cleanup complete.</translation>
+      <translation>ゲームフォルダのクリーンアップが完了しました。</translation>
     </message>
     <message>
       <source>Clean Game Folder - {0}</source>
@@ -3849,7 +3849,7 @@ Remove recorded mod files and links to staged mods, restore vanilla backups, and
     </message>
     <message>
       <source>Cannot clean the game folder while a VFS deployment exists. Use Restore first. If game files are already missing, recover them from the VFS view before restoring.</source>
-      <translation type="unfinished">Cannot clean the game folder while a VFS deployment exists. Use Restore first. If game files are already missing, recover them from the VFS view before restoring.</translation>
+      <translation>VFSデプロイメントが存在する間はゲームフォルダをクリーンアップできません。最初に復元を使用してください。 ゲームファイルがすでに存在しない場合は、復元する前にVFSビューから復元してください。</translation>
     </message>
     <message>
       <source>Cleaning game folder…</source>
@@ -5479,7 +5479,7 @@ When it completes, the app switches to the new profile - then come back here and
     <name>DetachableTabWidget</name>
     <message>
       <source>Detach</source>
-      <translation type="unfinished">Detach</translation>
+      <translation>Detach</translation>
     </message>
     <message>
       <source>Pin to Modlist Panel</source>
@@ -5495,19 +5495,19 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
     <message>
       <source>Close Others</source>
-      <translation type="unfinished">Close Others</translation>
+      <translation>他を閉じる</translation>
     </message>
     <message>
       <source>Close All to the Right</source>
-      <translation type="unfinished">Close All to the Right</translation>
+      <translation>すべて右に閉じる</translation>
     </message>
     <message>
       <source>Close Tab</source>
-      <translation type="unfinished">Close Tab</translation>
+      <translation>タブを閉じる</translation>
     </message>
   </context>
   <context>
@@ -6953,7 +6953,7 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     </message>
     <message>
       <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix for the tool, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
-      <translation type="unfinished">Game default uses the game's prefix. A specific Proton version uses an isolated prefix for the tool, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+      <translation>ゲームのデフォルトでは、ゲームのプレフィックスが使用されます。特定のProtonバージョンでは、ツールの孤立したプレフィックスを使用するか、以下で選択した場合は共有プレフィックスを使用します。 Bethesdaゲームの場合、ゲームパス(レジストリ)、plugins.txt、My Games INIは起動時にプレフィックスに自動的に設定されます。</translation>
     </message>
     <message>
       <source>Game loaders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
@@ -7068,7 +7068,7 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     </message>
     <message>
       <source>Mod provider</source>
-      <translation type="unfinished">Mod provider</translation>
+      <translation>Mod provider</translation>
     </message>
     <message>
       <source>Direct</source>
@@ -7132,11 +7132,11 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     </message>
     <message>
       <source>Include saves</source>
-      <translation type="unfinished">Include saves</translation>
+      <translation>セーブを含める</translation>
     </message>
     <message>
       <source>Include a Saves tab export in the profile archive. Importing the profile will offer to restore these saves.</source>
-      <translation type="unfinished">Include a Saves tab export in the profile archive. Importing the profile will offer to restore these saves.</translation>
+      <translation>プロファイル アーカイブに保存タブのエクスポートを含めます。プロファイルをインポートすると、これらの保存を復元することができます。</translation>
     </message>
     <message>
       <source>Mod Name</source>
@@ -7232,7 +7232,7 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     </message>
     <message>
       <source>This mod has no portable provider source.</source>
-      <translation type="unfinished">This mod has no portable provider source.</translation>
+      <translation>このMODにはポータブルプロバイダのソースがありません。</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -7332,7 +7332,7 @@ That is fine for your own backup. Do not share or upload the file in this state 
     </message>
     <message>
       <source>Packing saves: {0}</source>
-      <translation type="unfinished">Packing saves: {0}</translation>
+      <translation>パッキングセーブ: {0}</translation>
     </message>
     <message>
       <source>Packing mod: {0}</source>
@@ -7509,7 +7509,7 @@ Doneをクリックして抽出されたファイルをクリーンアップし�
     </message>
     <message>
       <source>Open as tab</source>
-      <translation type="unfinished">Open as tab</translation>
+      <translation>タブとして開く</translation>
     </message>
   </context>
   <context>
@@ -8060,58 +8060,58 @@ SHA-1:{1}
     <name>GameRepositoriesOverlay</name>
     <message>
       <source>Custom game repositories</source>
-      <translation type="unfinished">Custom game repositories</translation>
+      <translation>カスタムゲームリポジトリ</translation>
     </message>
     <message>
       <source>Choose a folder containing custom game handler JSON files. Blank branch uses the default branch; blank folder uses the repository root. Close to sync changes. Use Game sources to choose between handlers with the same game ID. Disabling or removing a repository keeps downloaded games.</source>
-      <translation type="unfinished">Choose a folder containing custom game handler JSON files. Blank branch uses the default branch; blank folder uses the repository root. Close to sync changes. Use Game sources to choose between handlers with the same game ID. Disabling or removing a repository keeps downloaded games.</translation>
+      <translation>カスタムゲームハンドラJSONファイルを含むフォルダを選択します。ブランクブランチはデフォルトブランチを使用します。ブランクフォルダはリポジトリのルートを使用します。 変更を同期するには閉じます。ゲームソースを使用して、同じゲームIDを持つハンドラーを選択します。リポジトリを無効にしたり削除したりすると、ダウンロードしたゲームは保持されます。</translation>
     </message>
     <message>
       <source>Repository removed. Downloaded games are kept.</source>
-      <translation type="unfinished">Repository removed. Downloaded games are kept.</translation>
+      <translation>リポジトリが削除されました。ダウンロードしたゲームは保持されます。</translation>
     </message>
     <message>
       <source>Game sources…</source>
-      <translation type="unfinished">Game sources…</translation>
+      <translation>ゲームソース…</translation>
     </message>
   </context>
   <context>
     <name>GameSourcesOverlay</name>
     <message>
       <source>Game handler sources</source>
-      <translation type="unfinished">Game handler sources</translation>
+      <translation>ゲームハンドラのソース</translation>
     </message>
     <message>
       <source>Choose one handler source for each game ID. The game's existing name is kept so saved paths and profiles continue to work. Other downloaded versions are kept. Disabled or removed repositories keep their last downloaded version.</source>
-      <translation type="unfinished">Choose one handler source for each game ID. The game's existing name is kept so saved paths and profiles continue to work. Other downloaded versions are kept. Disabled or removed repositories keep their last downloaded version.</translation>
+      <translation>ゲームIDごとに1つのハンドラーソースを選択します。ゲームの既存の名前は保存されたパスとプロファイルが機能します。 ダウンロードした他のバージョンは保持されています。最後にダウンロードしたバージョンは無効または削除されたリポジトリは保持されます。</translation>
     </message>
     <message>
       <source>Use selected source</source>
-      <translation type="unfinished">Use selected source</translation>
+      <translation>選択したソースを使用</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
     <message>
       <source>{0} sources</source>
-      <translation type="unfinished">{0} sources</translation>
+      <translation>{0} ソース</translation>
     </message>
     <message>
       <source>No downloaded handlers. Close the repositories window to sync first.</source>
-      <translation type="unfinished">No downloaded handlers. Close the repositories window to sync first.</translation>
+      <translation>ダウンロードしたハンドラがありません。リポジトリウィンドウを閉じて同期してください。</translation>
     </message>
     <message>
       <source>Local definition</source>
-      <translation type="unfinished">Local definition</translation>
+      <translation>ローカル定義</translation>
     </message>
     <message>
       <source>Retained download; updates disabled</source>
-      <translation type="unfinished">Retained download; updates disabled</translation>
+      <translation>ダウンロードを保持しました; 更新は無効です</translation>
     </message>
     <message>
       <source>Handler source selected.</source>
-      <translation type="unfinished">Handler source selected.</translation>
+      <translation>ハンドラソースが選択されています。</translation>
     </message>
   </context>
   <context>
@@ -8703,22 +8703,22 @@ Managed directory: {2}</source>
     <name>LootReportOverlay</name>
     <message>
       <source>LOOT diagnostics</source>
-      <translation type="unfinished">LOOT diagnostics</translation>
+      <translation>LOOT診断</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
   </context>
   <context>
     <name>LootReportView</name>
     <message>
       <source>LOOT has not run for this profile yet. Use Sort Plugins or Refresh to generate a report.</source>
-      <translation type="unfinished">LOOT has not run for this profile yet. Use Sort Plugins or Refresh to generate a report.</translation>
+      <translation>LOOTはまだこのプロファイルで実行されていません。レポートを生成するには、ソートプラグインまたは更新を使用してください。</translation>
     </message>
     <message>
       <source>Last LOOT run: {0}</source>
-      <translation type="unfinished">Last LOOT run: {0}</translation>
+      <translation>最後の戦利品： {0}</translation>
     </message>
     <message>
       <source>{0} plugin(s) with metadata</source>
@@ -8726,83 +8726,83 @@ Managed directory: {2}</source>
     </message>
     <message>
       <source>Error</source>
-      <translation type="unfinished">Error</translation>
+      <translation>エラー</translation>
     </message>
     <message>
       <source>Warning</source>
-      <translation type="unfinished">Warning</translation>
+      <translation>警告</translation>
     </message>
     <message>
       <source>Note</source>
-      <translation type="unfinished">Note</translation>
+      <translation>メモ</translation>
     </message>
     <message>
       <source>General</source>
-      <translation type="unfinished">General</translation>
+      <translation>全般</translation>
     </message>
     <message>
       <source>The masterlist reported no general messages.</source>
-      <translation type="unfinished">The masterlist reported no general messages.</translation>
+      <translation>マスタリストは、一般的なメッセージを報告しませんでした。</translation>
     </message>
     <message>
       <source>The masterlist has no metadata for the loaded plugins.</source>
-      <translation type="unfinished">The masterlist has no metadata for the loaded plugins.</translation>
+      <translation>マスターリストには、ロードされたプラグインのメタデータがありません。</translation>
     </message>
     <message>
       <source>Errors</source>
-      <translation type="unfinished">Errors</translation>
+      <translation>エラー</translation>
     </message>
     <message>
       <source>Warnings</source>
-      <translation type="unfinished">Warnings</translation>
+      <translation>警告</translation>
     </message>
     <message>
       <source>Dirty plugins</source>
-      <translation type="unfinished">Dirty plugins</translation>
+      <translation>Dirty プラグイン</translation>
     </message>
     <message>
       <source>Notes</source>
-      <translation type="unfinished">Notes</translation>
+      <translation>メモ</translation>
     </message>
     <message>
       <source>Messages</source>
-      <translation type="unfinished">Messages</translation>
+      <translation>メッセージ</translation>
     </message>
     <message>
       <source>Requirements</source>
-      <translation type="unfinished">Requirements</translation>
+      <translation>要件</translation>
     </message>
     <message>
       <source>Incompatibilities</source>
-      <translation type="unfinished">Incompatibilities</translation>
+      <translation>互換性なし</translation>
     </message>
     <message>
       <source>Locations</source>
-      <translation type="unfinished">Locations</translation>
+      <translation>場所</translation>
     </message>
     <message>
       <source>Dirty edits</source>
-      <translation type="unfinished">Dirty edits</translation>
+      <translation>汚い編集</translation>
     </message>
     <message>
       <source>Verified clean</source>
-      <translation type="unfinished">Verified clean</translation>
+      <translation>確認済みのクリーンアップ</translation>
     </message>
     <message>
       <source>Bash Tags</source>
-      <translation type="unfinished">Bash Tags</translation>
+      <translation>バッシュタグ</translation>
     </message>
     <message>
       <source>{0} ITM</source>
-      <translation type="unfinished">{0} ITM</translation>
+      <translation>{0} ITM</translation>
     </message>
     <message>
       <source>{0} UDR</source>
-      <translation type="unfinished">{0} UDR</translation>
+      <translation>{0} UDR</translation>
     </message>
     <message>
       <source>{0} deleted navmesh</source>
-      <translation type="unfinished">{0} deleted navmesh</translation>
+      <translation>{0} がナビメッシュを削除しました</translation>
     </message>
     <message>
       <source>CRC {0}</source>
@@ -8810,19 +8810,19 @@ Managed directory: {2}</source>
     </message>
     <message>
       <source>clean with</source>
-      <translation type="unfinished">clean with</translation>
+      <translation>できれいにする</translation>
     </message>
     <message>
       <source>Current</source>
-      <translation type="unfinished">Current</translation>
+      <translation>現在</translation>
     </message>
     <message>
       <source>Suggested (add)</source>
-      <translation type="unfinished">Suggested (add)</translation>
+      <translation>推奨（追加）</translation>
     </message>
     <message>
       <source>Suggested (remove)</source>
-      <translation type="unfinished">Suggested (remove)</translation>
+      <translation>提案（削除）</translation>
     </message>
   </context>
   <context>
@@ -11639,15 +11639,15 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Handler not found in an enabled game repository.</source>
-      <translation type="unfinished">Handler not found in an enabled game repository.</translation>
+      <translation>有効なゲームリポジトリにハンドラが見つかりません。</translation>
     </message>
     <message>
       <source>Select a configured game before opening a provider install link.</source>
-      <translation type="unfinished">Select a configured game before opening a provider install link.</translation>
+      <translation>プロバイダのインストールリンクを開く前に設定されたゲームを選択します。</translation>
     </message>
     <message>
       <source>The install link requires exactly one enabled provider for the selected game.</source>
-      <translation type="unfinished">The install link requires exactly one enabled provider for the selected game.</translation>
+      <translation>インストールリンクは、選択したゲームの有効化されたプロバイダを1つだけ必要とします。</translation>
     </message>
     <message>
       <source>Received a malformed MODL link.</source>
@@ -11971,11 +11971,11 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Mod providers: {0} updates</source>
-      <translation type="unfinished">Mod providers: {0} updates</translation>
+      <translation>Mod providers: {0} updates</translation>
     </message>
     <message>
       <source>{0} provider checks failed; see log</source>
-      <translation type="unfinished">{0} provider checks failed; see log</translation>
+      <translation>{0} プロバイダのチェックに失敗しました。ログを見る</translation>
     </message>
     <message>
       <source>Rolled back {0} of {1} mod(s).</source>
@@ -12223,7 +12223,7 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     </message>
     <message>
       <source>Finish the plugin store operation before closing Amethyst.</source>
-      <translation type="unfinished">Finish the plugin store operation before closing Amethyst.</translation>
+      <translation>アメジストを閉じる前にプラグインストアの操作を終了します。</translation>
     </message>
     <message>
       <source>Wait for Wabbajack list removal to finish before closing Amethyst.</source>
@@ -12243,11 +12243,11 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     </message>
     <message>
       <source>Deploy failed: {0}</source>
-      <translation type="unfinished">Deploy failed: {0}</translation>
+      <translation>デプロイに失敗しました: {0}</translation>
     </message>
     <message>
       <source>Deployment failed</source>
-      <translation type="unfinished">Deployment failed</translation>
+      <translation>デプロイに失敗しました</translation>
     </message>
     <message>
       <source>Restore the game before changing the preferred OpenMW package.</source>
@@ -12263,15 +12263,15 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     </message>
     <message>
       <source>No plugins available</source>
-      <translation type="unfinished">No plugins available</translation>
+      <translation>利用可能なプラグインがありません</translation>
     </message>
     <message>
       <source>{0} (theme pack)</source>
-      <translation type="unfinished">{0} (theme pack)</translation>
+      <translation>{0} (テーマパック)</translation>
     </message>
     <message>
       <source>{0} (icon pack)</source>
-      <translation type="unfinished">{0} (icon pack)</translation>
+      <translation>{0} (アイコンパック)</translation>
     </message>
     <message>
       <source>Some plugins could not be loaded…</source>
@@ -12287,19 +12287,19 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     </message>
     <message>
       <source>Plugin store</source>
-      <translation type="unfinished">Plugin store</translation>
+      <translation>プラグインストア</translation>
     </message>
     <message>
       <source>Wait for the current manager operation to finish.</source>
-      <translation type="unfinished">Wait for the current manager operation to finish.</translation>
+      <translation>現在のマネージャー操作が完了するのを待ちます。</translation>
     </message>
     <message>
       <source>Wait for the mod list to finish refreshing.</source>
-      <translation type="unfinished">Wait for the mod list to finish refreshing.</translation>
+      <translation>リフレッシュが完了するまでお待ちください。</translation>
     </message>
     <message>
       <source>Could not open plugin: {0}</source>
-      <translation type="unfinished">Could not open plugin: {0}</translation>
+      <translation>プラグインを開けませんでした: {0}</translation>
     </message>
     <message>
       <source>Wizard Settings…</source>
@@ -12497,7 +12497,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>Mod providers</source>
-      <translation type="unfinished">Mod providers</translation>
+      <translation>Mod providers</translation>
     </message>
     <message>
       <source>None</source>
@@ -13010,39 +13010,39 @@ The profile and shared download archives will be kept.</source>
     <name>ManagerPluginOverlay</name>
     <message>
       <source>Run only plugins you trust. Plugin scripts have the same file access as Amethyst.</source>
-      <translation type="unfinished">Run only plugins you trust. Plugin scripts have the same file access as Amethyst.</translation>
+      <translation>信頼できるプラグインのみを実行します。プラグインスクリプトはアメジストと同じファイルアクセスを持ちます。</translation>
     </message>
     <message>
       <source>Ready to run.</source>
-      <translation type="unfinished">Ready to run.</translation>
+      <translation>実行する準備ができました。</translation>
     </message>
     <message>
       <source>Show requested API operation</source>
-      <translation type="unfinished">Show requested API operation</translation>
+      <translation>要求されたAPI操作を表示</translation>
     </message>
     <message>
       <source>Run</source>
-      <translation type="unfinished">Run</translation>
+      <translation>実行</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation type="unfinished">Apply</translation>
+      <translation>適用</translation>
     </message>
     <message>
       <source>Cancel changes</source>
-      <translation type="unfinished">Cancel changes</translation>
+      <translation>変更をキャンセル</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
     <message>
       <source>Could not save plugin settings: {0}</source>
-      <translation type="unfinished">Could not save plugin settings: {0}</translation>
+      <translation>プラグインの設定を保存できませんでした: {0}</translation>
     </message>
     <message>
       <source>Stop</source>
-      <translation type="unfinished">Stop</translation>
+      <translation>停止</translation>
     </message>
     <message>
       <source>Running…</source>
@@ -13050,7 +13050,7 @@ The profile and shared download archives will be kept.</source>
     </message>
     <message>
       <source>Review changes</source>
-      <translation type="unfinished">Review changes</translation>
+      <translation>変更を確認</translation>
     </message>
     <message>
       <source>Applying changes…</source>
@@ -13062,15 +13062,15 @@ The profile and shared download archives will be kept.</source>
     </message>
     <message>
       <source>Plugin failed. See the log below.</source>
-      <translation type="unfinished">Plugin failed. See the log below.</translation>
+      <translation>プラグインに失敗しました。以下のログを参照してください。</translation>
     </message>
     <message>
       <source>Stopped. Any completed changes remain applied.</source>
-      <translation type="unfinished">Stopped. Any completed changes remain applied.</translation>
+      <translation>停止しました。完了した変更はすべて適用されます。</translation>
     </message>
     <message>
       <source>Plugin finished.</source>
-      <translation type="unfinished">Plugin finished.</translation>
+      <translation>プラグインが終了しました。</translation>
     </message>
     <message>
       <source>Stopping. Waiting for accepted manager operations to finish…</source>
@@ -14141,7 +14141,7 @@ This cannot be undone.</source>
     </message>
     <message>
       <source>Read-only entry managed by a plugin.</source>
-      <translation type="unfinished">Read-only entry managed by a plugin.</translation>
+      <translation>プラグインによって管理される読み取り専用エントリ。</translation>
     </message>
   </context>
   <context>
@@ -14310,7 +14310,7 @@ Done をクリックして閉じます.</translation>
     </message>
     <message>
       <source>Update available from mod provider</source>
-      <translation type="unfinished">Update available from mod provider</translation>
+      <translation>Modプロバイダからアップデートが利用可能です</translation>
     </message>
     <message>
       <source>Endorsed</source>
@@ -16286,7 +16286,7 @@ Daily: {1}</source>
     </message>
     <message>
       <source>Choose which mod manager receives this game's Nexus links. The choice is remembered. Amethyst uses the matching configured game, or the current game for links from other domains.</source>
-      <translation type="unfinished">Choose which mod manager receives this game's Nexus links. The choice is remembered. Amethyst uses the matching configured game, or the current game for links from other domains.</translation>
+      <translation>このゲームのNexusリンクを受け取るModマネージャーを選択してください。選択は記憶されています。 アメジストは、一致設定されたゲーム、または他のドメインからのリンクのために現在のゲームを使用します。</translation>
     </message>
     <message>
       <source>Nexus game domain</source>
@@ -17227,19 +17227,19 @@ Re-scan to verify.</source>
     <name>PluginCommands</name>
     <message>
       <source>The active game or profile changed. Run the command again.</source>
-      <translation type="unfinished">The active game or profile changed. Run the command again.</translation>
+      <translation>アクティブなゲームまたはプロファイルが変更されました。もう一度コマンドを実行してください。</translation>
     </message>
     <message>
       <source>The plugin changed. Run the command again.</source>
-      <translation type="unfinished">The plugin changed. Run the command again.</translation>
+      <translation>プラグインが変更されました。もう一度コマンドを実行してください。</translation>
     </message>
     <message>
       <source>This command does not match the current selection.</source>
-      <translation type="unfinished">This command does not match the current selection.</translation>
+      <translation>このコマンドは現在の選択範囲と一致しません。</translation>
     </message>
     <message>
       <source>A selected item is no longer available.</source>
-      <translation type="unfinished">A selected item is no longer available.</translation>
+      <translation>選択されたアイテムは利用できません。</translation>
     </message>
   </context>
   <context>
@@ -17462,19 +17462,19 @@ Re-scan to verify.</source>
     <name>PluginMenuController</name>
     <message>
       <source>Plugins</source>
-      <translation type="unfinished">Plugins</translation>
+      <translation>プラグイン</translation>
     </message>
     <message>
       <source>Preview with {0}</source>
-      <translation type="unfinished">Preview with {0}</translation>
+      <translation>{0} でプレビュー</translation>
     </message>
     <message>
       <source>The active game or profile changed. Reopen the menu.</source>
-      <translation type="unfinished">The active game or profile changed. Reopen the menu.</translation>
+      <translation>アクティブなゲームまたはプロファイルが変更されました。メニューを再度開きます。</translation>
     </message>
     <message>
       <source>The plugin changed. Reopen the menu.</source>
-      <translation type="unfinished">The plugin changed. Reopen the menu.</translation>
+      <translation>プラグインが変更されました。メニューを再度開きます。</translation>
     </message>
   </context>
   <context>
@@ -17500,62 +17500,62 @@ Re-scan to verify.</source>
     <name>PluginNotifications</name>
     <message>
       <source>Open report</source>
-      <translation type="unfinished">Open report</translation>
+      <translation>レポートを開く</translation>
     </message>
     <message>
       <source>{0}: {1} new or updated diagnostics</source>
-      <translation type="unfinished">{0}: {1} new or updated diagnostics</translation>
+      <translation>{0}: {1} 新しい診断または更新された診断</translation>
     </message>
     <message>
       <source>Select the notification's game and profile before using this action.</source>
-      <translation type="unfinished">Select the notification's game and profile before using this action.</translation>
+      <translation>このアクションを使用する前に通知のゲームとプロファイルを選択します。</translation>
     </message>
     <message>
       <source>This plugin changed or is no longer available.</source>
-      <translation type="unfinished">This plugin changed or is no longer available.</translation>
+      <translation>このプラグインは変更されたか、使用できなくなりました。</translation>
     </message>
     <message>
       <source>An affected item is no longer available. Refresh the diagnostic.</source>
-      <translation type="unfinished">An affected item is no longer available. Refresh the diagnostic.</translation>
+      <translation>影響を受ける項目は利用できません。診断を更新してください。</translation>
     </message>
     <message>
       <source>The action no longer matches these items.</source>
-      <translation type="unfinished">The action no longer matches these items.</translation>
+      <translation>アクションはこれらのアイテムと一致しません。</translation>
     </message>
   </context>
   <context>
     <name>PluginPanelControls</name>
     <message>
       <source>Sort Plugins</source>
-      <translation type="unfinished">Sort Plugins</translation>
+      <translation>プラグインの並べ替え</translation>
     </message>
     <message>
       <source>Refresh Plugins</source>
-      <translation type="unfinished">Refresh Plugins</translation>
+      <translation>プラグインを更新</translation>
     </message>
     <message>
       <source>Sync</source>
-      <translation type="unfinished">Sync</translation>
+      <translation>同期</translation>
     </message>
     <message>
       <source>Groups</source>
-      <translation type="unfinished">Groups</translation>
+      <translation>グループ</translation>
     </message>
     <message>
       <source>Plugin Rules</source>
-      <translation type="unfinished">Plugin Rules</translation>
+      <translation>プラグインルール</translation>
     </message>
     <message>
       <source>LOOT</source>
-      <translation type="unfinished">LOOT</translation>
+      <translation>LOOT</translation>
     </message>
     <message>
       <source>Show LOOT diagnostics</source>
-      <translation type="unfinished">Show LOOT diagnostics</translation>
+      <translation>LOOT診断を表示</translation>
     </message>
     <message>
       <source>Match plugin load order to modlist priority</source>
-      <translation type="unfinished">Match plugin load order to modlist priority</translation>
+      <translation>プラグインの読み込み順をModlistの優先順位に合わせる</translation>
     </message>
     <message>
       <source>Search plugins…</source>
@@ -17563,27 +17563,27 @@ Re-scan to verify.</source>
     </message>
     <message>
       <source>Pack BSA</source>
-      <translation type="unfinished">Pack BSA</translation>
+      <translation>パックBSA</translation>
     </message>
     <message>
       <source>Unpack BSA</source>
-      <translation type="unfinished">Unpack BSA</translation>
+      <translation>BSAを解凍する</translation>
     </message>
     <message>
       <source>⊞ Expand all</source>
-      <translation type="unfinished">⊞ Expand all</translation>
+      <translation>&lt;unk> すべて展開する</translation>
     </message>
     <message>
       <source>Open</source>
-      <translation type="unfinished">Open</translation>
+      <translation>開く</translation>
     </message>
     <message>
       <source>Reset</source>
-      <translation type="unfinished">Reset</translation>
+      <translation>Reset</translation>
     </message>
     <message>
       <source>Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</source>
-      <translation type="unfinished">Undo this mod's Mod Files changes (Top Level, Root, Disable). Mod files themselves are not touched.</translation>
+      <translation>このModファイルの変更を元に戻す (Topレベル、Root、Disable) Modファイル自体は変更されません。</translation>
     </message>
     <message>
       <source>Search files… (try !.dds)</source>
@@ -17591,31 +17591,31 @@ Re-scan to verify.</source>
     </message>
     <message>
       <source>Blacklist</source>
-      <translation type="unfinished">Blacklist</translation>
+      <translation>ブラック リスト</translation>
     </message>
     <message>
       <source>Routing Rules</source>
-      <translation type="unfinished">Routing Rules</translation>
+      <translation>ルーティングルール</translation>
     </message>
     <message>
       <source>⊟ Collapse all</source>
-      <translation type="unfinished">⊟ Collapse all</translation>
+      <translation>&lt;unk> すべてを折りたたむ</translation>
     </message>
     <message>
       <source>↻ Refresh</source>
-      <translation type="unfinished">↻ Refresh</translation>
+      <translation>&lt;unk> 更新</translation>
     </message>
     <message>
       <source>Open folder</source>
-      <translation type="unfinished">Open folder</translation>
+      <translation>フォルダを開く</translation>
     </message>
     <message>
       <source>Export</source>
-      <translation type="unfinished">Export</translation>
+      <translation>エクスポート</translation>
     </message>
     <message>
       <source>Import</source>
-      <translation type="unfinished">Import</translation>
+      <translation>インポート</translation>
     </message>
     <message>
       <source>Search saves… (try !.ess)</source>
@@ -17623,23 +17623,23 @@ Re-scan to verify.</source>
     </message>
     <message>
       <source>Install Selected</source>
-      <translation type="unfinished">Install Selected</translation>
+      <translation>選択したものをインストール</translation>
     </message>
     <message>
       <source>Move Selected</source>
-      <translation type="unfinished">Move Selected</translation>
+      <translation>選択したものを移動</translation>
     </message>
     <message>
       <source>Hide Selected</source>
-      <translation type="unfinished">Hide Selected</translation>
+      <translation>選択したものを隠す</translation>
     </message>
     <message>
       <source>Remove Selected</source>
-      <translation type="unfinished">Remove Selected</translation>
+      <translation>選択項目を削除</translation>
     </message>
     <message>
       <source>Locations</source>
-      <translation type="unfinished">Locations</translation>
+      <translation>場所</translation>
     </message>
     <message>
       <source>Search downloads…</source>
@@ -17647,15 +17647,15 @@ Re-scan to verify.</source>
     </message>
     <message>
       <source>Unhide Selected</source>
-      <translation type="unfinished">Unhide Selected</translation>
+      <translation>選択したものを再表示する</translation>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation type="unfinished">{0} ({1})</translation>
+      <translation>{0} ({1})</translation>
     </message>
     <message>
       <source>Find in files:</source>
-      <translation type="unfinished">Find in files:</translation>
+      <translation>ファイルを検索:</translation>
     </message>
     <message>
       <source>Text to search for…</source>
@@ -17663,54 +17663,54 @@ Re-scan to verify.</source>
     </message>
     <message>
       <source>Search</source>
-      <translation type="unfinished">Search</translation>
+      <translation>検索</translation>
     </message>
     <message>
       <source>Search Content</source>
-      <translation type="unfinished">Search Content</translation>
+      <translation>内容を検索</translation>
     </message>
     <message>
       <source>Content: "{0}"</source>
-      <translation type="unfinished">Content: "{0}"</translation>
+      <translation>内容: "{0}"</translation>
     </message>
     <message>
       <source>Clear Content</source>
-      <translation type="unfinished">Clear Content</translation>
+      <translation>コンテンツをクリア</translation>
     </message>
     <message>
       <source>Pack {0}</source>
-      <translation type="unfinished">Pack {0}</translation>
+      <translation>パック {0}</translation>
     </message>
     <message>
       <source>Unpack {0}</source>
-      <translation type="unfinished">Unpack {0}</translation>
+      <translation>{0}を解凍する</translation>
     </message>
     <message>
       <source>File location</source>
-      <translation type="unfinished">File location</translation>
+      <translation>ファイルの場所</translation>
     </message>
     <message>
       <source>P:{0} / Non-ESL:{1}</source>
-      <translation type="unfinished">P:{0} / Non-ESL:{1}</translation>
+      <translation>P:{0} / Non-ESL:{1}</translation>
     </message>
     <message>
       <source>{0} plugins ({1} ESL, {2} non-ESL)</source>
-      <translation type="unfinished">{0} plugins ({1} ESL, {2} non-ESL)</translation>
+      <translation>{0} plugins ({1} ESL, {2} non-ESL)</translation>
     </message>
   </context>
   <context>
     <name>PluginRepositoriesOverlay</name>
     <message>
       <source>Plugin repositories</source>
-      <translation type="unfinished">Plugin repositories</translation>
+      <translation>プラグインリポジトリ</translation>
     </message>
     <message>
       <source>Choose a folder containing plugin subfolders, or a single plugin's folder. Blank branch uses the default branch; blank folder uses the repository root.</source>
-      <translation type="unfinished">Choose a folder containing plugin subfolders, or a single plugin's folder. Blank branch uses the default branch; blank folder uses the repository root.</translation>
+      <translation>プラグインのサブフォルダを含むフォルダ、または単一のプラグインのフォルダを選択します。ブランクブランチはデフォルトのブランチを使用します。ブランクフォルダはリポジトリのルートを使用します。</translation>
     </message>
     <message>
       <source>Repository removed. Installed plugins are kept.</source>
-      <translation type="unfinished">Repository removed. Installed plugins are kept.</translation>
+      <translation>リポジトリが削除されました。インストールされているプラグインは保持されます。</translation>
     </message>
   </context>
   <context>
@@ -17752,94 +17752,94 @@ Drag a plugin from the left pane to add a rule.</source>
     <name>PluginSettingsOverlay</name>
     <message>
       <source>{0} settings</source>
-      <translation type="unfinished">{0} settings</translation>
+      <translation>{0} の設定</translation>
     </message>
     <message>
       <source>Icon changes take effect after restarting Amethyst.</source>
-      <translation type="unfinished">Icon changes take effect after restarting Amethyst.</translation>
+      <translation>アメジストを再起動するとアイコンの変更が有効になります。</translation>
     </message>
     <message>
       <source>Settings are used on the plugin's next run or refresh.</source>
-      <translation type="unfinished">Settings are used on the plugin's next run or refresh.</translation>
+      <translation>設定はプラグインの次回の実行または更新で使用されます。</translation>
     </message>
     <message>
       <source>Restore defaults</source>
-      <translation type="unfinished">Restore defaults</translation>
+      <translation>既定に戻す</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>キャンセル</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>保存</translation>
     </message>
     <message>
       <source>Plugin settings could not be read: {0}</source>
-      <translation type="unfinished">Plugin settings could not be read: {0}</translation>
+      <translation>プラグインの設定を読み取れませんでした: {0}</translation>
     </message>
     <message>
       <source>Reset damaged settings</source>
-      <translation type="unfinished">Reset damaged settings</translation>
+      <translation>破損した設定をリセット</translation>
     </message>
     <message>
       <source>Could not save plugin settings: {0}</source>
-      <translation type="unfinished">Could not save plugin settings: {0}</translation>
+      <translation>プラグインの設定を保存できませんでした: {0}</translation>
     </message>
     <message>
       <source>Could not reset plugin settings: {0}</source>
-      <translation type="unfinished">Could not reset plugin settings: {0}</translation>
+      <translation>プラグインの設定をリセットできませんでした: {0}</translation>
     </message>
     <message>
       <source>Settings reset. Original settings saved to {0}.</source>
-      <translation type="unfinished">Settings reset. Original settings saved to {0}.</translation>
+      <translation>設定をリセットします。元の設定は {0}に保存されました。</translation>
     </message>
     <message>
       <source>Settings reset.</source>
-      <translation type="unfinished">Settings reset.</translation>
+      <translation>設定をリセット</translation>
     </message>
   </context>
   <context>
     <name>PluginStoreView</name>
     <message>
       <source>Plugin store</source>
-      <translation type="unfinished">Plugin store</translation>
+      <translation>プラグインストア</translation>
     </message>
     <message>
       <source>Plugins run Python with the same file access as Amethyst. Install only plugins you trust.</source>
-      <translation type="unfinished">Plugins run Python with the same file access as Amethyst. Install only plugins you trust.</translation>
+      <translation>Amethystと同じファイルアクセスでPythonを実行します。信頼できるプラグインのみをインストールしてください。</translation>
     </message>
     <message>
       <source>Search plugins</source>
-      <translation type="unfinished">Search plugins</translation>
+      <translation>プラグインを検索</translation>
     </message>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>更新</translation>
     </message>
     <message>
       <source>Repositories…</source>
-      <translation type="unfinished">Repositories…</translation>
+      <translation>リポジトリ…</translation>
     </message>
     <message>
       <source>Details</source>
-      <translation type="unfinished">Details</translation>
+      <translation>詳細</translation>
     </message>
     <message>
       <source>README</source>
-      <translation type="unfinished">README</translation>
+      <translation>README</translation>
     </message>
     <message>
       <source>Download</source>
-      <translation type="unfinished">Download</translation>
+      <translation>ダウンロード</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>削除</translation>
     </message>
     <message>
       <source>Disable</source>
-      <translation type="unfinished">Disable</translation>
+      <translation>無効</translation>
     </message>
     <message>
       <source>Settings…</source>
@@ -17847,123 +17847,123 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Cancel pending change</source>
-      <translation type="unfinished">Cancel pending change</translation>
+      <translation>保留中の変更をキャンセル</translation>
     </message>
     <message>
       <source>Restart manager</source>
-      <translation type="unfinished">Restart manager</translation>
+      <translation>マネージャーを再起動</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
     <message>
       <source>Enabled</source>
-      <translation type="unfinished">Enabled</translation>
+      <translation>有効</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>無効</translation>
     </message>
     <message>
       <source>Pending change</source>
-      <translation type="unfinished">Pending change</translation>
+      <translation>保留中の変更</translation>
     </message>
     <message>
       <source>Installed locally · source unknown</source>
-      <translation type="unfinished">Installed locally · source unknown</translation>
+      <translation>ローカルでインストールされている· ソースが不明</translation>
     </message>
     <message>
       <source>Version {0}</source>
-      <translation type="unfinished">Version {0}</translation>
+      <translation>バージョン {0}</translation>
     </message>
     <message>
       <source>Version unknown</source>
-      <translation type="unfinished">Version unknown</translation>
+      <translation>バージョン不明</translation>
     </message>
     <message>
       <source>Not installed</source>
-      <translation type="unfinished">Not installed</translation>
+      <translation>インストールされていません</translation>
     </message>
     <message>
       <source>{0} change(s) waiting for restart. Changes apply on the next manager launch.</source>
-      <translation type="unfinished">{0} change(s) waiting for restart. Changes apply on the next manager launch.</translation>
+      <translation>{0} 変更は再起動を待っています。変更は次回のマネージャー起動時に適用されます。</translation>
     </message>
     <message>
       <source>Plugin changes take effect after restarting Amethyst.</source>
-      <translation type="unfinished">Plugin changes take effect after restarting Amethyst.</translation>
+      <translation>プラグインの変更はアメジストを再起動した後に有効になります。</translation>
     </message>
     <message>
       <source>No plugins found.</source>
-      <translation type="unfinished">No plugins found.</translation>
+      <translation>プラグインが見つかりません。</translation>
     </message>
     <message>
       <source>Installed locally · version unknown</source>
-      <translation type="unfinished">Installed locally · version unknown</translation>
+      <translation>ローカルでインストールされている· バージョン不明</translation>
     </message>
     <message>
       <source>Author: {0}</source>
-      <translation type="unfinished">Author: {0}</translation>
+      <translation>作成者: {0}</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>不明</translation>
     </message>
     <message>
       <source>Available version: {0}</source>
-      <translation type="unfinished">Available version: {0}</translation>
+      <translation>利用可能なバージョン: {0}</translation>
     </message>
     <message>
       <source>Not in the current catalogue</source>
-      <translation type="unfinished">Not in the current catalogue</translation>
+      <translation>現在のカタログにありません</translation>
     </message>
     <message>
       <source>Installed version: {0}</source>
-      <translation type="unfinished">Installed version: {0}</translation>
+      <translation>インストールされているバージョン: {0}</translation>
     </message>
     <message>
       <source>Minimum manager version: {0}</source>
-      <translation type="unfinished">Minimum manager version: {0}</translation>
+      <translation>最小管理者バージョン: {0}</translation>
     </message>
     <message>
       <source>Not specified</source>
-      <translation type="unfinished">Not specified</translation>
+      <translation>指定されていない</translation>
     </message>
     <message>
       <source>Repository: {0}</source>
-      <translation type="unfinished">Repository: {0}</translation>
+      <translation>リポジトリ: {0}</translation>
     </message>
     <message>
       <source>Branch: {0}</source>
-      <translation type="unfinished">Branch: {0}</translation>
+      <translation>ブランチ: {0}</translation>
     </message>
     <message>
       <source>Default branch</source>
-      <translation type="unfinished">Default branch</translation>
+      <translation>デフォルトブランチ</translation>
     </message>
     <message>
       <source>Folder: {0}</source>
-      <translation type="unfinished">Folder: {0}</translation>
+      <translation>フォルダ: {0}</translation>
     </message>
     <message>
       <source>State: {0}</source>
-      <translation type="unfinished">State: {0}</translation>
+      <translation>状態： {0}</translation>
     </message>
     <message>
       <source>Installed from: {0} [{1}:{2}]</source>
-      <translation type="unfinished">Installed from: {0} [{1}:{2}]</translation>
+      <translation>インストール元: {0} [{1}:{2}]</translation>
     </message>
     <message>
       <source>default</source>
-      <translation type="unfinished">default</translation>
+      <translation>デフォルト</translation>
     </message>
     <message>
       <source>Installed source: Unknown</source>
-      <translation type="unfinished">Installed source: Unknown</translation>
+      <translation>インストールされたソース: 不明</translation>
     </message>
     <message>
       <source>Update</source>
-      <translation type="unfinished">Update</translation>
+      <translation>更新</translation>
     </message>
     <message>
       <source>Replace from this repository…</source>
@@ -17971,43 +17971,43 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Replace with store version</source>
-      <translation type="unfinished">Replace with store version</translation>
+      <translation>ストアのバージョンに置き換える</translation>
     </message>
     <message>
       <source>The installed plugin is up to date or newer.</source>
-      <translation type="unfinished">The installed plugin is up to date or newer.</translation>
+      <translation>インストールされているプラグインは最新かそれ以上です。</translation>
     </message>
     <message>
       <source>Duplicate installed plugin id. Resolve the duplicate folders first.</source>
-      <translation type="unfinished">Duplicate installed plugin id. Resolve the duplicate folders first.</translation>
+      <translation>インストールされているプラグインIDを複製します。重複フォルダを解決してください。</translation>
     </message>
     <message>
       <source>Removal</source>
-      <translation type="unfinished">Removal</translation>
+      <translation>削除</translation>
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>有効にする</translation>
     </message>
     <message>
       <source>Install version {0}</source>
-      <translation type="unfinished">Install version {0}</translation>
+      <translation>インストールバージョン {0}</translation>
     </message>
     <message>
       <source>Pending: {0}</source>
-      <translation type="unfinished">Pending: {0}</translation>
+      <translation>保留中: {0}</translation>
     </message>
     <message>
       <source>Pending repository: {0}</source>
-      <translation type="unfinished">Pending repository: {0}</translation>
+      <translation>保留中のリポジトリ: {0}</translation>
     </message>
     <message>
       <source>Plugin dependencies: {0}</source>
-      <translation type="unfinished">Plugin dependencies: {0}</translation>
+      <translation>プラグインの依存関係: {0}</translation>
     </message>
     <message>
       <source>Plugin conflicts: {0}</source>
-      <translation type="unfinished">Plugin conflicts: {0}</translation>
+      <translation>プラグインの競合: {0}</translation>
     </message>
     <message>
       <source>Loading README…</source>
@@ -18015,11 +18015,11 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Could not load README: {0}</source>
-      <translation type="unfinished">Could not load README: {0}</translation>
+      <translation>READMEを読み込めませんでした: {0}</translation>
     </message>
     <message>
       <source>Change saved. Restart Amethyst to apply it.</source>
-      <translation type="unfinished">Change saved. Restart Amethyst to apply it.</translation>
+      <translation>変更を保存しました。適用するにはアメジストを再起動してください。</translation>
     </message>
     <message>
       <source>Loading plugin catalogue…</source>
@@ -18027,15 +18027,15 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Catalogue loaded.</source>
-      <translation type="unfinished">Catalogue loaded.</translation>
+      <translation>カタログを読み込みました。</translation>
     </message>
     <message>
       <source>Replace</source>
-      <translation type="unfinished">Replace</translation>
+      <translation>置換</translation>
     </message>
     <message>
       <source>Delete saved data</source>
-      <translation type="unfinished">Delete saved data</translation>
+      <translation>保存したデータを削除</translation>
     </message>
     <message>
       <source>Downloading and validating plugin…</source>
@@ -18043,19 +18043,19 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Replace plugin from this repository?</source>
-      <translation type="unfinished">Replace plugin from this repository?</translation>
+      <translation>このリポジトリからプラグインを置き換えますか？</translation>
     </message>
     <message>
       <source>Replace {0} with version {1} from {2} after restart? Saved settings and data will be preserved, and the old folder backed up.</source>
-      <translation type="unfinished">Replace {0} with version {1} from {2} after restart? Saved settings and data will be preserved, and the old folder backed up.</translation>
+      <translation>再起動後、 {0} を {1} のバージョン {2} に置き換えますか？保存された設定とデータが保存され、古いフォルダがバックアップされます。</translation>
     </message>
     <message>
       <source>Remove plugin?</source>
-      <translation type="unfinished">Remove plugin?</translation>
+      <translation>プラグインを削除しますか</translation>
     </message>
     <message>
       <source>Remove {0} after restart? Saved data is kept for reinstalling unless you choose to delete it. Deletion also removes this plugin's store backups.</source>
-      <translation type="unfinished">Remove {0} after restart? Saved data is kept for reinstalling unless you choose to delete it. Deletion also removes this plugin's store backups.</translation>
+      <translation>再起動後に {0} を削除しますか？削除するとプラグインのストアバックアップも削除されます。</translation>
     </message>
     <message>
       <source>Queuing plugin removal…</source>
@@ -18067,7 +18067,7 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Pending change cancelled.</source>
-      <translation type="unfinished">Pending change cancelled.</translation>
+      <translation>保留中の変更がキャンセルされました。</translation>
     </message>
     <message>
       <source>Queuing plugin enablement change…</source>
@@ -18075,26 +18075,26 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Settings saved. Restart Amethyst to apply icon changes.</source>
-      <translation type="unfinished">Settings saved. Restart Amethyst to apply icon changes.</translation>
+      <translation>設定が保存されました。アイコンの変更を適用するには、アメジストを再起動してください。</translation>
     </message>
     <message>
       <source>Settings saved.</source>
-      <translation type="unfinished">Settings saved.</translation>
+      <translation>設定を保存しました</translation>
     </message>
     <message>
       <source>Wait for current manager operations to finish before restarting.</source>
-      <translation type="unfinished">Wait for current manager operations to finish before restarting.</translation>
+      <translation>現在のマネージャー操作が再起動する前に終了するのを待ちます。</translation>
     </message>
   </context>
   <context>
     <name>PluginUIController</name>
     <message>
       <source>More plugin controls</source>
-      <translation type="unfinished">More plugin controls</translation>
+      <translation>その他のプラグインコントロール</translation>
     </message>
     <message>
       <source>Commands…</source>
-      <translation type="unfinished">Commands…</translation>
+      <translation>コマンド…</translation>
     </message>
     <message>
       <source>Some interface elements could not be loaded…</source>
@@ -18102,7 +18102,7 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Plugin interface</source>
-      <translation type="unfinished">Plugin interface</translation>
+      <translation>プラグインインターフェイス</translation>
     </message>
     <message>
       <source>Some plugin services could not be loaded…</source>
@@ -18110,7 +18110,7 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Plugin services</source>
-      <translation type="unfinished">Plugin services</translation>
+      <translation>プラグインサービス</translation>
     </message>
   </context>
   <context>
@@ -18129,7 +18129,7 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Open as tab</source>
-      <translation type="unfinished">Open as tab</translation>
+      <translation>タブとして開く</translation>
     </message>
   </context>
   <context>
@@ -18267,7 +18267,7 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>Wizard tools each run in their own Wine prefix (created in Applications, next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</source>
-      <translation type="unfinished">Wizard tools each run in their own Wine prefix (created in Applications, next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</translation>
+      <translation>ウィザードツールは、それぞれ独自の Wine prefix (アプリケーションで作成され、ツールの exe またはアプリケーションの config フォルダーの横に作成されます)。 ディスク領域を1つだけ削除する - 次回ツールを実行すると自動的に再作成されます。</translation>
     </message>
     <message>
       <source>Scanning for prefixes…</source>
@@ -18514,39 +18514,39 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     <name>ProfileSavesTransfer</name>
     <message>
       <source>Could not resolve save folders.</source>
-      <translation type="unfinished">Could not resolve save folders.</translation>
+      <translation>保存フォルダを解決できませんでした。</translation>
     </message>
     <message>
       <source>No save folders found for this game.</source>
-      <translation type="unfinished">No save folders found for this game.</translation>
+      <translation>このゲームのセーブフォルダが見つかりません。</translation>
     </message>
     <message>
       <source> [profile saves]</source>
-      <translation type="unfinished"> [profile saves]</translation>
+      <translation> [profile saves]</translation>
     </message>
     <message>
       <source>Choose save folder to import into</source>
-      <translation type="unfinished">Choose save folder to import into</translation>
+      <translation>インポートする保存フォルダを選択</translation>
     </message>
     <message>
       <source>Choose save folder to export</source>
-      <translation type="unfinished">Choose save folder to export</translation>
+      <translation>エクスポートする保存フォルダを選択してください</translation>
     </message>
     <message>
       <source>Select</source>
-      <translation type="unfinished">Select</translation>
+      <translation>選択</translation>
     </message>
     <message>
       <source>The current contents are moved aside to a "{0}" folder first, so nothing is lost.</source>
-      <translation type="unfinished">The current contents are moved aside to a "{0}" folder first, so nothing is lost.</translation>
+      <translation>現在の内容は最初に "{0}" フォルダに移動されるため、何も失われません。</translation>
     </message>
     <message>
       <source>The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</source>
-      <translation type="unfinished">The current {0} files are moved aside to a "{1}" folder first, so nothing is lost.</translation>
+      <translation>現在の {0} ファイルは最初に「{1}」フォルダに移動されるため、何も失われません。</translation>
     </message>
     <message>
       <source>Import bundled saves?</source>
-      <translation type="unfinished">Import bundled saves?</translation>
+      <translation>バンドルされた保存をインポートしますか？</translation>
     </message>
     <message>
       <source>This profile includes a saves archive.
@@ -18555,20 +18555,20 @@ Extract it into
 {0}
 
 {1}</source>
-      <translation type="unfinished">This profile includes a saves archive.
+      <translation>このプロファイルには保存アーカイブが含まれています。
 
-Extract it into
+
 {0}
 
 {1}</translation>
     </message>
     <message>
       <source>Import</source>
-      <translation type="unfinished">Import</translation>
+      <translation>インポート</translation>
     </message>
     <message>
       <source>Skip</source>
-      <translation type="unfinished">Skip</translation>
+      <translation>スキップ</translation>
     </message>
     <message>
       <source>Extracting saves…</source>
@@ -18576,15 +18576,15 @@ Extract it into
     </message>
     <message>
       <source>Imported {0} save file(s) ({1}).</source>
-      <translation type="unfinished">Imported {0} save file(s) ({1}).</translation>
+      <translation>インポートされた {0} セーブファイル（{1}）</translation>
     </message>
     <message>
       <source>Save import failed: {0}</source>
-      <translation type="unfinished">Save import failed: {0}</translation>
+      <translation>保存に失敗: {0}</translation>
     </message>
     <message>
       <source>Save import failed.</source>
-      <translation type="unfinished">Save import failed.</translation>
+      <translation>保存に失敗しました。</translation>
     </message>
   </context>
   <context>
@@ -18749,7 +18749,7 @@ This removes the entire collection profile, including its personal mods and appe
     </message>
     <message>
       <source>{0} runs in its own Wine prefix, separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
-      <translation type="unfinished">{0} runs in its own Wine prefix, separate from the game's prefix, so you can pick any Proton version without affecting the game.</translation>
+      <translation>{0} は、ゲームのプレフィックスとは別に、独自のワインプレフィックスで実行されるため、ゲームに影響を与えることなく、Protonのバージョンを選択できます。</translation>
     </message>
     <message>
       <source>Use 64-bit version</source>
@@ -18912,43 +18912,43 @@ has issues - it is recreated automatically on the next step.</source>
     </message>
     <message>
       <source>Install selected version</source>
-      <translation type="unfinished">Install selected version</translation>
+      <translation>選択したバージョンをインストール</translation>
     </message>
     <message>
       <source>Download and install</source>
-      <translation type="unfinished">Download and install</translation>
+      <translation>ダウンロードしてインストール</translation>
     </message>
     <message>
       <source>Apply selected action</source>
-      <translation type="unfinished">Apply selected action</translation>
+      <translation>選択したアクションを適用</translation>
     </message>
     <message>
       <source>Open website</source>
-      <translation type="unfinished">Open website</translation>
+      <translation>ウェブサイトを開く</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
     <message>
       <source>Update listed mods</source>
-      <translation type="unfinished">Update listed mods</translation>
+      <translation>リストされた Mod を更新</translation>
     </message>
     <message>
       <source>Review the proposed provider updates below.</source>
-      <translation type="unfinished">Review the proposed provider updates below.</translation>
+      <translation>以下で提案されたプロバイダの更新を確認してください。</translation>
     </message>
     <message>
       <source>Choose a version or repository action. Installation replaces the selected mod.</source>
-      <translation type="unfinished">Choose a version or repository action. Installation replaces the selected mod.</translation>
+      <translation>バージョンまたはリポジトリのアクションを選択します。インストールは選択した Mod を置き換えます。</translation>
     </message>
     <message>
       <source>Review the downloads and dependencies below, then choose Download and install.</source>
-      <translation type="unfinished">Review the downloads and dependencies below, then choose Download and install.</translation>
+      <translation>以下のダウンロードと依存関係を確認し、format@@0を選択してインストールします。</translation>
     </message>
     <message>
       <source>Operation completed.</source>
-      <translation type="unfinished">Operation completed.</translation>
+      <translation>操作が完了しました。</translation>
     </message>
     <message>
       <source>Waiting for the active operation to finish…</source>
@@ -19162,7 +19162,7 @@ If the game is still broken, verify the game files via Steam.</source>
     </message>
     <message>
       <source>Shader packs: {0}/{1}</source>
-      <translation type="unfinished">Shader packs: {0}/{1}</translation>
+      <translation>シェーダーパック： {0}/{1}</translation>
     </message>
     <message>
       <source>Trimmed shaders to {0} preset effect(s).</source>
@@ -19502,66 +19502,66 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <name>ReportOverlay</name>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
   </context>
   <context>
     <name>RepositoriesOverlay</name>
     <message>
       <source>Default branch</source>
-      <translation type="unfinished">Default branch</translation>
+      <translation>デフォルトブランチ</translation>
     </message>
     <message>
       <source>Repository root</source>
-      <translation type="unfinished">Repository root</translation>
+      <translation>リポジトリルート</translation>
     </message>
     <message>
       <source>Repository URL</source>
-      <translation type="unfinished">Repository URL</translation>
+      <translation>リポジトリURL</translation>
     </message>
     <message>
       <source>Branch</source>
-      <translation type="unfinished">Branch</translation>
+      <translation>ブランチ</translation>
     </message>
     <message>
       <source>Folder</source>
-      <translation type="unfinished">Folder</translation>
+      <translation>フォルダ</translation>
     </message>
     <message>
       <source>Enable this repository</source>
-      <translation type="unfinished">Enable this repository</translation>
+      <translation>このリポジトリを有効にする</translation>
     </message>
     <message>
       <source>New</source>
-      <translation type="unfinished">New</translation>
+      <translation>新規作成</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>保存</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>削除</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
     <message>
       <source>Enabled</source>
-      <translation type="unfinished">Enabled</translation>
+      <translation>有効</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>無効</translation>
     </message>
     <message>
       <source>Built-in</source>
-      <translation type="unfinished">Built-in</translation>
+      <translation>ビルトイン</translation>
     </message>
     <message>
       <source>Repository saved.</source>
-      <translation type="unfinished">Repository saved.</translation>
+      <translation>リポジトリを保存しました。</translation>
     </message>
   </context>
   <context>
@@ -20763,7 +20763,7 @@ Please restart the wizard and install Script Merger first.</source>
     </message>
     <message>
       <source>Select path</source>
-      <translation type="unfinished">Select path</translation>
+      <translation>パスを選択</translation>
     </message>
   </context>
   <context>
@@ -21850,7 +21850,7 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     </message>
     <message>
       <source>Unassigned</source>
-      <translation type="unfinished">Unassigned</translation>
+      <translation>未割り当て</translation>
     </message>
     <message>
       <source>Reset {0} to {1}</source>
@@ -26870,7 +26870,7 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     </message>
     <message>
       <source>Unassigned</source>
-      <translation type="unfinished">Unassigned</translation>
+      <translation>未割り当て</translation>
     </message>
     <message>
       <source>Press key</source>
@@ -26881,7 +26881,7 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     <name>_DownloadMenuButton</name>
     <message>
       <source>Downloads</source>
-      <translation type="unfinished">Downloads</translation>
+      <translation>ダウンロード</translation>
     </message>
   </context>
   <context>
@@ -27023,7 +27023,7 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     <name>_Popover</name>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>閉じる</translation>
     </message>
   </context>
   <context>
@@ -27198,11 +27198,11 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
     <message>
       <source>Mod provider</source>
-      <translation type="unfinished">Mod provider</translation>
+      <translation>Mod provider</translation>
     </message>
     <message>
       <source>Download the pinned archive using its installed plugin</source>
-      <translation type="unfinished">Download the pinned archive using its installed plugin</translation>
+      <translation>インストールされたプラグインを使用してピン留めされたアーカイブをダウンロード</translation>
     </message>
     <message>
       <source>Browse page</source>
@@ -27324,7 +27324,7 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <name>self.host</name>
     <message>
       <source>Filters</source>
-      <translation type="unfinished">Filters</translation>
+      <translation>フィルタ</translation>
     </message>
   </context>
   <context>
@@ -27358,43 +27358,43 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
     <message>
       <source>Plugin filters and saved views</source>
-      <translation type="unfinished">Plugin filters and saved views</translation>
+      <translation>プラグインフィルタと保存されたビュー</translation>
     </message>
     <message>
       <source>Plugin filters</source>
-      <translation type="unfinished">Plugin filters</translation>
+      <translation>プラグインフィルタ</translation>
     </message>
     <message>
       <source>Include matches</source>
-      <translation type="unfinished">Include matches</translation>
+      <translation>一致するものを含める</translation>
     </message>
     <message>
       <source>Exclude matches</source>
-      <translation type="unfinished">Exclude matches</translation>
+      <translation>一致するものを除外</translation>
     </message>
     <message>
       <source>At most 64 saved views are supported.</source>
-      <translation type="unfinished">At most 64 saved views are supported.</translation>
+      <translation>最大 64 件の保存されたビューに対応しています。</translation>
     </message>
     <message>
       <source>Saved views</source>
-      <translation type="unfinished">Saved views</translation>
+      <translation>保存されたビュー</translation>
     </message>
     <message>
       <source>Apply</source>
-      <translation type="unfinished">Apply</translation>
+      <translation>適用</translation>
     </message>
     <message>
       <source>Delete</source>
-      <translation type="unfinished">Delete</translation>
+      <translation>削除</translation>
     </message>
     <message>
       <source>Save view</source>
-      <translation type="unfinished">Save view</translation>
+      <translation>ビューを保存</translation>
     </message>
     <message>
       <source>View name:</source>
-      <translation type="unfinished">View name:</translation>
+      <translation>表示名:</translation>
     </message>
     <message>
       <source>Save current view…</source>
