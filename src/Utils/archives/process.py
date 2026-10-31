@@ -84,7 +84,9 @@ def failure_kind(error, code=None, tool="") -> str:
     if number in (errno.EACCES, errno.EPERM) or any(value in message for value in (
             "permission denied", "access is denied", "read-only file system")):
         return "permission"
-    if Path(tool).name in {"7z", "7za", "7zz", "7zzs"}:
+    if Path(tool).name == "unrar" and code == 11:
+        return "password"
+    if Path(tool).name in {"7z", "7za", "7zz", "7zzs", "unrar"}:
         if code == 8:
             return "memory"
         if code == 7:

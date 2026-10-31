@@ -9,7 +9,7 @@ import zipfile
 from pathlib import Path
 
 from Utils.archives.identify import TAR_TYPES, identify_archive, may_be_zip
-from Utils.archives.process import failure_kind, failure_message, run_extractor, run_listing
+from Utils.archives.process import failure_kind, run_extractor, run_listing
 from .paths import WabbajackError, check_tree, relative_path
 
 MIB = 1024 * 1024
@@ -20,6 +20,19 @@ class ExtractionFailure(WabbajackError):
     def __init__(self, message, *, retryable):
         super().__init__(message)
         self.retryable = retryable
+
+
+def rar_extraction_available(stop=None):
+    if shutil.which("unrar") or shutil.which("bsdtar"):
+        return True
+    tool = next((path for name in ("7zzs", "7zz", "7z", "7za")
+                 if (path := shutil.which(name))), None)
+    if not tool:
+        return False
+    result = run_listing([tool, "i"], stop)
+    return result.returncode == 0 and any(
+        "Rar" in line.split() or "Rar5" in line.split()
+        for line in result.stdout.splitlines())
 
 
 def archive_entries(archive, stop=None):
@@ -51,26 +64,17 @@ def archive_entries(archive, stop=None):
                     raise WabbajackError("Special files are not supported in setup archives")
                 rows.append((item.name, item.size, item.isdir()))
     else:
-        tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
-        if not tool:
-            raise WabbajackError("7-Zip is required to inspect this setup archive")
-        result = run_listing([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)], stop)
-        if result.returncode:
-            detail = failure_message(tool, result.returncode,
-                                     result.stdout[-2000:] + result.stderr[-2000:])
-            raise WabbajackError(f"Cannot inspect {archive.name}: {detail}")
-        entry = {}
-        for line in [*result.stdout.splitlines(), ""]:
-            key, sep, value = line.partition(" = ")
-            if sep:
-                entry[key] = value
-            elif not line.strip() and entry:
-                if entry.get("Symbolic Link") or entry.get("Hard Link") or entry.get("Encrypted") == "+":
-                    raise WabbajackError("Links and encrypted files are not supported in setup archives")
-                if "Path" in entry:
-                    rows.append((entry["Path"], int(entry.get("Size") or 0),
-                                 entry.get("Folder") == "+" or entry.get("Attributes", "").startswith("D")))
-                entry = {}
+        from Utils.archives.listing import list_archive
+        try:
+            entries = list_archive(archive, stop)
+        except RuntimeError as exc:
+            raise WabbajackError(str(exc)) from exc
+        for item in entries:
+            if item.is_link or item.encrypted:
+                raise WabbajackError("Links and encrypted files are not supported in setup archives")
+            if item.size is None and not item.is_dir:
+                raise WabbajackError(f"Unknown archive member size: {item.path}")
+            rows.append((item.path, item.size or 0, item.is_dir))
     found = {}
     for raw, size, directory in rows:
         if stop is not None and stop.is_set():
@@ -86,6 +90,39 @@ def archive_entries(archive, stop=None):
             raise WabbajackError(f"Conflicting Windows paths in archive: {name}")
         found[name.casefold()] = name, size, directory
     return list(found.values())
+
+
+def extract_rar_fallback(archive, target, stop, log, budget=None, progress=None,
+                         *, members=None, resources=None, cpu_threads=None):
+    from contextlib import nullcontext
+    from Utils.mods.install import _extract_archive
+    from .paths import within
+    entries = archive_entries(archive, stop)
+    files = {name.casefold(): (name, size) for name, size, directory in entries if not directory}
+    missing = members - files.keys() if members is not None else set()
+    if missing:
+        raise WabbajackError(f"Archive {archive.name} is missing requested member: {min(missing)}")
+    total = sum(size for _, size in files.values())
+    if budget:
+        budget(total)
+    log(f"RAR fallback: extracting {archive.name} with full-archive space reserved.")
+    errors = []
+    with resources(256 * MIB, total) if resources else nullcontext():
+        if not _extract_archive(str(archive), str(target), log, stop, errors,
+                                progress_cb=(lambda pct: progress(pct, 100)) if progress else None,
+                                cpu_threads=cpu_threads,
+                                finalize=lambda folder: finish_extraction(folder, stop, log)):
+            if stop.is_set():
+                raise InterruptedError("Installation stopped")
+            raise WabbajackError(
+                f"RAR extraction failed: {archive.name}: {'; '.join(errors)}. "
+                "Install RAR-capable 7-Zip, unrar or bsdtar and ensure it is on Amethyst's PATH.")
+        for name, size in files.values():
+            if stop.is_set():
+                raise InterruptedError("Installation stopped")
+            path = within(target, name)
+            if not path.is_file() or path.stat().st_size != size:
+                raise WabbajackError(f"RAR extraction produced a missing or incomplete member: {name}")
 
 
 def extract_selected(tool, archive, target, names, stop, log, progress=None,

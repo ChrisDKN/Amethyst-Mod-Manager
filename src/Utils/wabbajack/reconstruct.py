@@ -20,8 +20,8 @@ from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 from Utils.atomic_write import atomic_writer
-from Utils.archives.identify import TAR_TYPES, identify_archive, may_be_zip
-from Utils.archives.process import failure_message, run_listing
+from Utils.archives.identify import ArchiveType, TAR_TYPES, identify_archive, may_be_zip
+from Utils.archives.process import failure_kind, failure_message, run_listing
 from .archive_build import rebuild_archive
 from .archive_io import utf8_chunks
 from .hashes import XXHash, canonical_hash, file_hash
@@ -380,15 +380,27 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
              elapsed_seconds=round(time.monotonic() - started, 3))
         return
     tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
+    def rar_fallback():
+        from .extraction import extract_rar_fallback
+        emit(log, "extract.rar.fallback", archive=archive, target=target)
+        extract_rar_fallback(archive, target, stop, log, budget, progress,
+                             members=members, resources=resources, cpu_threads=cpu_threads)
+        emit(log, "extract.completed", dev_only=True, archive=archive, target=target,
+             format="rar-fallback", elapsed_seconds=round(time.monotonic() - started, 3))
     if not tool:
+        if archive_type == ArchiveType.RAR:
+            return rar_fallback()
         raise WabbajackError("7-Zip is required to inspect and extract this archive")
     result = run_listing([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)], stop)
     emit(log, "extract.7zip.inspect", dev_only=True, archive=archive, tool=tool,
          exit_code=result.returncode, stdout_tail=result.stdout[-2000:],
          stderr_tail=result.stderr[-2000:])
     if result.returncode:
+        output = result.stdout[-2000:] + result.stderr[-2000:]
+        if archive_type == ArchiveType.RAR and failure_kind(output, result.returncode, tool) == "archive":
+            return rar_fallback()
         detail = failure_message(tool, result.returncode,
-                                 result.stdout[-2000:] + result.stderr[-2000:])
+                                 output)
         raise WabbajackError(f"Cannot inspect archive: {archive.name}: {detail}")
     entries, entry = [], {}
     for line in result.stdout.splitlines():

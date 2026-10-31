@@ -25,6 +25,7 @@ let
     ps.pyside6
     ps.requests
     ps.py7zr
+    ps.rarfile
     ps.pillow
     ps.lz4
     ps.zstandard

@@ -1337,6 +1337,21 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             return False
     if _cancelled():
         return False
+    unrar = shutil.which("unrar") if archive_type.value == "rar" else None
+    if unrar:
+        rc, err, killed = _run_extractor_cancellable(
+            [unrar, "x", "-p-", "-o+", "--", archive_path, str(destination) + os.sep],
+            cancel, low_priority=_low_prio, priority_path=dest_dir)
+        if killed:
+            log_fn("Extraction cancelled (unrar terminated).")
+            return False
+        if rc == 0:
+            log_fn("Extracted with unrar.")
+            return _ok()
+        _note(err)
+        log_fn(f"unrar failed ({err.strip()}).")
+        if not _retry(err, rc, unrar):
+            return False
     if shutil.which("bsdtar"):
         rc, err, killed = _run_extractor_cancellable(
             ["bsdtar", "-xf", archive_path, "-C", dest_dir], cancel,

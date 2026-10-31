@@ -8,7 +8,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from Utils.archives.identify import identify_archive, may_be_zip
+from Utils.archives.identify import ArchiveType, identify_archive, may_be_zip
 
 from .archive_build import check_archive_state
 from .archive_io import utf8_chunks
@@ -892,9 +892,15 @@ def _preflight(request, stop, notify, log=None):
             key, members = archive_paths[d.index]
             if members:
                 archive_names.extend([package.archives[key].name, *members[:-1]])
-    if any(not name.lower().endswith((".zip", ".bsa", ".ba2", ".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2")) for name in archive_names):
+    if any(not name.lower().endswith((".rar", ".zip", ".bsa", ".ba2", ".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2")) for name in archive_names):
         if not any(shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za")):
             check("error", "Archive extraction", "Install 7-Zip to extract the required source archives")
+    if any(name.lower().endswith(".rar") for name in archive_names):
+        from .extraction import rar_extraction_available
+        if not rar_extraction_available(stop):
+            check("error", "Archive extraction",
+                  "RAR decoding is unavailable. Install RAR-capable 7-Zip, unrar or bsdtar "
+                  "and ensure it is on Amethyst's PATH. Some distribution builds of 7-Zip omit RAR support.")
     devices = {}
     notify("Calculating disk space")
     reused_bytes = sum(d.size for d in package.directives if d.path in reusable)
@@ -955,7 +961,16 @@ def _preflight(request, stop, notify, log=None):
         estimate = max(outputs, archive.size * 3)
         cached = report.cached.get(key, report.game_files.get(key))
         try:
-            if cached and may_be_zip(cached, identify_archive(cached)):
+            kind = identify_archive(cached) if cached else None
+            if kind == ArchiveType.RAR:
+                from .extraction import archive_entries
+                entries = archive_entries(cached, stop)
+                estimate = sum(size for _, size, directory in entries if not directory)
+                if key in nested_outputs:
+                    packed = sum(size for name, size, directory in entries
+                                 if not directory and name.casefold() in nested_members[key])
+                    estimate += max(nested_outputs[key], packed * 3)
+            elif cached and may_be_zip(cached, kind):
                 with zipfile.ZipFile(cached) as source:
                     selected = [i for i in source.infolist()
                                 if i.filename.replace("\\", "/").casefold() in selected_members[key]]
@@ -969,6 +984,8 @@ def _preflight(request, stop, notify, log=None):
                     if any(i.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA} for i in selected):
                         if not any(shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za")):
                             check("error", "Archive extraction", f"Install 7-Zip to decode the ZIP compression used by {archive.name}")
+        except WabbajackError as exc:
+            check("error", "Archive extraction", f"Cannot inspect {archive.name}: {exc}")
         except zipfile.BadZipFile as exc:
             emit_exception(log, "preflight.space.archive_probe.failed", exc,
                            archive=archive.name, path=cached,
