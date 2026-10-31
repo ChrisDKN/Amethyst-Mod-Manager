@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 import os
@@ -169,7 +171,7 @@ def _inspect(game, profile, request, control, log, progress):
             row["unpack_groups"] = [{**asdict(group), "archives": [path.name for path in group.archives]}
                                     for group in pack.collect_unpack_groups(staging / candidate.mod_name)]
             rows.append(row)
-        result = {"game": str(game.game_id), "profile": profile.name, "kind": kind,
+        result = {"game": str(instance_id(game)), "profile": profile.name, "kind": kind,
                   "candidates": rows, "options": {"compress": True, "delete_loose": False,
                                                    "skip_winners": True, "split_textures": False}}
         if request is None:
@@ -425,7 +427,7 @@ def apply_runner(game, profile, request, revision, control):
                 error.details.update(state_persisted=True, attempted_mods=attempted,
                                      outcomes=outcomes, synced_profiles=synced)
             raise error from exc
-        result = {"game": str(game.game_id), "profile": profile.name, "action": request["action"],
+        result = {"game": str(instance_id(game)), "profile": profile.name, "action": request["action"],
                   "outcomes": outcomes, "synced_profiles": synced, "state_persisted": bool(attempted),
                   "counts": {status: sum(row["status"] == status for row in outcomes)
                              for status in ("success", "failed", "cancelled", "skipped")}}

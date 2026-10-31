@@ -22,7 +22,7 @@ class PluginWizard(QWidget):
             self.module = _Module(replace(plugin, entrypoint=wizard.entrypoint))
             snapshot = self.context.snapshot()
             snapshot.update(wizard_id=wizard.id, log=log)
-            target = snapshot["game_id"], snapshot["profile"]
+            target = snapshot.get("instance_id", snapshot["game_id"]), snapshot["profile"]
             self.view = self.module.module.create_wizard(snapshot, self, self.finish)
             if (not isinstance(self.view, QWidget) or self.view.isWindow()
                     or not self.isAncestorOf(self.view) or not callable(getattr(self.view, "dispose", None))):

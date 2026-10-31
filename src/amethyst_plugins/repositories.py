@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import configparser
 from copy import deepcopy
 import hashlib
@@ -80,7 +82,7 @@ def callback(game, plugin, provider, method, fields, log, control=None, *, optio
             raise ValueError(f"The repository must export {method}(context).")
         context = {"api_version": 1, "plugin_id": plugin.id, "provider_id": provider.id,
                    "plugin_dir": str(plugin_directory(plugin)), "settings": deepcopy(signature[2]), "data": deepcopy(signature[3]),
-                   "game_id": game.game_id, "game": game.name, **deepcopy(fields),
+                   "game_id": game.game_id, "instance_id": game_instance_id(game), "game": game.name, **deepcopy(fields),
                    "log": lambda message: log(f"{plugin.name}: {message}"), "check_cancelled": lambda: _check(control)}
         result = function(context)
         raw = json.dumps(result, max_bytes=1024 * 1024, ensure_ascii=True)

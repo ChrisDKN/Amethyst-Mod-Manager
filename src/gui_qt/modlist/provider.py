@@ -95,7 +95,7 @@ class ProviderOverlay(OverlayBase):
             from amethyst_backend.service import AmethystService
             service = None
             try:
-                service = AmethystService({self.game.game_id: self.game})
+                service = AmethystService({self.game.instance_id: self.game})
                 result = function(service)
             except Exception as exc:
                 result = exc
@@ -124,19 +124,19 @@ class ProviderOverlay(OverlayBase):
 
     def _load(self, service):
         if self.mods is not None:
-            return self._wait(service, "mods.quick_update.plan.start", {"game": self.game.game_id,
+            return self._wait(service, "mods.quick_update.plan.start", {"game": self.game.instance_id,
                               "profile": self.profile, "source": "plugins", "mods": self.mods})
         if self.mod:
             from amethyst_plugins.repositories import installed, source_key
-            properties = self._wait(service, "mods.properties.get", {"game": self.game.game_id, "profile": self.profile, "mod": self.mod})["properties"]
+            properties = self._wait(service, "mods.properties.get", {"game": self.game.instance_id, "profile": self.profile, "mod": self.mod})["properties"]
             record = installed(properties["path"])
             if record is None:
                 raise ValueError("This mod has no provider identity.")
-            return self._wait(service, "mods.versions.get.start", {"game": self.game.game_id, "profile": self.profile,
+            return self._wait(service, "mods.versions.get.start", {"game": self.game.instance_id, "profile": self.profile,
                               "mod": self.mod, "source": source_key(record)})
         roots = [{"plugin_id": self.plugin.id, "provider_id": self.provider_id, "source": self.source}]
-        graph = self._wait(service, "manager_plugins.dependencies.get.start", {"game": self.game.game_id, "items": roots})
-        plans = [{"request": row, "artifact": self._wait(service, "manager_plugins.download.resolve.start", {"game": self.game.game_id, **row})}
+        graph = self._wait(service, "manager_plugins.dependencies.get.start", {"game": self.game.instance_id, "items": roots})
+        plans = [{"request": row, "artifact": self._wait(service, "manager_plugins.download.resolve.start", {"game": self.game.instance_id, **row})}
                  for row in graph["items"]]
         return {"roots": roots, "dependency_revision": graph["revision"], "items": plans}
 
@@ -182,11 +182,11 @@ class ProviderOverlay(OverlayBase):
             return
         self.changed = True
         if self.mods is not None:
-            params = {"game": self.game.game_id, "profile": self.profile, "source": "plugins",
+            params = {"game": self.game.instance_id, "profile": self.profile, "source": "plugins",
                       "mods": self.mods, "revision": self.plan["revision"], "confirm": True}
             self._run(lambda service: self._wait(service, "mods.quick_update.start", params), self._installed)
         elif self.mod:
-            params = {"game": self.game.game_id, "profile": self.profile, "mod": self.mod, "source": self.catalog["source"],
+            params = {"game": self.game.instance_id, "profile": self.profile, "mod": self.mod, "source": self.catalog["source"],
                       "revision": self.catalog["revision"], "catalogue_revision": self.catalog["catalogue_revision"],
                       "version": self.versions.currentData(), "confirm": True}
             self._run(lambda service: self._wait(service, "mods.version.change.start", params), self._installed)
@@ -197,7 +197,7 @@ class ProviderOverlay(OverlayBase):
         from amethyst_plugins.client import provider_install_steps
         from amethyst_plugins.workflows import arguments
         results = []
-        for step in provider_install_steps(self.game.game_id, self.profile, self.plan):
+        for step in provider_install_steps(self.game.instance_id, self.profile, self.plan):
             if self.stop.is_set():
                 raise ValueError("Provider installation cancelled; completed operations were retained.")
             result = self._wait(service, step["method"], arguments(step["params"], results))
@@ -215,7 +215,7 @@ class ProviderOverlay(OverlayBase):
         if self.catalog is None or not self.actions.currentData():
             return
         self.changed = True
-        params = {"game": self.game.game_id, "profile": self.profile, "mod": self.mod,
+        params = {"game": self.game.instance_id, "profile": self.profile, "mod": self.mod,
                   "source": self.catalog["source"], "revision": self.catalog["revision"],
                   "catalogue_revision": self.catalog["catalogue_revision"], "action_id": self.actions.currentData(), "confirm": True}
         self._run(lambda service: self._wait(service, "manager_plugins.action.start", params), self._installed)

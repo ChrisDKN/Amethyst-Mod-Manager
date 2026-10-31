@@ -10,7 +10,8 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
                    staging_path: Path, deploy_mode: str | None,
                    runtime_mode: str | None, log, *,
                    save_path_override: Path | None = None,
-                   appimage_path: Path | None = None):
+                   appimage_path: Path | None = None,
+                   openmw_cfg_path: Path | None = None):
     from Utils.deployment import LinkMode
     from Utils.deployment.locking import game_mutation_lock
     from Utils.hardlink_check import hardlink_device_mismatches
@@ -31,6 +32,10 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
         selected._save_path_override = save_path_override
         if selected.game_id == "morrowind_openmw":
             selected._openmw_appimage_path = appimage_path
+            if openmw_cfg_path is not None:
+                selected._openmw_cfg_path = openmw_cfg_path
+        elif openmw_cfg_path is not None:
+            raise JobError("game_configuration_failed", "Only OpenMW accepts openmw_cfg_path.")
         if appimage_path is not None:
             if (selected.game_id != "morrowind_openmw"
                     or not callable(getattr(selected, "set_appimage_path", None))
@@ -131,6 +136,8 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
                                    "Hard links cannot reach every deploy target.",
                                    {"targets": mismatched})
 
+            from Utils.games.instances import validate_paths
+            validate_paths(selected)
             with game_mutation_lock(selected):
                 create_profile_structure(selected)
                 previous_profile = getattr(game, "_active_profile_dir", None)
@@ -186,6 +193,9 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
     except (JobError, OperationBusy):
         raise
     except Exception as exc:
+        from Utils.games.instances import InstanceError
+        if isinstance(exc, InstanceError):
+            raise JobError(exc.name, str(exc), exc.details) from exc
         raise JobError("game_configuration_failed",
                        str(exc) or type(exc).__name__,
                        {"exception": type(exc).__name__}) from exc

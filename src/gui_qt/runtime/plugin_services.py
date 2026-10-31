@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 from PySide6.QtCore import QFileSystemWatcher, QObject, QTimer
 from PySide6.QtWidgets import QApplication
 
@@ -118,10 +120,10 @@ class PluginContext:
             "plugin_dir": str(plugin_directory(self.plugin)),
             "settings_path": str(settings_path(self.plugin)),
             "data_path": str(self.data_path()),
-            "game": game.name if game else "", "game_id": game.game_id if game else "",
+            "game": game.name if game else "", "game_id": game.game_id if game else "", "instance_id": game_instance_id(game) if game else "",
             "profile": host._gs.profile, "settings": load_settings(self.plugin),
             "configured_games": sorted(
-                ({"id": g.game_id, "name": g.name} for g in _GAMES.values()
+                ({"id": game_instance_id(g), "handler_id": g.game_id, "name": g.name} for g in _GAMES.values()
                  if g.is_configured()), key=lambda g: (g["name"].casefold(), g["id"])),
             "data": self.load_data(), "save_data": self.save_data,
             "api_call": self.api_call,

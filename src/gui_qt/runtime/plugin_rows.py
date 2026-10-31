@@ -6,6 +6,7 @@ import weakref
 from PySide6.QtCore import QObject, QThread, QTimer
 from PySide6.QtWidgets import QApplication, QMenu
 
+from Utils.games.instances import instance_id as game_instance_id
 from amethyst_plugins.i18n import translate
 from gui_qt.modlist.external import ExternalModEntry, external
 
@@ -21,7 +22,7 @@ class PluginRows(QObject):
 
     def current_target(self):
         state = self.controller.host._gs
-        return (state.game.game_id if state.game else '', state.profile)
+        return (game_instance_id(state.game) if state.game else '', state.profile)
 
     def update(self, plugins):
         target = self.current_target()

@@ -389,6 +389,12 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
     # Paths
     # -----------------------------------------------------------------------
 
+    def get_instance_write_targets(self):
+        targets = super().get_instance_write_targets()
+        if self.get_game_path():
+            targets.append(("DFU user data", _mods_json().persistent_data_dir(self.get_game_path())))
+        return targets
+
     def get_game_path(self) -> Path | None:
         return self._game_path
 

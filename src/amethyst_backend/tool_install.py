@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import copy
 import hashlib
 import json
@@ -228,7 +230,7 @@ def plan(game, profile, tool_id, version_index, version, catalogue_revision,
     target, label, mod_name, records, overwritten, existing_entries = _destination_state(
         selected, payload, mode, cancel, source_mod_id)
     snapshot = {
-        "game_id": str(selected.game_id), "profile": profile.name,
+        "game_id": str(instance_id(selected)), "profile": profile.name,
         "tool_id": tool_id, "version_index": version_index,
         "catalogue_revision": catalogue_revision,
         "archive": str(archive), "archive_identity": archive_identity,
@@ -245,7 +247,7 @@ def plan(game, profile, tool_id, version_index, version, catalogue_revision,
     }
     revision = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
     return {
-        "revision": revision, "game": str(selected.game_id), "profile": profile.name,
+        "revision": revision, "game": str(instance_id(selected)), "profile": profile.name,
         "tool_id": tool_id, "version_index": version_index,
         "version": version["label"], "mode": mode,
         "archive": {"path": str(archive), "name": archive.name,
@@ -376,7 +378,7 @@ def install_runner(game, profile, tool_id, version_index, version,
                            {"reason": str(exc), "restore_attempted": restore_started,
                             "state_persisted": restore_started}) from exc
         progress(1, 1, "install_tool")
-        return {"ok": True, "game": str(game.game_id), "profile": profile.name,
+        return {"ok": True, "game": str(instance_id(game)), "profile": profile.name,
                 "tool_id": tool_id, "version_index": version_index,
                 "archive": {"path": str(archive), "retained": True},
                 "destination": {"label": label, "mod_name": name},

@@ -56,7 +56,7 @@ def _path_resource(value: Any) -> str | None:
 
 
 def _operation_resources(game: Any) -> list[str]:
-    game_id = str(getattr(game, "game_id", "") or "").strip()
+    game_id = str(getattr(game, "instance_id", getattr(game, "game_id", "")) or "").strip()
     game_name = str(getattr(game, "name", "") or "").strip()
     resources = {
         f"game:{(game_id or game_name).casefold()}",
@@ -131,6 +131,7 @@ class OperationLease:
         self.resources = _operation_resources(game)
         self._files: list[tuple[int, str]] = []
         self._process_acquired = False
+        self._registry_context = None
 
     def acquire(self) -> "OperationLease":
         global _PROCESS_HOLDER
@@ -139,7 +140,7 @@ class OperationLease:
             "pid": os.getpid(),
             "operation": self.operation,
             "owner": self.owner,
-            "game_id": str(getattr(self.game, "game_id", "") or ""),
+            "game_id": str(getattr(self.game, "instance_id", getattr(self.game, "game_id", "")) or ""),
             "game_name": str(getattr(self.game, "name", "") or ""),
             "started_at": _utc_now(),
             "resources": self.resources,
@@ -158,6 +159,9 @@ class OperationLease:
             _PROCESS_HOLDER = metadata
 
         try:
+            from Utils.games.instances import registry_lock
+            self._registry_context = registry_lock()
+            self._registry_context.__enter__()
             directory = _lock_dir()
             flags = os.O_RDWR | os.O_CREAT
             flags |= getattr(os, "O_CLOEXEC", 0)
@@ -219,6 +223,9 @@ class OperationLease:
             except OSError:
                 pass
         self._files.clear()
+        if self._registry_context is not None:
+            context, self._registry_context = self._registry_context, None
+            context.__exit__(None, None, None)
         if self._process_acquired:
             with _PROCESS_STATE_LOCK:
                 _PROCESS_HOLDER = None
@@ -237,11 +244,13 @@ class ResourceLease:
         *,
         owner: str | None = None,
         cancel: Any = None,
+        blocking: bool = True,
     ):
         self.resource = resource
         self.operation = operation
         self.owner = owner or operation
         self.cancel = cancel
+        self.blocking = blocking
         self._fd: int | None = None
 
     def _cancelled(self) -> bool:
@@ -270,6 +279,11 @@ class ResourceLease:
                 except OSError as exc:
                     if exc.errno not in (errno.EACCES, errno.EAGAIN):
                         raise
+                    if not self.blocking:
+                        raise OperationBusy({"requested_operation": self.operation,
+                                             "requested_owner": self.owner,
+                                             "resource": self.resource,
+                                             "holder": _read_metadata(fd)}) from exc
                     if self.cancel is not None:
                         self.cancel.wait(0.1)
                     else:
@@ -329,6 +343,7 @@ def acquire_resource_operation(
     *,
     owner: str | None = None,
     cancel: Any = None,
+    blocking: bool = True,
 ) -> ResourceLease:
     return ResourceLease(
-        resource, operation, owner=owner, cancel=cancel)
+        resource, operation, owner=owner, cancel=cancel, blocking=blocking)

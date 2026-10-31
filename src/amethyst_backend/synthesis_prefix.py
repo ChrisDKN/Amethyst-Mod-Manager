@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 import os
@@ -81,7 +83,7 @@ def _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel):
     pids = prefix_usage(prefix)
     components = {name: dotnet_present(prefix, name) for name in (
         "dotnet10_sdk", "dotnet10_desktop", "dotnet8_desktop", "dotnet7_desktop", "dotnet6_desktop")}
-    snapshot = {"game": str(game.game_id), "profile": str(profile), "tool_id": tool_id,
+    snapshot = {"game": str(instance_id(game)), "profile": str(profile), "tool_id": tool_id,
                 "catalogue_revision": catalogue_revision, "choice": choice, "request": request,
                 "configuration": configuration, "exe": [str(exe), _identity(exe)], "sources": sources,
                 "game_path": _directory(selected.get_game_path()), "prefix": str(prefix), "prefix_state": state}
@@ -89,7 +91,7 @@ def _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel):
         raise JobError("stale_synthesis_prefix", "The Synthesis configuration changed during planning.")
     _cancel(cancel)
     return {"revision": hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest(),
-            "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id,
+            "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
             "application_path": str(exe.parent), "prefix_path": str(prefix), "proton_name": script.parent.name,
             "runner_path": str(script), "wine_path": str(wine), "components": components,
             "initialized": (prefix / "drive_c").is_dir() and all((prefix / name).is_file() for name in ("system.reg", "user.reg")),
@@ -193,7 +195,7 @@ def setup_runner(game, profile, tool_id, catalogue_revision, choice, request, re
                                     on_initialized=initialized, on_settings_saved=settings_saved,
                                     final_check=final_check, cleanup_check=cleanup_check,
                                     save_settings=initial["save_settings"], log_fn=log, progress_fn=progress)
-            return {**result, "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id,
+            return {**result, "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
                     "proton_name": initial["proton_name"], "runner_path": initial["runner_path"]}
         except SynthesisSetupCancelled as exc:
             raise JobCancelled(str(exc), exc.details) from exc

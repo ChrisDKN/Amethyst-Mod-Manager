@@ -219,8 +219,10 @@ class CacheManagerOverlay(OverlayBase):
 
         for idx, game_dir in enumerate(games):
             name = game_dir.name
-            active = (name == self._active)
-            label = self.tr("{0}  (active)").format(name) if active else self._label_for(name)
+            active = bool(self._active and (get_download_cache_dir() / self._active).resolve() == game_dir.resolve())
+            label = self._label_for(name)
+            if active:
+                label = self.tr("{0}  (active)").format(label)
             color = _c(p, "TEXT_OK_BRIGHT") if active else _c(p, "TEXT_MAIN")
             self._add_row(idx, name, label, color)
 
@@ -390,6 +392,13 @@ class CacheManagerOverlay(OverlayBase):
             return self.tr("Application downloads and tools")
         if key == "wabbajack":
             return self.tr("Wabbajack gallery and packages")
+        if key not in {_WABBAJACK, _ORPHANS}:
+            root = get_download_cache_dir()
+            target = (root / key).resolve()
+            shared = sorted(path.name for path in root.iterdir()
+                            if path.is_symlink() and path.resolve() == target)
+            if shared:
+                return self.tr("{0} (shared with {1})").format(key, ", ".join(shared))
         return "Wabbajack jobs and update backups" if key == _WABBAJACK else "Leftover temp folders" if key == _ORPHANS else key
 
     def _on_clear_selected(self):

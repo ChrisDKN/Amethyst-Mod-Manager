@@ -121,8 +121,12 @@ class AmethystService:
                     "active_job_id": active["id"],
                 }}
         from Utils.profiles.state import read_only_profile_state
-        with read_only_profile_state():
-            result = handler(params)
+        from Utils.games.instances import InstanceError
+        try:
+            with read_only_profile_state():
+                result = handler(params)
+        except InstanceError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
         if cache_key is not None:
             from .jobs import _utc_now
             captured_at = _utc_now()
@@ -1106,6 +1110,7 @@ class AmethystService:
             "loverslab.credentials.clear", None, None, None, runner=clear_loverslab)}
 
     def _custom_game(self, method, params):
+        from Utils.games.instances import InstanceError
         from Games.Custom.custom_game import (
             decode_custom_game_definition, encode_custom_game_definition,
             load_builtin_game_templates,
@@ -1135,6 +1140,12 @@ class AmethystService:
                     return {"code": encode_custom_game_definition(definition)}
                 return {"definition": definition}
             game = self._resolve_game(self._required_text(params, "game")) if "game" in params else None
+            if game is not None and getattr(game, "is_instance", False):
+                game = next((candidate for candidate in self._games.values()
+                             if not getattr(candidate, "is_instance", False)
+                             and candidate.game_id == game.game_id), None)
+                if game is None:
+                    raise JobError("instance_handler_unavailable", "Enable the original handler before editing it.")
             if method == "games.custom.get":
                 return get_definition(game.game_id)
             if game is not None:
@@ -1155,7 +1166,7 @@ class AmethystService:
                 method.removesuffix(".start"), game,
                 self._canonical_game(game) if game is not None else None, None,
                 {"game_id": plan["definition"]["game_id"]}, runner=runner)}
-        except JobError as exc:
+        except (JobError, InstanceError) as exc:
             raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
         except (ValueError, TypeError, OSError) as exc:
             raise ServiceError(-32602, "invalid_custom_game", str(exc)) from exc
@@ -2129,17 +2140,21 @@ class AmethystService:
             "launchers.entries.list" if action == "list" else f"launchers.entry.{action}",
             None, None, None, runner=runner, cancel=cancelled.set)}
 
-    def _start_configure_game(self, params: dict[str, Any]) -> dict[str, Any]:
+    def _start_configure_game(self, params: dict[str, Any], *, duplicate=False) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
             params,
             {"game", "game_path", "prefix_path", "staging_path",
              "save_path_override", "appimage_path", "deploy_mode",
-             "runtime_mode"},
-            {"game", "game_path"},
+             "runtime_mode", "openmw_cfg_path"} | ({"name"} if duplicate else set()),
+            {"game", "game_path"} | ({"name"} if duplicate else set()),
         )
         game = self._resolve_game(self._required_text(params, "game"))
-        self._require_no_managed_launch(game)
+        if duplicate:
+            from Utils.games.instances import draft_instance
+            game = draft_instance(game, self._required_text(params, "name"), self._games)
+        else:
+            self._require_no_managed_launch(game)
 
         def absolute_path(name: str, required: bool = False) -> Path | None:
             if name not in params and not required:
@@ -2156,6 +2171,7 @@ class AmethystService:
         staging_path = absolute_path("staging_path")
         save_path_override = absolute_path("save_path_override")
         appimage_path = absolute_path("appimage_path")
+        openmw_cfg_path = absolute_path("openmw_cfg_path")
         if staging_path is None:
             from Utils.config_paths import get_default_game_staging_root
             staging_path = get_default_game_staging_root(game.name)
@@ -2171,13 +2187,22 @@ class AmethystService:
                                "'runtime_mode' must be native or proton.",
                                {"parameter": "runtime_mode"})
         from .game_configuration import configure_game
+        if duplicate:
+            from .game_instances import create_instance
+            job = self._jobs.submit(
+                "games.instances.create", game, self._canonical_game(game), None,
+                runner=lambda log, progress: create_instance(
+                    game, game_path, prefix_path, staging_path, deploy_mode, runtime_mode, log,
+                    games=self._games, save_path_override=save_path_override,
+                    appimage_path=appimage_path, openmw_cfg_path=openmw_cfg_path))
+            return {"job": job}
         job = self._jobs.submit(
             "games.configure", game, self._canonical_game(game), None,
             runner=lambda log, progress: configure_game(
                 game, game_path, prefix_path, staging_path,
                 deploy_mode, runtime_mode, log,
                 save_path_override=save_path_override,
-                appimage_path=appimage_path),
+                appimage_path=appimage_path, openmw_cfg_path=openmw_cfg_path),
         )
         return {"job": job}
 
@@ -2185,7 +2210,7 @@ class AmethystService:
     def _reconfigure_changes(params: dict[str, Any]) -> dict[str, Any]:
         changes: dict[str, Any] = {}
         for key in ("game_path", "prefix_path", "staging_path",
-                    "save_path_override", "appimage_path"):
+                    "save_path_override", "appimage_path", "openmw_cfg_path"):
             if key not in params:
                 continue
             value = params[key]
@@ -2221,7 +2246,7 @@ class AmethystService:
         self._require_idle_state()
         self._check_params(
             params, {"game", "profile", "game_path", "prefix_path",
-                     "staging_path", "save_path_override", "appimage_path",
+                     "staging_path", "save_path_override", "appimage_path", "openmw_cfg_path",
                      "deploy_mode", "runtime_mode"},
             {"game", "profile"})
         game = self._resolve_game(self._required_text(params, "game"))
@@ -2241,7 +2266,7 @@ class AmethystService:
         self._require_idle_state()
         self._check_params(
             params, {"game", "profile", "game_path", "prefix_path",
-                     "staging_path", "save_path_override", "appimage_path",
+                     "staging_path", "save_path_override", "appimage_path", "openmw_cfg_path",
                      "deploy_mode", "runtime_mode", "revision",
                      "migrate_staging", "confirm"},
             {"game", "profile", "revision", "confirm"})
@@ -8271,39 +8296,13 @@ class AmethystService:
         )
 
     def _resolve_game(self, key: str) -> Any:
-        folded = key.casefold()
-        by_id = None
-        by_steam: list[Any] = []
-        for name, game in self._games.items():
-            if name.casefold() == folded:
-                return game
-            game_id = str(self._safe_attr(game, "game_id", "") or "")
-            if by_id is None and game_id.casefold() == folded:
-                by_id = game
-            if folded in {
-                    app_id.casefold() for app_id in self._steam_app_ids(game)}:
-                by_steam.append(game)
-        if by_id is not None:
-            return by_id
-        if len(by_steam) == 1:
-            return by_steam[0]
-        if len(by_steam) > 1:
-            configured = [
-                game for game in by_steam
-                if bool(self._safe_call(game, "is_configured", False))
-            ]
-            if len(configured) == 1:
-                return configured[0]
-            raise ServiceError(
-                -32004,
-                "ambiguous_game",
-                f"Game identifier '{key}' matches more than one game.",
-                {
-                    "game": key,
-                    "matches": [self._canonical_game(game)
-                                for game in by_steam],
-                },
-            )
+        from Utils.games.instances import InstanceError, resolve_game
+        try:
+            game = resolve_game(self._games, key)
+        except InstanceError as exc:
+            raise ServiceError(-32004, exc.name, str(exc), exc.details) from exc
+        if game is not None:
+            return game
         raise ServiceError(
             -32001,
             "game_not_found",
@@ -8387,6 +8386,7 @@ class AmethystService:
             ) from exc
 
     def _game_summary(self, game: Any) -> dict[str, Any]:
+        from Utils.games.instances import can_duplicate
         configured = bool(self._safe_call(game, "is_configured", False))
         nexus_domains = self._safe_attr(game, "nexus_game_domains", ()) or ()
         if isinstance(nexus_domains, str):
@@ -8397,6 +8397,9 @@ class AmethystService:
         plugin_extensions = self._safe_attr(game, "plugin_extensions", ()) or ()
         return {
             **self._canonical_game(game),
+            "handler_id": str(self._safe_attr(game, "game_id", "")),
+            "is_instance": bool(self._safe_attr(game, "is_instance", False)),
+            "unavailable_reason": self._safe_attr(game, "unavailable_reason", None),
             "configured": configured,
             "game_path": self._path_text(
                 self._safe_call(game, "get_game_path", None)),
@@ -8417,6 +8420,7 @@ class AmethystService:
             "deploy_active": bool(
                 self._safe_call(game, "get_deploy_active", False)),
             "features": {
+                "duplicate_instance": can_duplicate(game),
                 "deploy": callable(self._safe_attr(game, "deploy", None)),
                 "restore": callable(self._safe_attr(game, "restore", None)),
                 "launch": configured,
@@ -8676,7 +8680,7 @@ class AmethystService:
 
     def _canonical_game(self, game: Any) -> dict[str, str]:
         return {
-            "id": str(self._safe_attr(game, "game_id", "") or ""),
+            "id": str(self._safe_attr(game, "instance_id", self._safe_attr(game, "game_id", "")) or ""),
             "name": str(self._safe_attr(game, "name", "") or ""),
         }
 

@@ -13,7 +13,7 @@ Usage:
     python cli.py export-filemap <game> <profile_name> [--output-dir DIR] [--refresh]
     python cli.py headless --stdio
 
-<game> can be the game's game_id (e.g. 'skyrim_se'), its full display name
+<game> can be an instance ID (e.g. 'skyrim_se' or 'skyrim_se_gog'), its display name
 (e.g. 'Skyrim Special Edition'), or a Steam app ID.  Matching is
 case-insensitive.
 """
@@ -33,23 +33,11 @@ def _setup_path():
 
 
 def _find_game(games: dict, key: str):
-    """Return a game instance matching key by name, game_id, or Steam app ID (case-insensitive)."""
-    key_lower = key.lower()
-    # Single pass; name match wins over game_id, which wins over Steam ID.
-    by_game_id = None
-    by_steam_id = None
-    for name, game in games.items():
-        if name.lower() == key_lower:
-            return game
-        if by_game_id is None and getattr(game, "game_id", "").lower() == key_lower:
-            by_game_id = game
-        if by_steam_id is None:
-            sid = getattr(game, "steam_id", "")
-            alt_ids = getattr(game, "alt_steam_ids", [])
-            if key_lower == str(sid).lower() or any(
-                    key_lower == str(a).lower() for a in alt_ids):
-                by_steam_id = game
-    return by_game_id if by_game_id is not None else by_steam_id
+    from Utils.games.instances import InstanceError, resolve_game
+    try:
+        return resolve_game(games, key)
+    except InstanceError as exc:
+        raise SystemExit(f"Error: {exc}") from exc
 
 
 def _log(msg: str):
@@ -61,11 +49,11 @@ def cmd_list_games(games: dict):
     if not games:
         print("No games discovered.")
         return
-    print(f"{'Game Name':<40} {'game_id':<30} {'Configured'}")
+    print(f"{'Game Name':<40} {'instance_id':<30} {'Configured'}")
     print("-" * 80)
     for name, game in sorted(games.items()):
         configured = "yes" if game.is_configured() else "no"
-        gid = getattr(game, "game_id", "")
+        gid = getattr(game, "instance_id", getattr(game, "game_id", ""))
         print(f"{name:<40} {gid:<30} {configured}")
 
 
@@ -443,15 +431,15 @@ def main():
     subparsers.add_parser("list-games", help="List all discovered games and whether they are configured")
 
     lp = subparsers.add_parser("list-profiles", help="List profiles for a game")
-    lp.add_argument("game", help="game_id or display name (case-insensitive)")
+    lp.add_argument("game", help="instance ID or display name (case-insensitive)")
 
     dp = subparsers.add_parser("deploy", help="Build filemap and deploy mods for a profile")
-    dp.add_argument("game", help="game_id or display name (case-insensitive)")
+    dp.add_argument("game", help="instance ID or display name (case-insensitive)")
     dp.add_argument("profile", help="Profile name")
 
     gp = subparsers.add_parser(
         "launch", help="Launch through the active deployment or mod loader")
-    gp.add_argument("game", help="game_id or display name (case-insensitive)")
+    gp.add_argument("game", help="instance ID or display name (case-insensitive)")
     gp.add_argument("--profile", default=None,
                     help="Profile to deploy and launch (default: last active)")
     gp.add_argument("--no-deploy", action="store_true",
@@ -460,11 +448,11 @@ def main():
         "--sandbox-bridge", action="store_true", help=argparse.SUPPRESS)
 
     rp = subparsers.add_parser("restore", help="Restore the game directory (undo last deploy)")
-    rp.add_argument("game", help="game_id or display name (case-insensitive)")
+    rp.add_argument("game", help="instance ID or display name (case-insensitive)")
 
     ep = subparsers.add_parser(
         "export-filemap", help="Export legacy maps from the filegraph catalog")
-    ep.add_argument("game", help="game_id or display name (case-insensitive)")
+    ep.add_argument("game", help="instance ID or display name (case-insensitive)")
     ep.add_argument("profile", help="Profile name")
     ep.add_argument("--output-dir", default=None,
                     help="Destination directory (default: former map directory)")

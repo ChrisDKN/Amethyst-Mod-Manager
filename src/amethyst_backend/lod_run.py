@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 import os
@@ -130,7 +132,7 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
                (Path(selected.get_effective_mod_staging_path()), selected.get_game_path() / "Data",
                 selected.get_game_path() / "Data_Core")}
     parent_identity = _identity(output.parent)
-    snapshot = {"game": str(game.game_id), "profile": str(profile), "tool_id": tool_id,
+    snapshot = {"game": str(instance_id(game)), "profile": str(profile), "tool_id": tool_id,
                 "catalogue_revision": catalogue_revision, "choice": choice, "request": request,
                 "settings": settings, "exe": [str(exe), _identity(exe)], "prefix": prefix,
                 "prefix_files": {n: _identity(Path(prefix["prefix_path"]) / n) for n in ("user.reg", "system.reg", "userdef.reg")},
@@ -141,7 +143,7 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
     if inputs != {path: _identity(Path(path)) for path in inputs}:
         raise JobError("stale_lod_run", "Profile or launch settings changed while planning.")
     return {"revision": hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest(),
-            "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id,
+            "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
             "settings": settings, "exe_path": str(exe), "prefix": prefix,
             "arguments": arguments(selected, choice, output, Path(prefix["compat_data"]), settings["launch_args"]),
             "output_path": str(output), "output_mod": {"name": name, "path": str(target),
@@ -263,5 +265,5 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
             raise JobCancelled("LOD run cancelled.") from exc
         except OSError as exc:
             raise JobError("lod_run_unavailable", "Could not read the LOD run inputs.", {"reason": str(exc)}) from exc
-        return {**result, "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id, "exe_path": str(exe)}
+        return {**result, "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id, "exe_path": str(exe)}
     return run

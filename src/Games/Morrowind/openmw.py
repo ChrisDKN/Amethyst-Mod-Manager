@@ -341,6 +341,8 @@ class OpenMW(BaseGame):
 
     @property
     def launch_toggles(self) -> list[LaunchToggle]:
+        if self.is_instance:
+            return []
         return [LaunchToggle(
             key=_SKIP_LAUNCHER_KEY,
             label="Skip the OpenMW launcher (start the game directly)",
@@ -359,7 +361,7 @@ class OpenMW(BaseGame):
     def _skip_launcher(self) -> bool:
         """True when Play should start the engine, not the OpenMW launcher."""
         from Utils.executables.launch import load_launch_toggle
-        return load_launch_toggle(self, _SKIP_LAUNCHER_KEY, default=False)
+        return self.is_instance or load_launch_toggle(self, _SKIP_LAUNCHER_KEY, default=False)
 
     @property
     def prefer_appimage(self) -> bool:
@@ -450,6 +452,12 @@ class OpenMW(BaseGame):
         return "No usable OpenMW Flatpak, AppImage, or native executable was found."
 
     def get_launch_command(self) -> list[str] | None:
+        command = self._get_launch_command()
+        if command and self.is_instance:
+            return [*command, "--replace", "config", "--config", str(self.get_openmw_cfg_path().parent)]
+        return command
+
+    def _get_launch_command(self) -> list[str] | None:
         """Return the native Linux command to launch OpenMW.
 
         Checks (in order):
@@ -477,6 +485,8 @@ class OpenMW(BaseGame):
             # manifest's default command (the launcher) runs.
             app_args = (["--command=openmw", _OPENMW_FLATPAK_ID] if skip
                         else [_OPENMW_FLATPAK_ID])
+            if self.is_instance:
+                app_args.insert(0, f"--filesystem={self.get_openmw_cfg_path().parent}")
             # Inside our own Flatpak sandbox there is no `flatpak` CLI -
             # forward the launch to the host via flatpak-spawn.
             if Path("/.flatpak-info").exists():
@@ -536,6 +546,15 @@ class OpenMW(BaseGame):
             profile_dir = (self._active_profile_dir
                            or self.get_profile_root() / "profiles" / "default")
         return Path(profile_dir) / _DEPLOYED_DIR_NAME
+
+    def get_instance_write_targets(self):
+        return [*super().get_instance_write_targets(), ("OpenMW configuration", self.get_openmw_cfg_path().parent)]
+
+    def validate_instance_configuration(self):
+        config = self.get_openmw_cfg_path()
+        if self.is_instance and (config.name != "openmw.cfg" or not config.is_file()):
+            from Utils.games.instances import InstanceError
+            raise InstanceError("instance_configuration_required", "Select an existing independent openmw.cfg file. Instance launches use the OpenMW engine directly.")
 
     def get_mod_data_path(self) -> Path | None:
         # Mods deploy outside the install; the Data tab, incremental deploy and

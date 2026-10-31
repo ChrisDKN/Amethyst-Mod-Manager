@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import hashlib
 import importlib.util
 from Utils import json_limits as json
@@ -138,7 +140,7 @@ def prepare_installer(prepared, log, progress=None, cancel=None, *, kind="plain"
             spec.loader.exec_module(module)
             context = {"api_version": 1, "plugin_id": plugin.id, "installer_id": installer.id,
                        "plugin_dir": str(plugin_directory(plugin)), "settings": settings, "data": load_data(plugin),
-                       "game_id": prepared.game.game_id, "game": prepared.game.name,
+                       "game_id": prepared.game.game_id, "instance_id": game_instance_id(prepared.game), "game": prepared.game.name,
                        "profile": prepared.profile_dir.name, "profile_path": str(prepared.profile_dir),
                        "archive_path": str(prepared.archive), "extract_dir": str(root), "mod_name": prepared.mod_name,
                        "installer_kind": kind,

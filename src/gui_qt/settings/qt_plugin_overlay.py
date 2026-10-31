@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import importlib.util
 import sys
 import uuid
@@ -37,7 +39,8 @@ class QtPluginOverlay(OverlayBase):
                            for prefix in (sys.prefix, "/app", "/usr/local", "/usr"))
             context = {
                 "api_version": 1, "plugin_id": plugin.id,
-                "game": game.name if game else "", "game_id": game.game_id if game else "", "profile": profile,
+                "game": game.name if game else "", "game_id": game.game_id if game else "",
+                "instance_id": game_instance_id(game) if game else "", "profile": profile,
                 "settings": load_settings(plugin),
                 "headless_command": [sys.executable, str(source / "cli.py"), "headless", "--stdio"],
                 "headless_documentation": next((str(p) for p in manuals if p.is_file()), None),

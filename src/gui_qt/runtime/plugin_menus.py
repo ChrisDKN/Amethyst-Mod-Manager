@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from amethyst_plugins.i18n import translate
+from Utils.games.instances import instance_id as game_instance_id
 
 import copy
 from dataclasses import replace
@@ -100,7 +101,7 @@ class PluginMenuController(QObject):
             return
         game = self.ui.host._gs.game
         source_game = getattr(source, "game", None) or getattr(source, "_game", None)
-        if source_game is not None and getattr(source_game, "game_id", game.game_id) != game.game_id:
+        if source_game is not None and game_instance_id(source_game) != game_instance_id(game):
             return
         profile = self.ui.host._gs.profile
         source_profile = getattr(source, "profile_dir", None)
@@ -133,7 +134,7 @@ class PluginMenuController(QObject):
                 action = target.addAction(translate(plugin, declaration.label).replace("&", "&&"))
                 action.triggered.connect(
                     lambda _checked=False, p=plugin, a=declaration:
-                    self.queue(menu, p, a, game.game_id, profile, context))
+                    self.queue(menu, p, a, game_instance_id(game), profile, context))
             for other, preview in previews:
                 if other.id != plugin.id:
                     continue
@@ -147,7 +148,7 @@ class PluginMenuController(QObject):
                 action = target.addAction(translate(plugin, command.label).replace("&", "&&"))
                 action.triggered.connect(
                     lambda _checked=False, p=plugin, c=command:
-                    self.ui.commands.queue(p, c, menu=menu, target=(game.game_id, profile), context=context))
+                    self.ui.commands.queue(p, c, menu=menu, target=(game_instance_id(game), profile), context=context))
         if menu.actions() and not menu.actions()[-1].isSeparator():
             menu._plugin_actions_separator = menu.addSeparator()
         menu.addMenu(group)
@@ -163,11 +164,11 @@ class PluginMenuController(QObject):
         if not self.available():
             return
         host = self.ui.host
-        if host._gs.game.game_id != game_id or host._gs.profile != profile:
+        if game_instance_id(host._gs.game) != game_id or host._gs.profile != profile:
             host._notify(self.tr("The active game or profile changed. Reopen the menu."), "warning")
             return
         try:
-            plugins, errors = discover(game_id)
+            plugins, errors = discover(host._gs.game.game_id)
             for error in errors:
                 self.ui._report(error)
             current = next((p for p in plugins if p.id == plugin.id), None)

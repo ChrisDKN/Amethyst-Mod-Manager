@@ -54,6 +54,8 @@ def _state_revision(game_id):
 
 
 def _check_editable(game):
+    from Utils.games.instances import require_handler_idle
+    require_handler_idle(game)
     from Utils.ui.config import load_dev_mode
     if not getattr(game, "is_custom", False):
         raise JobError("not_custom_game", "Only JSON custom game handlers can be edited here.")
@@ -85,7 +87,8 @@ def plan_save(games, definition, game=None):
     for other in games.values():
         if game is not None and other.game_id == game.game_id:
             continue
-        if other.game_id.casefold() == gid.casefold() or other.name.casefold() == definition["name"].casefold():
+        if (other.instance_id.casefold() == gid.casefold() or other.game_id.casefold() == gid.casefold()
+                or other.name.casefold() == definition["name"].casefold()):
             raise JobError("custom_game_exists", "The game name or ID is already in use.")
     if game is None and HandlerSources().selected_handler(gid) is not None:
         raise JobError("custom_game_exists", "This custom game already exists; edit it instead.")
@@ -224,6 +227,10 @@ def save(games, definition, revision, game, log, progress):
         if game is not None:
             games.pop(game.name, None)
         games[handler.name] = handler
+        from Utils.games.instances import handler_reference, make_instance
+        for name, sibling in list(games.items()):
+            if getattr(sibling, "is_instance", False) and handler_reference(sibling) == handler_reference(handler):
+                games[name] = make_instance(handler, sibling._instance_record)
         warnings = []
         progress(1, 2, "Caching banner image")
         try:
@@ -249,6 +256,10 @@ def remove(games, game, revision, log, progress):
             backup = _backup(store, game.game_id)
         store.delete_game(game.game_id, check=check)
         games.pop(game.name, None)
+        from Utils.games.instances import UnavailableInstance, handler_reference
+        for name, sibling in list(games.items()):
+            if getattr(sibling, "is_instance", False) and handler_reference(sibling) == handler_reference(game):
+                games[name] = UnavailableInstance(sibling._instance_record, "The original custom handler was removed. Reinstall it to use this instance.")
         image = get_custom_game_images_dir() / (game.game_id + ".png")
         image.unlink(missing_ok=True)
     log(f"Removed custom handler: {game.name}")

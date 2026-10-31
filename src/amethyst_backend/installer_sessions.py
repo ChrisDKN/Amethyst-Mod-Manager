@@ -64,7 +64,7 @@ class InstallerSessions:
 
     def _save(self, session):
         from Utils.atomic_write import atomic_writer
-        record = {"id": session["id"], "game": session["game"].game_id,
+        record = {"id": session["id"], "game": session["game"].instance_id,
                   "profile": session["profile"].name, "archive_id": session["archive_id"],
                   "archive_path": session.get("archive_path"),
                   "name": session["name"], "binding": session["binding"],

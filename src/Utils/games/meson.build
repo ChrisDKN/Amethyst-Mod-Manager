@@ -7,6 +7,7 @@ py.install_sources(
   'rdr2_load_order.py',
   'discovery.py',
   'installations.py',
+  'instances.py',
   'frameworks.py',
   'quick_configure.py',
   'registry.py',

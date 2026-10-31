@@ -16,6 +16,7 @@ py.install_sources(
   'download_settings.py',
   'fomod.py',
   'game_configuration.py',
+  'game_instances.py',
   'game_launcher.py',
   'game_options.py',
   'game_registry.py',

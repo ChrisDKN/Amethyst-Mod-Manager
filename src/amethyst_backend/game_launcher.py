@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import copy
 import hashlib
 import json
@@ -75,7 +77,7 @@ def get_launcher(game, profile: Path) -> dict:
     if identities["plugin_provider_id"] and identities["plugin_entry_id"]:
         source = "plugin"
     return {
-        "game": {"id": str(game.game_id), "name": str(game.name)},
+        "game": {"id": str(instance_id(game)), "name": str(game.name)},
         "profile": profile.name,
         "game_path": str(selected.get_game_path() or "") or None,
         "prefix_path": str(selected.get_prefix_path() or "") or None,

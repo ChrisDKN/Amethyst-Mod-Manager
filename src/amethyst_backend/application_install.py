@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 import stat
@@ -68,7 +70,7 @@ def _plan(game, profile, tool_id, catalogue_revision, choice, archive, payload, 
                 (archive.with_suffix(archive.suffix + ".tool.json"), archive.with_suffix(archive.suffix + ".nexus.json"))}
     verified = _source_identity(archive, choice.get("source_tool_id", tool_id), 0, choice, digest)
     records, overwrites = _destination_state(target, payload, cancel)
-    snapshot = {"game": str(selected.game_id), "profile": str(profile), "tool_id": tool_id,
+    snapshot = {"game": str(instance_id(selected)), "profile": str(profile), "tool_id": tool_id,
                 "catalogue_revision": catalogue_revision, "choice": choice,
                 "configuration": _configuration(selected, profile),
                 "archive": [str(archive), identity, digest, sidecars],
@@ -77,7 +79,7 @@ def _plan(game, profile, tool_id, catalogue_revision, choice, archive, payload, 
     if sidecars != {path: _token(Path(path)) for path in sidecars}:
         raise JobError("tool_archive_changed", "The installer identity changed during inspection.")
     return {"revision": hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest(),
-            "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id,
+            "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
             "archive": {"path": str(archive), "sha256": digest, "source_verified": verified is not None,
                         "source_identity": verified, "retained": True},
             "destination": {"path": str(target), "exe_path": str(target / choice["exe_name"]),
@@ -160,7 +162,7 @@ def install_runner(game, profile, tool_id, catalogue_revision, choice,
         except (OSError, ValueError, RuntimeError, zipfile.BadZipFile, tarfile.TarError) as exc:
             raise JobError(f"{family}_install_failed", "Could not install the application.", {"reason": str(exc)}) from exc
         progress(1, 1, f"install_{family}")
-        return {"ok": True, "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id,
+        return {"ok": True, "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
                 "destination": {"path": str(target), "exe_path": str(target / choice["exe_name"])},
                 "file_count": count, "archive": {"path": str(archive), "retained": True},
                 "restore_attempted": False, "needs_deployment": False}

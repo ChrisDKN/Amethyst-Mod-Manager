@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import threading
 import weakref
 from collections import deque
@@ -80,7 +82,7 @@ class PluginEvents(QObject):
             return
         host = self.controller.host
         game = host._gs.game
-        target = (game.game_id if game else "", host._gs.profile)
+        target = (game_instance_id(game) if game else "", host._gs.profile)
         if deliver and target != self.target and self.target is not None:
             self.controller.schedule_refresh()
             return

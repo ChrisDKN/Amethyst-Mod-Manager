@@ -312,7 +312,7 @@ def _load_games(timing=None) -> list[str]:
     phase_started = time.perf_counter()
     for game in _GAMES.values():
         if getattr(game, "loot_sort_enabled", False) and getattr(game, "game_id", None):
-            get_loot_game_dir(game.game_id)
+            get_loot_game_dir(game.instance_id)
     names = sorted(name for name, game in _GAMES.items() if game.is_configured())
     if timing is not None:
         timing.record("Initialize game resources and configuration state",
@@ -505,10 +505,36 @@ def _load_last_game() -> str | None:
 def _clear_game_config(game_name: str) -> None:
     """Remove this game's config from ~/.config/AmethystModManager/games/<game_name>/.
     Causes the game to show as unconfigured on next use."""
+    from Utils.games.instances import registry_lock
+    from Utils.operations import acquire_game_operation
+    with registry_lock():
+        game = _GAMES.get(game_name)
+        if game is None:
+            _clear_game_config_locked(game_name)
+        else:
+            with acquire_game_operation(game, "instance.remove_configuration"):
+                _clear_game_config_locked(game_name)
+
+
+def _clear_game_config_locked(game_name):
     game_config_dir = get_config_dir() / "games" / game_name
+    from Utils.games.instances import InstanceError
+    state = game_config_dir / "deploy_state.json"
+    game = _GAMES.get(game_name)
+    if ((state.is_file() and json.loads(state.read_text()).get("deploy_active"))
+            or (game is not None and game.get_deploy_active())):
+        raise InstanceError("game_deployed", "Restore this instance before removing its configuration.")
+    if game is not None and getattr(game, "is_instance", False):
+        from Utils.games.instances import reserve_retained_storage
+        reserve_retained_storage(game._instance_record, game.get_profile_root())
+    if (getattr(game, "is_instance", False) or (game_config_dir / "instance.json").is_file()):
+        from Utils.config_paths import remove_game_download_cache_link
+        remove_game_download_cache_link(game_name)
     if game_config_dir.is_dir():
         shutil.rmtree(game_config_dir)
-    game = _GAMES.get(game_name)
     if game is not None:
+        if getattr(game, "is_instance", False):
+            _GAMES.pop(game_name, None)
+            return
         game.set_active_profile_dir(None)
         game.load_paths()

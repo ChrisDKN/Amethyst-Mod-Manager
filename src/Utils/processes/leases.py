@@ -24,7 +24,7 @@ def save_launch(directory: Path, launch_id: str, game, resources, identity) -> P
     path = directory / f'launch-{launch_id}.json'
     record = {
         'id': launch_id, 'operation': 'launch', 'pid': os.getpid(),
-        'game_id': str(getattr(game, 'game_id', '')),
+        'game_id': str(getattr(game, 'instance_id', getattr(game, 'game_id', ''))),
         'game_name': str(getattr(game, 'name', '')),
         'resources': list(resources), 'boot_id': boot_identity(), **identity,
     }

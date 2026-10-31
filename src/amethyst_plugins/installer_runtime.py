@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import importlib.util
 from Utils import json_limits as json
 from pathlib import Path
@@ -23,7 +25,7 @@ class InstallSession:
             "api_version": 1, "plugin_id": plan.plugin.id, "installer_id": plan.installer.id,
             "plugin_dir": str(plugin_directory(plan.plugin)),
             "settings": load_settings(plan.plugin), "data": load_data(plan.plugin),
-            "game_id": prepared.game.game_id, "game": prepared.game.name,
+            "game_id": prepared.game.game_id, "instance_id": game_instance_id(prepared.game), "game": prepared.game.name,
             "game_handler": prepared.game, "profile": prepared.profile_dir.name,
             "profile_path": str(prepared.profile_dir), "mod_name": prepared.mod_name,
             "archive_path": str(prepared.archive), "extract_dir": str(plan.root),

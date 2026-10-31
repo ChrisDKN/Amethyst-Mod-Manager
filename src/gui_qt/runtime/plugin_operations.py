@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import weakref
 from dataclasses import dataclass
 
@@ -34,7 +36,7 @@ class PluginOperations(QObject):
 
     def target(self):
         state = self.controller.host._gs
-        return (state.game.game_id if state.game else "", state.profile, str(state.profile_dir()))
+        return (game_instance_id(state.game) if state.game else "", state.profile, str(state.profile_dir()))
 
     def submit(self, owner, plugin, steps, callback, *, title="Apply plugin changes?",
                summary="Run the reviewed operations.", details="", on_error=None, on_progress=None, single=False):
@@ -55,6 +57,9 @@ class PluginOperations(QObject):
         steps = validate(steps, set(plugin.available_methods) - UNSUPPORTED_METHODS)
         from amethyst_backend.methods import REGISTRY
         for step in steps:
+            game = self.controller.host._gs.game
+            if step["params"].get("game") == game.game_id:
+                step["params"]["game"] = game_instance_id(game)
             properties = (REGISTRY[step["method"]].required + " " + REGISTRY[step["method"]].optional).split()
             for key, value in (("game", target[0]), ("profile", target[1])):
                 if key in properties:

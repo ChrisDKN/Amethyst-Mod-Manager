@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 from contextlib import ExitStack
@@ -55,7 +57,7 @@ def _report(game, profile, cancel, log, *, target=None):
             raise JobError("stale_game_registry", "The configured game or prefix changed during inspection.")
         _checkpoint(cancel)
         return {"revision": hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest(),
-                "game": str(game.game_id), "profile": profile.name, "registry_name": name,
+                "game": str(instance_id(game)), "profile": profile.name, "registry_name": name,
                 "game_path": str(game_path), "prefix_path": str(prefix) if prefix else None,
                 "runner_path": str(script) if script else None, "initialized": initialized,
                 "process_scan_available": pids is not None, "prefix_pids": sorted(pids) if pids is not None else None,
@@ -128,7 +130,7 @@ def write_runner(game, profile, revision, force, cancel):
 
             result = write_game_registration(selected, Path(script), env, force=force, cancel=cancel,
                                              before_write=verify, checkpoint=check, log_fn=log, progress_fn=progress)
-            return {**result, "game": str(game.game_id), "profile": profile.name, "registry_name": initial["registry_name"],
+            return {**result, "game": str(instance_id(game)), "profile": profile.name, "registry_name": initial["registry_name"],
                     "game_path": initial["game_path"], "prefix_path": initial["prefix_path"], "needs_deployment": False}
         except RegistryRegistrationCancelled as exc:
             raise JobCancelled(str(exc), exc.details) from exc

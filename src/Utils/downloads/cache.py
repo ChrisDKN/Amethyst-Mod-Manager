@@ -79,11 +79,15 @@ def enumerate_game_caches() -> list[Path]:
     if not cache_dir.is_dir():
         return []
     try:
-        return sorted(
+        candidates = sorted(
             (p for p in cache_dir.iterdir()
              if p.is_dir() and p.name not in CLEAR_ALL_PRESERVE),
-            key=lambda p: p.name.lower(),
+            key=lambda p: (p.is_symlink(), p.name.lower()),
         )
+        unique = {}
+        for path in candidates:
+            unique.setdefault(path.resolve(), path)
+        return sorted(unique.values(), key=lambda p: p.name.lower())
     except OSError:
         return []
 
@@ -117,7 +121,10 @@ def clear_game_caches(names: list[str]) -> tuple[int, list[str]]:
             continue
         target = root / name
         try:
-            if target.is_dir():
+            if target.is_symlink():
+                target.unlink()
+                cleared += 1
+            elif target.is_dir():
                 shutil.rmtree(target, ignore_errors=True)
                 cleared += 1
         except OSError as exc:

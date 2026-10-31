@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import configparser
 import hashlib
 import importlib.util
@@ -159,7 +161,7 @@ def resolve(game, plugin_id, provider_id, source, log, control):
         spec.loader.exec_module(module)
         context = {"api_version": 1, "plugin_id": plugin.id, "provider_id": provider.id,
                    "plugin_dir": str(plugin_directory(plugin)), "settings": deepcopy(signature[2]), "data": deepcopy(signature[3]),
-                   "game_id": game.game_id, "game": game.name, "source": source,
+                   "game_id": game.game_id, "instance_id": game_instance_id(game), "game": game.name, "source": source,
                    "check_cancelled": lambda: _check(control), "log": lambda message: log(f"{plugin.name}: {message}")}
         descriptor = _descriptor(module.resolve_download(context), provider)
         _check(control)
@@ -211,7 +213,7 @@ def _plugin_transfer(game, plan, destination, log, progress, control):
         sys.modules[name] = module
         spec.loader.exec_module(module)
         context = {"api_version": 1, "plugin_id": plan.plugin.id, "provider_id": plan.provider.id,
-                   "plugin_dir": str(plugin_directory(plan.plugin)), "game_id": game.game_id, "game": game.name,
+                   "plugin_dir": str(plugin_directory(plan.plugin)), "game_id": game.game_id, "instance_id": game_instance_id(game), "game": game.name,
                    "settings": load_settings(plan.plugin), "data": load_data(plan.plugin), "source": plan.source,
                    "artifact": deepcopy(plan.public()), "private": deepcopy(plan.descriptor["private"]),
                    "destination": str(destination), "check_cancelled": lambda: _check(control),

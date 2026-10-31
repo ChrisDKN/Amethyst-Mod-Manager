@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (QCheckBox, QFormLayout, QHBoxLayout, QLabel,
                                QPlainTextEdit, QPushButton)
@@ -129,9 +131,9 @@ class ManagerPluginOverlay(OverlayBase):
                                inventory_reader=self._host._plugin_ui.events.inventory,
                                selection_reader=self._host._plugin_ui.selections.selection,
                                notification_sink=lambda value: self._host._plugin_ui.notifications.publish(
-                                   self.plugin, self.game.game_id, self.profile, value),
+                                   self.plugin, game_instance_id(self.game), self.profile, value),
                                notification_dismiss=lambda key: self._host._plugin_ui.notifications.dismiss(
-                                   self.plugin, self.game.game_id, self.profile, key))
+                                   self.plugin, game_instance_id(self.game), self.profile, key))
         self.session.workflow = self.workflow
         self.session.progress = self._job_progress.emit
         self.running = True

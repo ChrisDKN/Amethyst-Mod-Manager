@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 import zipfile
@@ -81,7 +83,7 @@ def _plan(game, profile, archive, mode, mod_name, payload, sources, cancel):
     target, label, name, records, overwritten, existing = _destination_state(
         selected, payload, mode, cancel, 0, mod_name_override=mod_name,
         allow_restore_links=mode == "game" and selected.get_deploy_active())
-    snapshot = {"game": str(selected.game_id), "profile": str(profile), "mode": mode,
+    snapshot = {"game": str(instance_id(selected)), "profile": str(profile), "mode": mode,
                 "archive": [str(archive), before, digest, sidecars], "mod_name": name,
                 "configuration": _configuration(selected, profile),
                 "deployment": _token(selected._deploy_state_file), "game_sources": sources,
@@ -91,7 +93,7 @@ def _plan(game, profile, archive, mode, mod_name, payload, sources, cancel):
         raise JobError("smapi_archive_changed", "The installer identity changed during inspection.")
     return {
         "revision": hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest(),
-        "game": str(selected.game_id), "profile": profile.name, "mode": mode,
+        "game": str(instance_id(selected)), "profile": profile.name, "mode": mode,
         "archive": {"path": str(archive), "sha256": digest, "source_verified": verified is not None,
                     "source_identity": verified},
         "destination": {"path": str(target), "label": label, "mod_name": name,
@@ -239,7 +241,7 @@ def install_runner(game, profile, archive_path, mode, mod_name, revision,
                            {"reason": str(exc), "restore_attempted": restore_started,
                             "state_persisted": restore_started}) from exc
         progress(1, 1, "install_smapi")
-        return {"ok": True, "game": str(game.game_id), "profile": profile.name,
+        return {"ok": True, "game": str(instance_id(game)), "profile": profile.name,
                 "destination": {"path": current["destination"]["path"], "label": label, "mod_name": name},
                 "file_count": count, "archive": {"path": str(archive), "retained": True},
                 "restore_attempted": restore_started, "needs_deployment": mode != "game",

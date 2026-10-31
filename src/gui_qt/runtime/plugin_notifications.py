@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import threading
 from collections import OrderedDict, deque
 from copy import deepcopy
@@ -141,7 +143,7 @@ class PluginNotifications(QObject):
             return
         if not self.controller.menus.available():
             return
-        if key[1:3] != (host._gs.game.game_id, host._gs.profile):
+        if key[1:3] != (game_instance_id(host._gs.game), host._gs.profile):
             host._notify(self.tr("Select the notification's game and profile before using this action."), "info")
             return
         if self.controller.plugins.get(plugin.id) != plugin:
@@ -200,7 +202,7 @@ class PluginNotifications(QObject):
                    "notification_id": plugin.id}
         if not matches(declaration, context):
             raise ValueError(self.tr("The action no longer matches these items."))
-        self.controller.menus.dispatch(plugin, declaration, host._gs.game.game_id, host._gs.profile, context)
+        self.controller.menus.dispatch(plugin, declaration, game_instance_id(host._gs.game), host._gs.profile, context)
 
     def shutdown(self):
         with self.lock:
@@ -237,5 +239,5 @@ class PluginDiagnostics(PluginFlags):
         host = self.controller.host
         game = host._gs.game
         if game is not None:
-            self.controller.notifications.replace_diagnostics(game.game_id, host._gs.profile,
+            self.controller.notifications.replace_diagnostics(game_instance_id(game), host._gs.profile,
                 [(plugin, results["modlist"].get(plugin.id, ())) for plugin in self.plugins])

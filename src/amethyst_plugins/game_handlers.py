@@ -16,6 +16,15 @@ def load(games):
     errors.extend(("manager plugins", error) for error in discovery_errors)
     ids = {game.game_id.casefold() for game in games.values()}
     names = {name.casefold() for name in games}
+    from Utils.config_paths import get_config_dir
+    from Utils.games.instances import _read
+    for path in (get_config_dir() / "games").glob("*/instance.json"):
+        try:
+            record = _read(path)
+            ids.add(str(record.get("id", "")).casefold())
+            names.add(str(record.get("name", "")).casefold())
+        except ValueError:
+            pass
     for plugin in plugins:
         if load_settings(plugin).get("enabled") is False:
             continue

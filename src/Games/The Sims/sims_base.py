@@ -32,7 +32,7 @@ class SimsBase(BaseGame):
 
     @property
     def user_subpath(self) -> Path:
-        return Path("drive_c/users/steamuser/Documents/Electronic Arts") / self.name
+        return Path("drive_c/users/steamuser/Documents/Electronic Arts") / self.handler_name
 
     @property
     def mods_subpath(self) -> Path:

@@ -4085,11 +4085,11 @@ class MainWindow(QMainWindow, PluginPanelControls):
         try:
             from Utils.games.registry import _load_games, _GAMES
             previous = self._gs.game
-            previous_id = getattr(previous, "game_id", None)
+            previous_id = getattr(previous, "instance_id", None)
             previous_definition = getattr(previous, "_defn", None)
             self._gs.game_names = _load_games()
             target = next((name for name, game in _GAMES.items()
-                           if previous_id and game.game_id == previous_id), None)
+                           if previous_id and game.instance_id == previous_id), None)
             if target is not None:
                 self._gs.set_game(target)
                 self._gs.reassert_active_profile()
@@ -4508,7 +4508,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         import re
         return re.sub(r"[^a-z0-9]", "", str(value or "").casefold())
 
-    def _match_game_for_modl_id(self, game_id: str):
+    def _match_game_for_modl_id(self, game_id: str, *, all_matches=False):
         """Return the configured game addressed by a MODL GameShortName."""
         from Utils.games.registry import _GAMES
 
@@ -4520,7 +4520,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             if isinstance(extras, str):
                 extras = (extras,)
             return {normalise(value) for value in
-                    (getattr(game, "game_id", ""), *extras) if value}
+                    (getattr(game, "game_id", ""), getattr(game, "instance_id", ""), *extras) if value}
 
         def _compatible_keys(game):
             values = [getattr(game, "name", ""),
@@ -4533,18 +4533,19 @@ class MainWindow(QMainWindow, PluginPanelControls):
         current = self._gs.game
         if game_id.casefold() == "other":
             if current is not None and current.is_configured():
-                return self._gs.game_name, current
-            return None
-        if (current is not None and current.is_configured()
+                match = self._gs.game_name, current
+                return [match] if all_matches else match
+            return [] if all_matches else None
+        if (not all_matches and current is not None and current.is_configured()
                 and wanted in _compatible_keys(current)):
             return self._gs.game_name, current
-        for name, game in _GAMES.items():
-            if game.is_configured() and wanted in _identity_keys(game):
-                return name, game
-        for name, game in _GAMES.items():
-            if game.is_configured() and wanted in _compatible_keys(game):
-                return name, game
-        return None
+        exact = [(name, game) for name, game in _GAMES.items()
+                 if game.is_configured() and wanted in _identity_keys(game)]
+        matches = exact or [(name, game) for name, game in _GAMES.items()
+                            if game.is_configured() and wanted in _compatible_keys(game)]
+        if all_matches:
+            return matches
+        return matches[0] if len(matches) == 1 else None
 
     def _process_modl_link(self, url: str):
         """Download and install the direct URL carried by a modl:// link."""
@@ -4563,6 +4564,19 @@ class MainWindow(QMainWindow, PluginPanelControls):
             f"Processing modl link for {link.game_id} from {link.download_host}")
         matched = self._match_game_for_modl_id(link.game_id)
         if not matched:
+            matches = self._match_game_for_modl_id(link.game_id, all_matches=True)
+            if matches and len(matches) > 1:
+                from gui_qt.dialogs.list_picker import ListPickerOverlay
+
+                def picked(name):
+                    if name is not None:
+                        self._on_game_changed(name)
+                        if self._gs.game_name == name:
+                            self._process_modl_link(url)
+
+                ListPickerOverlay.show_over(self, self.tr("Select game instance"),
+                                            [(name, name) for name, _game in matches], picked)
+                return
             self._append_log(
                 f"[modl] no configured game matches '{link.game_id}'")
             self._notify(
@@ -5485,27 +5499,16 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._process_nxm_link(nxm_url)
 
     def _match_game_for_domain(self, game_domain: str):
-        """Return the configured game that should receive *game_domain*.
-
-        The current game wins when it explicitly accepts the domain. Otherwise
-        prefer a game's primary domain before considering additional domains;
-        this keeps a Skyrim link routed to Skyrim unless the user is already on
-        a compatible game such as Enderal.
-        """
+        """Return the selected compatible instance, or the only configured match."""
         from Utils.games.registry import _GAMES
         wanted = (game_domain or "").strip().lower()
         current = self._gs.game
         if (current is not None and current.is_configured()
                 and current.accepts_nexus_domain(wanted)):
             return (self._gs.game_name, current)
-        for name, game in _GAMES.items():
-            primary = (getattr(game, "nexus_game_domain", "") or "").strip().lower()
-            if primary == wanted and game.is_configured():
-                return (name, game)
-        for name, game in _GAMES.items():
-            if game.is_configured() and game.accepts_nexus_domain(wanted):
-                return (name, game)
-        return None
+        matches = [(name, game) for name, game in _GAMES.items()
+                   if game.is_configured() and game.accepts_nexus_domain(wanted)]
+        return matches[0] if len(matches) == 1 else None
 
     def _process_nxm_link(self, nxm_url: str, *, use_amethyst=False):
         """Handle an nxm:// link - download a mod or open a collection."""
@@ -5529,7 +5532,32 @@ class MainWindow(QMainWindow, PluginPanelControls):
         domain = (mod_link or coll_link).game_domain
         if not use_amethyst and self._nxm_router.route(nxm_url, domain):
             return
-        matched = self._match_game_for_domain(domain)
+        from Utils.games.registry import _GAMES
+        targets = getattr(self, "_nxm_instance_targets", {})
+        self._nxm_instance_targets = targets
+        chosen = targets.get(nxm_url)
+        selected = _GAMES.get(chosen) if chosen else None
+        if chosen and (selected is None or not selected.is_configured()):
+            targets.pop(nxm_url, None)
+            self._notify(self.tr("The selected instance is no longer available."), "warning")
+            return
+        matched = (chosen, selected) if selected is not None else self._match_game_for_domain(domain)
+        if matched is None:
+            matches = [(name, game) for name, game in _GAMES.items()
+                       if game.is_configured() and game.accepts_nexus_domain(domain)]
+            if len(matches) > 1:
+                from gui_qt.dialogs.list_picker import ListPickerOverlay
+
+                def picked(name):
+                    if name is not None:
+                        targets[nxm_url] = name
+                        self._process_nxm_link(nxm_url, use_amethyst=use_amethyst)
+
+                ListPickerOverlay.show_over(self, self.tr("Select game instance"),
+                                            [(name, name) for name, _game in matches], picked)
+                return
+        if matched is not None:
+            targets[nxm_url] = matched[0]
         if matched is None and use_amethyst and mod_link is not None:
             current = self._gs.game
             if current is None or not current.is_configured():
@@ -5551,14 +5579,16 @@ class MainWindow(QMainWindow, PluginPanelControls):
             return
         api = self._ensure_nexus_api()
         if api is None:
+            targets.pop(nxm_url, None)
             self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             nxm_log("NXM link ignored - not logged in to Nexus")
             self._append_log("[nexus] NXM link ignored - not logged in")
             return
 
+        targets.pop(nxm_url, None)
         if coll_link is not None:
-            self._process_nxm_collection_link(coll_link)
+            self._process_nxm_collection_link(coll_link, matched=matched)
             return
 
         link = mod_link
@@ -5723,12 +5753,12 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 on_all_done=on_done, clear_archives=not (rollback or len(changes) > 1),
                 version_changes={path: change} if change else None)
 
-    def _process_nxm_collection_link(self, coll_link):
+    def _process_nxm_collection_link(self, coll_link, matched=None):
         """Switch to the matching game and open the collection's detail tab."""
         self._append_log(
             f"[nexus] opening collection '{coll_link.slug}' "
             f"from {coll_link.game_domain}")
-        matched = self._match_game_for_domain(coll_link.game_domain)
+        matched = matched or self._match_game_for_domain(coll_link.game_domain)
         if not matched:
             self._notify(
                 self.tr("No configured game for Nexus domain '{0}'.").format(coll_link.game_domain), "warning")
@@ -12504,7 +12534,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         from Utils.games.registry import _clear_game_config, _GAMES
         try:
             _clear_game_config(name)
-        except OSError as exc:
+        except (OSError, ValueError, RuntimeError) as exc:
             self._append_log(f"[game] failed to remove {name}: {exc}")
             self._notify(self.tr("Could not remove {0}. See the log for details.").format(name),
                          "error")
@@ -12538,6 +12568,9 @@ class MainWindow(QMainWindow, PluginPanelControls):
         reconfiguring an already-configured game, Save keeps the tab open so the
         user can keep tweaking (only Remove/Cancel close it)."""
         from gui_qt.games.configure import ConfigureGameView
+        if getattr(game, "unavailable_reason", None):
+            self._notify(game.unavailable_reason, "warning")
+            return
         configure_profile = (self._gs.profile
                              if not from_add_game and game.name == self._gs.game_name
                              else "default")
@@ -12644,7 +12677,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
 
         page = ConfigureGameView(
             game, on_done=_done, profile_name=configure_profile,
-            progress_status=self._download_status)
+            progress_status=self._download_status,
+            on_duplicate=lambda draft: self._open_configure_game_tab(draft, from_add_game=True))
         self._configure_game_view = page
         self._tabs.open_tab(page,
                             self._configure_tab_title(game, configure_profile),
@@ -15702,7 +15736,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         central = self.centralWidget()
         was_enabled = central.isEnabled()
         previous_selection = game.get_last_active_profile() if game is not None else None
-        previous_game_id = game.game_id if game is not None else None
+        previous_game_id = game.instance_id if game is not None else None
         self._set_tool_lock("manager-plugin", plugin.name, True)
         central.setEnabled(False)
         plugin_ui = getattr(self, "_plugin_ui", None)
@@ -15726,7 +15760,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                                    if handler.is_configured())
                     self._gs.game_names = names or ["No games configured"]
                     target = next((handler.name for handler in _GAMES.values()
-                                   if handler.game_id == previous_game_id and handler.is_configured()), None)
+                                   if handler.instance_id == previous_game_id and handler.is_configured()), None)
                     self._gs.game_name = target or (names[0] if names else None)
                     self._gs._select_last_active_profile()
                     self._gs._apply_active_profile()
@@ -18024,7 +18058,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         game = getattr(self, "_install_game", None) or self._gs.game
         profile = getattr(self, "_install_profile_dir", None) or self._gs.profile_dir()
         if game is not None and profile is not None:
-            publish_event("install.completed", game.game_id, Path(profile).name,
+            publish_event("install.completed", game.instance_id, Path(profile).name,
                           success=ok == total, installed=ok, total=total,
                           names=[name for name in names or () if isinstance(name, str)])
         self._install_running = False
@@ -21741,7 +21775,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 userlist_path = prof_ul
             else:
                 from Utils.config_paths import get_loot_game_dir
-                g_ul = get_loot_game_dir(game.game_id) / "userlist.yaml"
+                g_ul = get_loot_game_dir(game.instance_id) / "userlist.yaml"
                 userlist_path = g_ul if g_ul.is_file() else None
         except Exception:
             userlist_path = None
@@ -21770,7 +21804,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._sort_ctx = {
             "rows": rows, "locked_indices": locked_indices,
             "plugin_names": plugin_names, "include_vanilla": include_vanilla,
-            "profile_dir": pdir, "game_id": game.game_id,
+            "profile_dir": pdir, "game_id": game.instance_id,
             "game": game, "profile": self._gs.profile,
             "refresh": refresh,
             "input_state": self._loot_input_state(userlist_path),
@@ -21784,7 +21818,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             game_path=game.get_game_path(),
             staging_root=game.get_effective_mod_staging_path(),
             game_type_attr=getattr(game, "loot_game_type", ""),
-            game_id=game.game_id,
+            game_id=game.instance_id,
             masterlist_url=getattr(game, "loot_masterlist_url", ""),
             masterlist_repo=getattr(game, "loot_masterlist_repo", ""),
             game_data_dir=(game.get_vanilla_plugins_path()
@@ -21840,6 +21874,10 @@ class MainWindow(QMainWindow, PluginPanelControls):
         ctx = getattr(self, "_sort_ctx", None) or {}
         self._sort_ctx = None
         is_refresh = bool(ctx.get("refresh"))
+        if (self._gs.game is None or self._gs.game.instance_id != ctx.get("game_id")
+                or self._gs.profile != ctx.get("profile")):
+            self._notify(self.tr("The active game or profile changed. Run LOOT again."), "info")
+            return
         if ctx.get("cancel_event") is not None and ctx["cancel_event"].is_set():
             self._notify(self.tr("LOOT cancelled."), "info")
             return

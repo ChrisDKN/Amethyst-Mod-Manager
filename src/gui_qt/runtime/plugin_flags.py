@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 from dataclasses import replace
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -75,7 +77,7 @@ class PluginFlags(QObject):
     def current_target(self):
         state = self.controller.host._gs
         game = state.game
-        return (game.game_id if game else "", str(state.profile_dir()))
+        return (game_instance_id(game) if game else "", str(state.profile_dir()))
 
     def data_changed(self, _first, _last, roles=()):
         from gui_qt.runtime.plugin_columns import ColumnValuesRole
@@ -124,7 +126,7 @@ class PluginFlags(QObject):
         plugins = self.models["plugins"]
         paths = getattr(host._plugin_view, "resolved_paths", {})
         return {
-            "api_version": 1, "game_id": game.game_id, "game": game.name,
+            "api_version": 1, "game_id": game.game_id, "instance_id": game_instance_id(game), "game": game.name,
             "game_path": str(game.get_game_path()), "profile": host._gs.profile,
             "profile_path": str(host._gs.profile_dir()), "mod_staging_path": str(staging),
             "modlist": [

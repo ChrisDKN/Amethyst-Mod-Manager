@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import threading
 import weakref
 from copy import deepcopy
@@ -102,7 +104,7 @@ class PluginSelection(QObject):
 
     def current_target(self):
         state = self.controller.host._gs
-        return (state.game.game_id if state.game else "", state.profile)
+        return (game_instance_id(state.game) if state.game else "", state.profile)
 
     def attach(self, source):
         tree, location, key = source._amethyst_selection_binding
@@ -181,7 +183,7 @@ class PluginSelection(QObject):
         tree, location, key = source._amethyst_selection_binding
         result = self.empty(location, key)
         game = getattr(source, "game", None) or getattr(source, "_game", None)
-        if game is not None and game.game_id != self.target[0]:
+        if game is not None and game_instance_id(game) != self.target[0]:
             return result
         profile = getattr(source, "profile_dir", None)
         if profile is not None and str(profile) != str(self.controller.host._gs.profile_dir()):

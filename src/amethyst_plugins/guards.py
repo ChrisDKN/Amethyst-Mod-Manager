@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import importlib.util
 import sys
 import threading
@@ -43,7 +45,7 @@ def validate_operation(game, profile, operation, **fields):
             sys.modules[name] = module
             spec.loader.exec_module(module)
             context = {"api_version": 1, "plugin_id": plugin.id, "plugin_dir": str(plugin_directory(plugin)),
-                       "operation": operation, "game_id": game.game_id, "game": game.name,
+                       "operation": operation, "game_id": game.game_id, "instance_id": game_instance_id(game), "game": game.name,
                        "profile": Path(profile).name, "profile_dir": str(Path(profile).absolute()),
                        "settings": settings, "data": load_data(plugin), **deepcopy(fields)}
             context.update(provider_context(plugin, {"profile_path": str(profile)}))

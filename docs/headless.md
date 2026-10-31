@@ -777,7 +777,7 @@ Result schemas allow additional properties for compatible additions.
 | --- | --- | --- |
 | `system.handshake` | `protocol_version` integer (optional), `client` object (optional) | Negotiate and inspect the protocol. |
 | `system.ping` | None | Check that the service is responsive. |
-| `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
+| `games.list` | `configured_only` boolean (optional) | List game handlers and saved independent instances. |
 | `games.get` | `game` string | Return one game and its current state. |
 | `games.version.get.start` | `game` string, `profile` string | Read the selected installation's game executable version using the Configure menu's detector. Returns `version:null` when no version can be detected. |
 | `games.installations.list.start` | `game` string | Scan built-in launchers and enabled plugin launcher providers for candidate installations. Plugin results include `provider_id`, `provider_label` and `provider_icon` (resolved manifest path or null). |
@@ -788,6 +788,7 @@ Result schemas allow additional properties for compatible additions.
 | `launchers.entry.set.start` | `provider_id`, `launcher_id`, `changes`, `revision` | Save shared settings through a writable provider while its prefix is idle. |
 | `launchers.entry.run.start` | `provider_id`, `launcher_id`; optional `executable`, `arguments` | Start a tracked application, automatically using its managed deployed VFS profile when matched, or a temporary installer/tool in its prefix; use `launch.get` and `launch.stop` for its lifecycle. |
 | `games.launcher.set.start` | `game`, `profile`, `source`, and `revision` from `games.launcher.get`; `launcher_id` for external launchers, plus `provider_id` for plugins | Save one launcher identity and clear the alternatives for that profile. Sources include built-in launchers, `manual`, and `plugin`. |
+| `games.instances.create.start` | `game`, `name`, `game_path`; optional `prefix_path`, `staging_path`, `save_path_override`, `appimage_path`, `openmw_cfg_path`, `deploy_mode`, `runtime_mode` | Create an empty independent instance using the source game's handler. |
 | `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path`, `staging_path`, `save_path_override`, or OpenMW `appimage_path` absolute paths (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
 | `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `save_path_override`, `appimage_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported. |
 | `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
@@ -1016,11 +1017,60 @@ Result schemas allow additional properties for compatible additions.
 | `saves.remove.batch.start` | `game`, `profile`, `items` array of `saves.remove.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
 | `games.options.set.batch.start` | `game`, `profile`, `items` array of `games.options.set.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
 
-The `game` parameter accepts the canonical `game_id`, display name, primary
+The `game` parameter accepts the canonical instance `id`, display name, primary
 Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
 `id` returned by Amethyst and use it for later requests. If a Steam app ID
 belongs to multiple handlers, Amethyst selects it only when exactly one handler
 is configured; otherwise it returns `ambiguous_game` with the candidates.
+
+### Independent game instances
+
+`games.instances.create.start` reuses a handler with a new name and generated,
+lowercase filesystem-safe ID. It copies no settings, mods, profiles, launcher
+identities, or deployment records. Supply the new installation and an empty
+staging folder; the staging default is a separate folder named for the instance.
+New instances share the original handler's download cache through a relative
+directory symlink. Removing an instance removes its link and keeps the shared
+archives. Cache management lists the shared folder once; clearing it affects
+all instances using it. Existing instance cache directories are preserved.
+Select its launcher using `games.launcher.set.start` after creation. Names and
+IDs are fixed and must not collide with existing games or retained storage.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"games.instances.create.start","params":{"game":"skyrim_se","name":"Skyrim SE GOG","game_path":"/games/GOG/Skyrim Special Edition","prefix_path":"/games/prefixes/skyrim-gog","staging_path":"/games/Amethyst/Skyrim SE GOG","deploy_mode":"symlink"}}
+```
+
+Poll the returned job through `jobs.get`. Its result includes `id`, `name`,
+`handler_id`, `is_instance`, and the saved configuration. `games.list` and
+`games.get` expose the same identity fields. Use the returned `id` for subsequent
+requests; `handler_id` remains the source game's ID. Existing games retain their
+original IDs, paths, and configuration layout. Steam IDs matching multiple
+configured instances return `ambiguous_game`.
+
+Creation, path changes, and deployment reject conflicting installation, prefix,
+and declared external write targets among the original handler and its instances.
+Unrelated games and leftover configuration from removed handlers do not reserve
+installation or prefix paths. Staging folders must remain separate across games
+and retained instance storage. Checks include inactive profiles, symlink/portal
+aliases, normalized prefixes, and retained recovery targets for the same handler.
+`instance_path_conflict` details identify the other instance, profile, and paths.
+Restoration remains available for recovery. Separate installations can stay
+deployed together; operations retain serialization. Game saves and cloud
+synchronization are not automatically isolated.
+
+OpenMW instances require an existing independent `openmw.cfg` supplied with
+`openmw_cfg_path`. Play launches the engine directly with `--replace config
+--config <directory>`; it does not open the launcher. The AppImage route needs
+the companion engine image. Native handlers with shared user directories remain
+blocked until their targets are independent (for example, DFU portable data).
+See [OpenMW configuration directories](https://openmw.readthedocs.io/en/latest/reference/modding/paths.html#launcher-scripts-and-shortcuts).
+`openmw_cfg_path` is also accepted by first-time configuration and reconfiguration.
+
+Missing or disabled handlers leave instances unavailable while preserving their
+configuration and recovery data. Shared custom-handler edits and source changes
+require all affected instances to be restored first. Removing an instance keeps
+mods, profiles, overwrite, and applications; retained storage reserves its name
+and ID until that storage is removed.
 
 ### Previous-version rollback
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 from pathlib import Path
 
 from .jobs import JobError
@@ -44,7 +46,7 @@ def options(game, profile):
         mod_staging = selected.get_effective_mod_staging_path()
         group = is_group(profile)
         return {
-            "game": {"id": str(selected.game_id), "name": str(selected.name)},
+            "game": {"id": str(instance_id(selected)), "name": str(selected.name)},
             "profile": profile.name,
             "source_page": RESHADE_HOME_URL,
             "shader_base_url": SHADER_BASE_URL,

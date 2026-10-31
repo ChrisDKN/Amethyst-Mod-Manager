@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 from pathlib import Path
@@ -56,7 +58,7 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
             raise JobError("wrye_bash_deployed_profile_mismatch", "Deploy this profile or select the currently deployed profile.")
     inputs = _inputs(selected, profile, exe)
     inputs[str(profile / "loadorder.txt")] = _identity(profile / "loadorder.txt")
-    snapshot = {"game": str(game.game_id), "profile": str(profile), "tool_id": tool_id,
+    snapshot = {"game": str(instance_id(game)), "profile": str(profile), "tool_id": tool_id,
                 "catalogue_revision": catalogue_revision, "choice": choice, "request": request,
                 "settings": settings, "exe": [str(exe), _identity(exe)], "prefix": prefix,
                 "prefix_files": {n: _identity(Path(prefix["prefix_path"]) / n) for n in ("user.reg", "system.reg", "userdef.reg")},
@@ -69,7 +71,7 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
     if inputs != {path: _identity(Path(path)) for path in inputs}:
         raise JobError("stale_wrye_bash_run", "Profile or launch settings changed while planning.")
     return {"revision": hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest(),
-            "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id,
+            "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
             "settings": settings, "exe_path": str(exe), "prefix": prefix, "arguments": args,
             "game_link": str(link), "output_path": str(selected.get_effective_overwrite_path()),
             "deploy_before_run": deploy, "root_folder_enabled": request.get("root_folder_enabled", True),
@@ -172,6 +174,6 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
             raise
         except (OSError, RuntimeError) as exc:
             raise JobError("wrye_bash_run_unavailable", "Could not read the Wrye Bash run inputs.", {"reason": str(exc)}) from exc
-        return {**result, "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id,
+        return {**result, "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
                 "exe_path": str(exe), "output_path": initial["output_path"], "game_link": initial["game_link"]}
     return run

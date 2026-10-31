@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import importlib.util
 import json
 import sys
@@ -410,7 +412,7 @@ class PluginUIController(QObject):
             "language": language_code(),
             "plugin_dir": str(plugin_directory(plugin)),
             "settings_path": str(settings_path(plugin)), "data_path": str(data_path(plugin)),
-            "location": extension.location, "game": game.name, "game_id": game.game_id,
+            "location": extension.location, "game": game.name, "game_id": game.game_id, "instance_id": game_instance_id(game),
             "profile": self.host._gs.profile, "settings": load_settings(plugin),
             "palette": dict(self.palette),
             "toolbar_orientation": "vertical" if self.vertical else "horizontal",
@@ -456,7 +458,7 @@ class PluginUIController(QObject):
         if self.stopped or not instance.active:
             raise RuntimeError("This plugin context has been disposed.")
         game = self.host._gs.game
-        target = (game.game_id if game else "", self.host._gs.profile)
+        target = (game_instance_id(game) if game else "", self.host._gs.profile)
         method = self.notifications.dismiss if dismiss else self.notifications.publish
         return method(plugin, *target, value)
 

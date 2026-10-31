@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 import re
@@ -210,7 +212,7 @@ def _plan(selected, payload, bundle, dll_meta, shader_meta, dll_state, shader_st
                           "sha256": shader_meta["sha256"],
                           "missing_effects": shader_meta.get("missing_effects", [])}}
     snapshot = {
-        "game": str(selected.game_id), "profile": profile.name, "mode": mode,
+        "game": str(instance_id(selected)), "profile": profile.name, "mode": mode,
         "mod_name": name, "dll_name": dll_name, "preset_name": preset_name,
         "source": source, "destination": str(target), "files": [str(p) for p in payload.files],
         "replace_trees": [str(path) for path in payload.replace_trees],
@@ -226,7 +228,7 @@ def _plan(selected, payload, bundle, dll_meta, shader_meta, dll_state, shader_st
     }
     revision = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
     return {
-        "revision": revision, "game": str(selected.game_id), "profile": profile.name,
+        "revision": revision, "game": str(instance_id(selected)), "profile": profile.name,
         "mode": mode, "dll_name": dll_name, "preset_name": preset_name,
         "sources": source,
         "destination": {"path": str(target), "label": label, "mod_name": name,
@@ -354,7 +356,7 @@ def install_runner(game, profile, dll_path, shader_path, dll_name, mode,
                            {"reason": str(exc), "restore_attempted": restore_started,
                             "state_persisted": restore_started}) from exc
         progress(1, 1, "install_reshade")
-        return {"ok": True, "game": str(game.game_id), "profile": profile.name,
+        return {"ok": True, "game": str(instance_id(game)), "profile": profile.name,
                 "destination": {"path": current["destination"]["path"],
                                 "label": label, "mod_name": name,
                                 "replaced_trees": current["destination"]["replaces_trees"],

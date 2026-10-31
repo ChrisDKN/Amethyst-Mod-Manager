@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import copy
 from Utils import json_limits as json
 import os
@@ -27,7 +29,7 @@ class Session:
         self.plugin = plugin
         from .i18n import language_code
         self.game = copy.copy(game)
-        self.context = {"api_version": 1, "game": game.game_id, "profile": profile,
+        self.context = {"api_version": 1, "game": game.game_id, "instance_id": game_instance_id(game), "profile": profile,
                         "settings": settings, "plugin_id": plugin.id,
                         "language": language_code()}
         if action_id is not None:
@@ -68,6 +70,8 @@ class Session:
         return method.removesuffix(".start") in self.mutations
 
     def _call(self, method, params, *, approved=False):
+        if params.get("game") == self.game.game_id:
+            params = {**params, "game": game_instance_id(self.game)}
         if method not in self.allowed:
             raise PluginError(f"Method is not declared by this plugin: {method}")
         if method.startswith("manager_plugins.metadata.") and params.get("plugin_id") != self.plugin.id:
@@ -93,7 +97,7 @@ class Session:
             from .events import read_events
             if set(params) - {"after"}:
                 raise PluginError("host.events accepts only an after cursor.")
-            return read_events(params.get("after", 0), game_id=self.context["game"],
+            return read_events(params.get("after", 0), game_id=self.context["instance_id"],
                                profile=self.context["profile"])
         if method == "host.notify":
             if self.notification_sink is None:
@@ -238,7 +242,7 @@ class Session:
         try:
             if self.service_factory is None:
                 from amethyst_backend.service import AmethystService
-                self.service = AmethystService({self.game.game_id: self.game})
+                self.service = AmethystService({self.game.name: self.game})
             else:
                 self.service = self.service_factory()
             handshake = self.service.call("system.handshake", {"protocol_version": 1})

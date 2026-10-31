@@ -1676,7 +1676,8 @@ class JobManager:
                     "details": exc.details,
                 })
                 return
-            if isinstance(exc, JobError):
+            from Utils.games.instances import InstanceError
+            if isinstance(exc, (JobError, InstanceError)):
                 error = {
                     "name": exc.name,
                     "message": str(exc),
@@ -1761,7 +1762,7 @@ class JobManager:
             self._event_locked(job, "state", **data)
 
         from amethyst_plugins.events import publish_event
-        game_id = getattr(job.game, "game_id", "")
+        game_id = getattr(job.game, "instance_id", getattr(job.game, "game_id", ""))
         publish_event("job.completed", game_id, job.profile or "", job_id=job.id,
                       kind=job.kind, state=state)
         if job.kind in {"downloads.install", "downloads.install.batch", "mods.reinstall",

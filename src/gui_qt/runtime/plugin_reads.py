@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import json
 import threading
 import uuid
@@ -47,7 +49,7 @@ class PluginReads(QObject):
     def current_target(self):
         state = self.controller.host._gs
         game = state.game
-        return (game.game_id if game else "", state.profile, str(state.profile_dir()))
+        return (game_instance_id(game) if game else "", state.profile, str(state.profile_dir()))
 
     def refresh(self):
         target = self.current_target()
@@ -75,6 +77,9 @@ class PluginReads(QObject):
             raise ValueError("Read parameters exceed 1 MiB.")
         params = json.loads(raw)
         self.refresh()
+        game = self.controller.host._gs.game
+        if game is not None and params.get("game") == game.game_id:
+            params["game"] = game_instance_id(game)
         if params.get("game", self.target[0]) != self.target[0] or params.get("profile", self.target[1]) != self.target[1]:
             raise ValueError("Plugin reads must use the active game and profile.")
         if method.startswith("manager_plugins.metadata.") and params.get("plugin_id", plugin.id) != plugin.id:
@@ -82,10 +87,10 @@ class PluginReads(QObject):
         if len(self.requests) >= 128 or sum(r.owner() is owner for r in self.requests.values()) >= 32:
             raise ValueError("Too many pending plugin reads. Cancel obsolete requests first.")
         from Utils.games.registry import _GAMES
-        games = {game.game_id: copy(game) for game in _GAMES.values()}
+        games = {game_instance_id(game): copy(game) for game in _GAMES.values()}
         game = self.controller.host._gs.game
         if game is not None:
-            games[game.game_id] = copy(game)
+            games[game_instance_id(game)] = copy(game)
         request = _Request(weakref.ref(owner), plugin, self.target, games, method, params,
                            callback, on_error, on_progress)
         self.requests[request.id] = request

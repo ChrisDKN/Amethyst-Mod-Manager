@@ -103,6 +103,15 @@ class RimWorld(StandardCustomGame):
             log_fn("RimWorld: normalized staged mod folders before building the filemap.")
         return changed
 
+    def get_instance_write_targets(self):
+        targets = super().get_instance_write_targets()
+        path = self._mods_config_path()
+        if path is not None:
+            targets.append(("RimWorld configuration", path.parent))
+        elif self.get_game_path() and self.get_prefix_path() is None:
+            targets.append(("RimWorld configuration", Path.home() / ".config" / "unity3d" / "Ludeon Studios"))
+        return targets
+
     def _mods_config_path(self) -> Path | None:
         from Utils.executables.launch import resolve_game_exe
 

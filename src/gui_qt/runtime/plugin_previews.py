@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 from dataclasses import replace
 from pathlib import Path
 
@@ -81,7 +83,7 @@ class PluginPreviews(QObject):
 
     def target(self):
         state = self.controller.host._gs
-        return (state.game.game_id if state.game else "", state.profile)
+        return (game_instance_id(state.game) if state.game else "", state.profile)
 
     def matching(self, path):
         name = str(path).lower()
@@ -99,7 +101,7 @@ class PluginPreviews(QObject):
         for key, tab in list(self.tabs.items()):
             current = next((p for p in wanted if p == tab.plugin), None)
             context = tab.context or {}
-            if (current is None or (context.get("game_id"), context.get("profile")) != self.target()
+            if (current is None or (context.get("instance_id", context.get("game_id")), context.get("profile")) != self.target()
                     or tab.declaration not in current.file_previews):
                 self.close(key)
                 continue
@@ -184,7 +186,7 @@ def open_plugin_preview(source, path, relative_path=""):
     profile = getattr(source, "profile_dir", None)
     profile_name = getattr(source, "_profile_name", "")
     current = getattr(source, "_context_is_current", None)
-    if (game is not None and game.game_id != runtime.target()[0]
+    if (game is not None and game_instance_id(game) != runtime.target()[0]
             or profile is not None and str(profile) != str(runtime.controller.host._gs.profile_dir())
             or profile_name and profile_name != runtime.target()[1]
             or current is not None and not current()):

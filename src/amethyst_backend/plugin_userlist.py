@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import copy
 import hashlib
 import json
@@ -155,7 +157,7 @@ def _snapshot(game, profile):
     if profile.parent.is_symlink():
         raise JobError("unsafe_userlist_path", "The profile parent cannot be a symlink.")
     path = profile / "userlist.yaml"
-    global_path = get_loot_game_dir(str(game.game_id)) / "userlist.yaml"
+    global_path = get_loot_game_dir(str(instance_id(game))) / "userlist.yaml"
     raw, fallback = _read(path), _read(global_path)
     source = "profile" if raw is not None else "game" if fallback is not None else None
     source_path = path if raw is not None else global_path if fallback is not None else None

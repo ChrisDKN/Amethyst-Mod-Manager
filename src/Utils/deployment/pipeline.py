@@ -1271,6 +1271,22 @@ def run_deploy_pipeline(
             error_fn(f"Could not acquire the operation lock: {exc}")
         return False
     try:
+        from Utils.games.instances import InstanceError, validate_paths
+        from copy import copy
+        selected = copy(game)
+        selected.set_active_profile_dir(None)
+        selected.load_paths(read_only=True, prefix_fallback=False)
+        selected.set_active_profile_dir(selected.get_profile_root() / "profiles" / profile)
+        selected.load_paths(read_only=True, prefix_fallback=False)
+        try:
+            validate_paths(selected)
+        except InstanceError as exc:
+            if raise_busy:
+                raise
+            log_fn(f"Deploy aborted: {exc}")
+            if error_fn is not None:
+                error_fn(str(exc))
+            return False
         return with_deploy_hooks(game, profile, log_fn, lambda: _run_deploy_pipeline(
             game,
             profile,

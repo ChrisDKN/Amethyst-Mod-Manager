@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import copy
 import hashlib
 import json
@@ -154,7 +156,7 @@ def _catalogue(game, profile):
                     "tools.script_extender.install.start"})
         rows.append(row)
     result = {
-        "game": {"id": str(selected.game_id), "name": str(selected.name)},
+        "game": {"id": str(instance_id(selected)), "name": str(selected.name)},
         "profile": profile.name if profile else None, "scope": "built_in",
         "external_plugins_loaded": False, "tools": rows,
         "categories": [{"category": category, "tools": [tool.id for tool in values]}

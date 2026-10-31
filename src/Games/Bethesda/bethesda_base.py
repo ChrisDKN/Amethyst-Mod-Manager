@@ -320,6 +320,12 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
     def get_game_path(self) -> Path | None:
         return self._game_path
 
+    def get_instance_write_targets(self):
+        targets = super().get_instance_write_targets()
+        targets.extend(("game INI files", path) for path in self._mygames_paths())
+        targets.extend(("plugin load order", path) for path in self._plugins_txt_targets())
+        return targets
+
     def get_mod_data_path(self) -> Path | None:
         """Mods go into the Data/ subfolder of the game root directory."""
         if self._game_path is None:

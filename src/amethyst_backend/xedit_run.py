@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 import os
@@ -96,7 +98,7 @@ def _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel):
     inputs = _inputs(selected, profile, exe)
     prefix_files = {str(Path(prefix["prefix_path"]) / name): _identity(Path(prefix["prefix_path"]) / name)
                     for name in ("user.reg", "system.reg", "userdef.reg")}
-    snapshot = {"game": str(game.game_id), "profile": str(profile), "tool_id": tool_id,
+    snapshot = {"game": str(instance_id(game)), "profile": str(profile), "tool_id": tool_id,
                 "catalogue_revision": catalogue_revision, "choice": choice, "request": request,
                 "settings": settings, "exe": [str(exe), _identity(exe)],
                 "prefix": prefix, "prefix_files": prefix_files, "runner": _identity(Path(prefix["script"])),
@@ -105,7 +107,7 @@ def _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel):
     if inputs != _inputs(selected, profile, exe):
         raise JobError("stale_xedit_run", "Profile or launch settings changed while planning.")
     revision = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
-    return {"revision": revision, "game": str(game.game_id), "profile": profile.name,
+    return {"revision": revision, "game": str(instance_id(game)), "profile": profile.name,
             "tool_id": tool_id, "mode": mode, "settings": settings, "exe_path": str(exe),
             "prefix": prefix, "arguments": arguments(selected, choice, exe, Path(prefix["compat_data"]), mode,
                                                         settings["launch_args"]),
@@ -228,6 +230,6 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
             raise JobError("operation_busy", str(exc), getattr(exc, "details", {})) from exc
         except OperationCancelled as exc:
             raise JobCancelled("xEdit run cancelled.") from exc
-        return {**result, "game": str(game.game_id), "profile": profile.name, "tool_id": tool_id,
+        return {**result, "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
                 "mode": initial["mode"], "exe_path": str(exe)}
     return run

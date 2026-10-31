@@ -551,6 +551,30 @@ def migrate_legacy_application_caches() -> list[str]:
     return errors
 
 
+def link_game_download_cache(game_name: str, source_name: str) -> Path:
+    for name in (game_name, source_name):
+        if not isinstance(name, str) or not name or name in {".", ".."} or "/" in name or "\\" in name:
+            raise ValueError("Invalid download cache folder name")
+    if game_name == source_name:
+        raise ValueError("A shared download cache must use a different folder name")
+    root = get_download_cache_dir()
+    target = root / source_name
+    target.mkdir(parents=True, exist_ok=True)
+    link = root / game_name
+    try:
+        link.symlink_to(source_name, target_is_directory=True)
+    except FileExistsError:
+        if not link.is_symlink() or link.readlink() != Path(source_name):
+            raise
+    return link
+
+
+def remove_game_download_cache_link(game_name: str) -> None:
+    link = get_download_cache_dir() / game_name
+    if link.is_symlink():
+        link.unlink()
+
+
 def get_download_cache_dir_for_game(game_name: str | None) -> Path:
     """Per-game cache subfolder under :func:`get_download_cache_dir`.
 
@@ -562,6 +586,15 @@ def get_download_cache_dir_for_game(game_name: str | None) -> Path:
     if not game_name:
         return root
     d = root / game_name
+    if not d.exists():
+        import json
+        try:
+            record = json.loads((get_config_dir(create=False) / "games" / game_name / "instance.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            record = {}
+        source_name = record.get("download_cache_name") if isinstance(record, dict) else None
+        if source_name:
+            return link_game_download_cache(game_name, source_name)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -647,7 +680,7 @@ def list_all_cache_dirs(active_game_name: str | None = None) -> list[Path]:
     out: list[Path] = []
     seen: set[Path] = set()
     if active_game_name:
-        active = root / active_game_name
+        active = get_download_cache_dir_for_game(active_game_name)
         if active.is_dir():
             out.append(active)
             seen.add(active.resolve())

@@ -10,9 +10,9 @@ def heroic_app_names(game) -> list[str]:
     names = list(getattr(game, "heroic_app_names", []) or [])
     if not names and getattr(game, "name", None):
         try:
-            from Utils.config_paths import get_game_config_path
+            from Utils.config_paths import get_config_dir
 
-            path = get_game_config_path(game.name)
+            path = get_config_dir(create=False) / "games" / game.name / "paths.json"
             if path.is_file():
                 data = json.loads(path.read_text(encoding="utf-8"))
                 saved = (data.get("heroic_app_name", "") or "").strip()
@@ -29,6 +29,24 @@ def is_native_exe_name(exe_name: str | None) -> bool:
     return Path(str(exe_name)).suffix.casefold() not in {
         ".exe", ".bat", ".cmd", ".com", ".msi",
     }
+
+
+def matching_executables(game, folder):
+    names = list(getattr(game, "configure_exe_names", ()) or ())
+    if not names:
+        names = [game.exe_name, *game.exe_name_alts]
+    matches = []
+    for name in filter(None, names):
+        current = Path(folder)
+        for part in name.replace("\\", "/").split("/"):
+            try:
+                current = next(p for p in current.iterdir() if p.name.casefold() == part.casefold())
+            except (OSError, StopIteration):
+                break
+        else:
+            if current.is_file():
+                matches.append(name)
+    return matches
 
 
 def discover_installations(

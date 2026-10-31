@@ -578,7 +578,7 @@ def sort_profile_plugins(
             try:
                 from Utils.config_paths import get_loot_game_dir
                 global_userlist = (
-                    get_loot_game_dir(str(getattr(game, "game_id", "")))
+                    get_loot_game_dir(str(getattr(game, "instance_id", getattr(game, "game_id", ""))))
                     / "userlist.yaml"
                 )
                 if global_userlist.is_file():
@@ -623,7 +623,7 @@ def sort_profile_plugins(
                 log_fn=lambda message: log(f"[loot] {message}"),
                 game_type_attr=str(
                     getattr(game, "loot_game_type", "") or ""),
-                game_id=str(getattr(game, "game_id", "") or ""),
+                game_id=str(getattr(game, "instance_id", getattr(game, "game_id", "")) or ""),
                 masterlist_url=str(
                     getattr(game, "loot_masterlist_url", "") or ""),
                 masterlist_repo=str(
@@ -661,7 +661,7 @@ def sort_profile_plugins(
                 profile_dir,
                 result.plugin_info,
                 result.general_messages,
-                game_id=str(getattr(game, "game_id", "") or ""),
+                game_id=str(getattr(game, "instance_id", getattr(game, "game_id", "")) or ""),
             )
         except Exception as exc:
             metadata_saved = False

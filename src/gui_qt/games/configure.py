@@ -13,6 +13,7 @@ Handles both cases in one view: "Add" framing when the game is unconfigured,
 
 from __future__ import annotations
 
+import copy
 import shutil
 import threading
 from pathlib import Path
@@ -162,6 +163,8 @@ class _ScanSignals(QObject):
     # disk work (restore + rmtree / full game-dir scan) that used to freeze
     # the UI when run in the click handler.
     remove_done = Signal()
+    instance_saved = Signal(object, object)
+    remove_failed = Signal(str)
     clean_done = Signal(object, object)     # (removed count|None, error|None)
     restore_done = Signal(bool, str)
     # Staging migration (old root scan + move) → GUI thread.
@@ -179,11 +182,12 @@ class ConfigureGameView(QWidget):
     window can refresh the game list and close the tab."""
 
     def __init__(self, game, on_done, parent=None, profile_name=None,
-                 progress_status=None):
+                 progress_status=None, on_duplicate=None):
         super().__init__(parent)
         self._game = game
         self._profile_name = profile_name
         self._on_done = on_done or (lambda saved, removed: None)
+        self._on_duplicate = on_duplicate
         self._p = active_palette()
 
         self._found_path: Path | None = None
@@ -234,6 +238,8 @@ class ConfigureGameView(QWidget):
         self._sig.staging_picked.connect(g(self._on_staging_picked))
         self._sig.saves_picked.connect(g(self._on_saves_picked))
         self._sig.remove_done.connect(g(self._on_remove_finished))
+        self._sig.remove_failed.connect(g(self._on_remove_failed))
+        self._sig.instance_saved.connect(g(self._on_instance_saved))
         self._sig.clean_done.connect(g(self._on_clean_finished))
         self._sig.restore_done.connect(g(self._on_restore_finished))
         self._sig.staging_scanned.connect(g(self._on_staging_scanned))
@@ -557,6 +563,14 @@ class ConfigureGameView(QWidget):
         # --- Button bar ---
         bar = QWidget(); bar.setObjectName("BottomBar")
         bb = QHBoxLayout(bar); bb.setContentsMargins(12, 8, 12, 8)
+        if self._on_duplicate is not None and not getattr(self._game, "_instance_draft", False):
+            from Utils.games.instances import can_duplicate
+            self._duplicate_btn = self._small_btn(self.tr("Duplicate Instance…"), self._duplicate_instance)
+            supported = can_duplicate(self._game)
+            self._duplicate_btn.setEnabled(supported)
+            self._duplicate_btn.setToolTip(self.tr("Create a fresh instance with independent locations, mods and profiles.") if supported
+                                          else self.tr("This handler must declare independent instance support and its write targets."))
+            bb.addWidget(self._duplicate_btn)
         if configured:
             self._remove_btn = QPushButton(self.tr("Remove Instance"))
             self._remove_btn.setObjectName("DangerButton")
@@ -805,6 +819,12 @@ class ConfigureGameView(QWidget):
                  Path(self._saves_edit.text()) if self._saves_edit.text() else None)),
              self._small_btn(self.tr("Clear"), self._clear_saves)],
             hint=self.tr("Set this only if the Saves tab looks in the wrong place.")))
+        self._openmw_cfg_edit = None
+        if callable(getattr(g, "get_openmw_cfg_path", None)):
+            self._openmw_cfg_edit = self._path_edit()
+            self._openmw_cfg_edit.setText(str(g.get_openmw_cfg_path()))
+            status = self._status(self.tr("Each instance needs its own configuration file."), "TEXT_DIM")
+            v.addWidget(self._location_row(self.tr("OpenMW config"), status, self._openmw_cfg_edit, []))
         self._align_action_tails()
         return frame
 
@@ -1199,7 +1219,7 @@ class ConfigureGameView(QWidget):
                     rb.setChecked(True)
             self._select_plugins_txt_default()
             self._seed_default_staging(g)
-            self._start_game_scan()
+            self._start_game_scan(auto_apply=not getattr(g, "_instance_draft", False))
 
         self._recovery_bar.setVisible(g.get_deploy_active())
         if g.get_deploy_active():
@@ -1260,10 +1280,20 @@ class ConfigureGameView(QWidget):
     def _clear_overrides(self):
         from Utils.profiles.state import merge_profile_settings
         try:
-            merge_profile_settings(
-                self._profile_dir, {k: None for k in self._overridable_keys()})
+            from Utils.games.instances import registry_lock, save_target_record, validate_paths
+            with registry_lock():
+                proposed = copy.copy(self._game)
+                proposed.set_active_profile_dir(None)
+                proposed.load_paths(read_only=True, prefix_fallback=False)
+                validate_paths(proposed)
+                merge_profile_settings(
+                    self._profile_dir, {k: None for k in self._overridable_keys()})
+                self._game.load_paths(read_only=True, prefix_fallback=False)
+                save_target_record(self._game)
         except Exception as exc:
             print(f"[gui_qt] clear profile overrides failed: {exc}", flush=True)
+            self._game_status.setText(str(exc))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
             return
         try:
             self._game.load_paths()
@@ -1403,24 +1433,8 @@ class ConfigureGameView(QWidget):
         return [e for e in names if e]
 
     def _matching_exes_in(self, folder: Path) -> list[str]:
-        matches: list[str] = []
-        for exe in self._exe_names():
-            parts = exe.lower().replace("\\", "/").split("/")
-            cur = folder
-            for part in parts:
-                try:
-                    match = next(
-                        (entry for entry in cur.iterdir()
-                         if entry.name.lower() == part), None)
-                except (PermissionError, FileNotFoundError, NotADirectoryError):
-                    match = None
-                if match is None:
-                    break
-                cur = match
-            else:
-                if cur.is_file():
-                    matches.append(exe)
-        return matches
+        from Utils.games.installations import matching_executables
+        return matching_executables(self._game, folder)
 
     def _exe_present_in(self, folder: Path) -> bool | None:
         """Is any of the game's exes locatable under *folder*?
@@ -2257,6 +2271,86 @@ class ConfigureGameView(QWidget):
         )
 
     def _on_save(self):
+        from Utils.games.instances import InstanceError, registry_lock
+        try:
+            if getattr(self._game, "_instance_draft", False):
+                self._save_configuration()
+                return
+            with registry_lock():
+                self._save_configuration()
+        except (InstanceError, OSError, RuntimeError) as exc:
+            self._game_status.setText(str(exc))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+
+    def _duplicate_instance(self):
+        if self._destructive_busy:
+            return
+        from gui_qt.dialogs.duplicate_instance import DuplicateInstanceOverlay
+        from Utils.games.registry import _GAMES
+
+        DuplicateInstanceOverlay(self.window(), self._game, _GAMES,
+                                 lambda draft: self._on_duplicate(draft) if draft is not None else None)
+
+    def _save_duplicate_instance(self, deploy_mode, runtime_mode, staging):
+        from amethyst_backend.game_instances import create_instance
+        from Utils.app_log import app_log
+        from Utils.games.registry import _GAMES
+        from Utils.games.quick_configure import build_quick_configure_options
+
+        game = self._game
+        if game.deploy_mode_fallback is LinkMode.COPY and deploy_mode != "vfs":
+            deploy_mode = "copy"
+        options = {key: check.isChecked() for key, check in self._opt_checks.items()}
+        if self._patch_group is not None:
+            options["patch_version"] = next((key for key, rb in self._patch_buttons.items() if rb.isChecked()), None)
+        if self._plugins_txt_group is not None:
+            options["plugins_txt_filename"] = next((key for key, rb in self._plugins_txt_buttons.items() if rb.isChecked()), None)
+        launchers = {"heroic_app_name": self._found_heroic_app or "",
+                     "lutris_slug": self._found_lutris_slug or "",
+                     "faugus_gameid": self._found_faugus_gameid or "",
+                     "bottles_program": self._found_bottles_program or "",
+                     "shortcut_appid": self._found_shortcut_appid or "",
+                     "plugin_provider_id": self._found_plugin_provider_id or "",
+                     "plugin_entry_id": self._found_plugin_entry_id or ""}
+        config_path = Path(self._openmw_cfg_edit.text().strip()).expanduser() if self._openmw_cfg_edit is not None else None
+
+        def initialize(selected):
+            available = {row["key"]: row for row in build_quick_configure_options(selected)}
+            for key, value in options.items():
+                if key in available and value is not None:
+                    available[key]["apply"](value)
+                elif key in {"patch_version", "plugins_txt_filename"} and value is not None:
+                    getattr(selected, "set_" + key)(value)
+
+        game_path, prefix = self._found_path, self._found_prefix
+        saves, appimage = self._custom_saves, self._found_appimage
+        self._destructive_busy = True
+        self._save_btn.setEnabled(False)
+        self._game_status.setText(self.tr("Creating instance…"))
+
+        def worker():
+            try:
+                result = create_instance(game, game_path, prefix, staging, deploy_mode,
+                                         runtime_mode, app_log, games=_GAMES,
+                                         save_path_override=saves, appimage_path=appimage,
+                                         openmw_cfg_path=config_path, launcher_ids=launchers,
+                                         initialize=initialize)
+                return result, None
+            except Exception as exc:
+                return None, str(exc)
+
+        run_in_worker(worker, self._sig.instance_saved, name="duplicate-instance", unpack=True)
+
+    def _on_instance_saved(self, result, error):
+        self._destructive_busy = False
+        self._save_btn.setEnabled(True)
+        if error:
+            self._game_status.setText(error)
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
+        self._finalize_save()
+
+    def _save_configuration(self):
         if self._destructive_busy:
             return
         # Pin this write to the profile displayed by the form. The game handler
@@ -2350,6 +2444,25 @@ class ConfigureGameView(QWidget):
             return
 
         old_profile_root: Path | None = None
+        from Utils.games.instances import validate_paths
+        proposed = copy.copy(g)
+        proposed._game_path = self._found_path
+        proposed._prefix_path = self._found_prefix
+        proposed._staging_path = staging_root
+        proposed._save_path_override = self._custom_saves
+        if runtime_mode is not None:
+            proposed._runtime_mode = runtime_mode
+        if self._openmw_cfg_edit is not None:
+            config_path = Path(self._openmw_cfg_edit.text().strip()).expanduser()
+            if not config_path.is_absolute():
+                self._game_status.setText(self.tr("Enter an absolute OpenMW configuration path."))
+                return
+            proposed._openmw_cfg_path = config_path
+        validate_paths(proposed)
+        if g.get_deploy_active():
+            from Utils.games.instances import InstanceError, write_targets
+            if write_targets(g) != write_targets(proposed):
+                raise InstanceError("game_deployed", "Restore this instance before changing its deployment locations.")
         try:
             old_profile_root = g.get_profile_root()
         except Exception:
@@ -2473,26 +2586,13 @@ class ConfigureGameView(QWidget):
                 return
 
         # -- Hard-link cross-device validation --------------------------------
-        # Hardlinks can't span filesystems. Apply the pending paths so the game
-        # can resolve its deploy targets (game dir, and for BG3/Sims 4/etc the
-        # Proton prefix or native data dir), then block the save if any target
-        # is on a different drive than the staging folder (Tk parity:
-        # add_game_dialog save-time check). Setters persist, but so does the
-        # save we're about to do - an invalid mode is never written.
+        if getattr(g, "_instance_draft", False):
+            self._save_duplicate_instance(selected_method, runtime_mode, staging_root)
+            return
         if mode == LinkMode.HARDLINK and not vfs_selected:
-            g.set_game_path(self._found_path)
-            if runtime_mode is not None:
-                g.set_runtime_mode(runtime_mode)
-            if (runtime_mode != "native" and self._found_prefix is not None
-                    and hasattr(g, "set_prefix_path")):
-                g.set_prefix_path(self._found_prefix)
-            elif (runtime_mode is None and self._has_prefix_src
-                  and hasattr(g, "clear_prefix_path")):
-                g.clear_prefix_path()
-            if hasattr(g, "set_staging_path"):
-                g.set_staging_path(self._custom_staging)
             from Utils.hardlink_check import hardlink_device_mismatches
-            mismatched = hardlink_device_mismatches(g)
+            proposed._deploy_mode = mode
+            mismatched = hardlink_device_mismatches(proposed)
             if mismatched:
                 names = " and ".join(mismatched)
                 self._game_status.setText(self.tr(
@@ -2504,6 +2604,13 @@ class ConfigureGameView(QWidget):
         # ---------------------------------------------------------------------
 
         # Persist via the backend setters (live write to paths.json / overrides).
+        g._prefix_path = self._found_prefix
+        g._staging_path = self._custom_staging
+        g._save_path_override = self._custom_saves
+        if runtime_mode is not None:
+            g._runtime_mode = runtime_mode
+        if self._openmw_cfg_edit is not None:
+            g._openmw_cfg_path = Path(self._openmw_cfg_edit.text().strip()).expanduser()
         g.set_game_path(self._found_path)
         if runtime_mode is not None:
             g.set_runtime_mode(runtime_mode)
@@ -2928,40 +3035,23 @@ class ConfigureGameView(QWidget):
         sig = self._sig
 
         def worker():
-            from Utils.config_paths import get_game_config_path
-            profile_root = g.get_profile_root()
-            paths_json = get_game_config_path(g.name)
+            from amethyst_backend.game_instances import remove_instance
+            from Utils.app_log import app_log
             try:
-                if hasattr(g, "restore"):
-                    g.restore()
-            except Exception:
-                pass
-            try:
-                from Utils.deployment import restore_root_folder_for_game
-                rf = profile_root / "Root_Folder"
-                game_root = g.get_game_path()
-                if rf.is_dir() and game_root:
-                    restore_root_folder_for_game(
-                        g, root_folder_dir=rf, game_root=game_root,
-                    )
-            except Exception:
-                pass
-            keep = {"mods", "profiles", "overwrite"}
-            if profile_root.is_dir():
-                for child in profile_root.iterdir():
-                    if child.name in keep:
-                        continue
-                    if child.is_dir():
-                        shutil.rmtree(child, ignore_errors=True)
-                    else:
-                        child.unlink(missing_ok=True)
-            cfg_dir = paths_json.parent
-            if cfg_dir.is_dir():
-                shutil.rmtree(cfg_dir, ignore_errors=True)
+                remove_instance(g, app_log)
+            except Exception as exc:
+                safe_emit(sig.remove_failed, str(exc))
+                return
             safe_emit(sig.remove_done)
 
         threading.Thread(target=worker, daemon=True,
                          name="remove-instance").start()
+
+    def _on_remove_failed(self, error):
+        self._destructive_busy = False
+        self._set_destructive_enabled(True)
+        self._game_status.setText(error)
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
 
     def _on_remove_finished(self):
         self._destructive_busy = False
@@ -2969,7 +3059,8 @@ class ConfigureGameView(QWidget):
 
     def _set_destructive_enabled(self, on: bool) -> None:
         for b in (getattr(self, "_remove_btn", None),
-                  getattr(self, "_clean_btn", None)):
+                  getattr(self, "_clean_btn", None),
+                  getattr(self, "_duplicate_btn", None)):
             if b is not None:
                 b.setEnabled(on)
 

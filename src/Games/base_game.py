@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from Utils.config_paths import get_game_config_dir, get_game_config_path
 from Utils.deployment import LinkMode
 from Utils.launchers.steam import find_prefix as _find_steam_prefix
+from Utils.games.instances import guard_path_save
 
 if TYPE_CHECKING:
     from typing import Callable
@@ -308,11 +309,44 @@ class BaseGame(ABC):
     # -----------------------------------------------------------------------
 
     @property
+    def instance_id(self) -> str:
+        return self.game_id
+
+    @property
+    def handler_name(self) -> str:
+        return self.name
+
+    @property
+    def is_instance(self) -> bool:
+        return hasattr(self, "_instance_record")
+
+    @property
+    def supports_game_instances(self) -> bool:
+        return not bool(getattr(self, "manager_plugin_id", None))
+
+    def get_instance_write_targets(self) -> list[tuple[str, Path | None]]:
+        targets = [("mod data", self.get_mod_data_path()),
+                   ("root deployment", self.get_root_deploy_path()),
+                   ("manual saves", self.get_save_path_override())]
+        targets.extend(self.get_hardlink_deploy_targets())
+        for rule in getattr(self, "custom_routing_rules", ()):
+            root = self.get_prefix_path() if getattr(rule, "to_prefix", False) else self.get_game_path()
+            if root is not None:
+                for destination in (rule.dest, *rule.mirror_dests):
+                    targets.append(("custom routing", root / destination))
+        from Utils.profiles.state import read_only_profile_state, read_separator_deploy_paths
+        profile = self._active_profile_dir or self.get_profile_root() / "profiles" / "default"
+        with read_only_profile_state():
+            for info in read_separator_deploy_paths(profile).values():
+                if info.get("path"):
+                    targets.append(("separator deployment", Path(info["path"])))
+        return targets
+
+    @property
     @abstractmethod
     def name(self) -> str:
         """
-        Human-readable display name, e.g. 'Skyrim Special Edition'.
-        Must match the subfolder name under Games/ and Profiles/.
+        Human-readable instance name, also used for its configuration folder.
         """
 
     @property
@@ -1082,7 +1116,7 @@ class BaseGame(ABC):
         from Utils.config_paths import cli_invocation
         from Utils.launchers.handoff import compose_steam_handoff_command
 
-        argv = [*cli_invocation(), "launch", self.game_id]
+        argv = [*cli_invocation(), "launch", self.instance_id]
         if profile:
             argv += ["--profile", profile]
         return compose_steam_handoff_command(self, [*argv, "--"])
@@ -2228,7 +2262,9 @@ class BaseGame(ABC):
             "game_root": _root_record(self.get_game_path()),
             "prefix_root": _root_record(self.get_prefix_path()),
             "profile_state": read_profile_state(profile_dir, read_only=True),
+            "instance_write_targets": self.get_instance_write_targets(),
         }
+        context["instance_write_targets"] = [(label, str(path)) for label, path in context["instance_write_targets"] if path is not None]
         modlist = profile_dir / "modlist.txt"
         if modlist.is_file():
             context["modlist"] = modlist.read_text(encoding="utf-8", errors="surrogateescape")
@@ -2747,6 +2783,7 @@ class BaseGame(ABC):
             except Exception:
                 continue
 
+    @guard_path_save
     def save_paths(self) -> None:
         """Write path configuration to the user config directory.
 

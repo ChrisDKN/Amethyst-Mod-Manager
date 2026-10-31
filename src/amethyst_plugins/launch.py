@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import functools
 import importlib.util
 import sys
@@ -95,7 +97,7 @@ def prepare_launch(game, executable=None, *, log_fn=lambda message: None):
     data = effective_tool_data_root(game)
     prefix = game.get_prefix_path()
     base = {
-        "api_version": 1, "game_id": game.game_id, "game": game.name,
+        "api_version": 1, "game_id": game.game_id, "instance_id": game_instance_id(game), "game": game.name,
         "profile": profile.name, "profile_dir": str(profile.absolute()),
         "game_path": str(root), "data_root": str(data),
         "configured_game_path": str(game.get_game_path()),

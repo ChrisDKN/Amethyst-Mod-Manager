@@ -404,4 +404,6 @@ def discover_games(timing=None) -> dict[str, BaseGame]:
         _load_failures.extend(load(games))
     except Exception as exc:
         _load_failures.append(("manager plugin games", str(exc)))
+    from Utils.games.instances import load_instances
+    _load_failures.extend(load_instances(games))
     return games

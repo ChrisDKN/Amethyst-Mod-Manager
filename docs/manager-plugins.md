@@ -2599,6 +2599,48 @@ manager versions. Set `min_manager_version` and validate the packaged plugin
 against the manager versions you support. Modules execute as trusted Python with
 the manager's privileges, like other executable plugin contributions.
 
+### Independent instances
+
+A handler's `game_id` remains its game-type identity. `instance_id` identifies
+an individual configured installation and defaults to `game_id` for the original
+instance. `name` is the instance's display/storage name; use `handler_name` when
+a game-specific path needs its original title (for example, a Documents folder).
+Constructors must load configuration through the handler's path properties so
+identity can be bound before initialization. Instances follow their original
+handler source and plugin; missing handlers preserve saved state as unavailable.
+
+Plugin handlers must explicitly opt in and declare every manager write target:
+
+```python
+class ExampleGame(StandardCustomGame):
+    supports_game_instances = True
+
+    def get_instance_write_targets(self):
+        return [*super().get_instance_write_targets(),
+                ("External configuration", self.external_config_path())]
+```
+
+For handlers writing only to the standard game/prefix/staging targets, override
+the method and return `super().get_instance_write_targets()`. Include external
+configuration directories, custom destinations, and paths reached through
+symlinks. Targets may be files or directories. Do not include shared read-only
+engine binaries or resources. Incomplete declarations cannot provide isolation.
+Installation, prefix, and external-target isolation checks apply to instances
+of the same handler and owning plugin; staging storage remains separate across
+games.
+
+Keep target declarations available when an installation or external file is
+missing. Optional `validate_instance_configuration()` can reject incomplete
+configuration during save and deployment without blocking inspection of peers.
+
+Plugin contexts add `instance_id` while existing `game_id` fields and manifest
+`game_ids` filters keep their handler meaning. Use `instance_id` for Headless
+requests and per-installation caches. Captured GUI/stdio API calls using the
+current handler ID are translated to the captured instance for compatibility.
+Event `game_id` fields identify the instance, so subscriptions, notifications,
+selections, and operation results remain separate across copies. Original
+instances retain their previous values.
+
 ## Current boundaries
 
 - Scripts are trusted local programs with the same filesystem permissions as

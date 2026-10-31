@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id
+
 import hashlib
 import json
 import stat
@@ -63,12 +65,12 @@ def _report(game, profile, cancel):
     if configuration != _configuration(selected, profile) or deployment != _token(deployment_file):
         raise JobError("stale_patch4gb_plan", "Configuration or deployment state changed during inspection.")
     auto = getattr(selected, "_auto_4gb_active", lambda: False)()
-    snapshot = {"game": str(selected.game_id), "profile": str(profile),
+    snapshot = {"game": str(instance_id(selected)), "profile": str(profile),
                 "root": str(root), "root_identity": _token(root),
                 "configuration": configuration, "deployment": deployment,
                 "files": files, "automatic": auto}
     report = {
-        "game": str(selected.game_id), "profile": profile.name,
+        "game": str(instance_id(selected)), "profile": profile.name,
         "game_path": str(root), "executable": str(root / patcher.EXE_NAME),
         "backup": str(root / patcher.BACKUP_NAME),
         "state": info["state"], "variant": info.get("variant"),

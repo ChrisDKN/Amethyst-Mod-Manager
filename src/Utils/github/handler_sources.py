@@ -64,8 +64,9 @@ class HandlerSources:
 
     @contextmanager
     def _lock(self):
+        from Utils.games.instances import registry_lock
         self.root.mkdir(parents=True, exist_ok=True)
-        with (self.root / "lock").open("a") as handle:
+        with registry_lock(), (self.root / "lock").open("a") as handle:
             try:
                 fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
@@ -133,12 +134,20 @@ class HandlerSources:
     def sources(self):
         return self._state()["sources"]
 
+    def _check_source_idle(self, state, source_id):
+        from Utils.games.instances import require_handler_reference_idle
+        for gid, options in self._options(state).items():
+            if self._chosen(state, gid, options)["source_id"] == source_id:
+                require_handler_reference_idle(gid, names=[state["names"].get(gid, "")])
+
     def save_source(self, url, branch="", folder="", *, enabled=True, source_id=None):
         source = normalize_source(url, branch, folder, enabled)
         with self._lock():
             state = self._state()
             sources = state["sources"]
             previous = next((s for s in sources if s["id"] == source_id), None)
+            if previous is not None and previous != source:
+                self._check_source_idle(state, source_id)
             if source_id is not None and previous is None:
                 raise ValueError("The repository no longer exists.")
             if source_id == "builtin" and source["id"] != "builtin":
@@ -173,6 +182,7 @@ class HandlerSources:
             raise ValueError("The built-in repository can be disabled but not removed.")
         with self._lock():
             state = self._state()
+            self._check_source_idle(state, source_id)
             state["sources"] = [s for s in state["sources"] if s["id"] != source_id]
             self._write(state)
 
@@ -240,6 +250,8 @@ class HandlerSources:
     def select(self, game_id, key):
         with self._lock():
             state = self._state()
+            from Utils.games.instances import require_handler_reference_idle
+            require_handler_reference_idle(game_id, names=[state["names"].get(game_id, "")])
             options = self._options(state).get(game_id, {})
             if key not in options:
                 raise ValueError("This handler source is no longer available.")
@@ -257,6 +269,10 @@ class HandlerSources:
         if not safe_filename(filename):
             raise ValueError("Invalid local handler filename.")
         with self._lock():
+            from Utils.games.instances import require_handler_reference_idle
+            require_handler_reference_idle(gid, names=[definition["name"], self._state()["names"].get(gid, "")])
+            from Utils.games.instances import validate_handler_identity
+            validate_handler_identity(gid, definition["name"])
             if check is not None:
                 check()
             state = self._state()
@@ -280,6 +296,8 @@ class HandlerSources:
 
     def delete_game(self, game_id, *, check=None):
         with self._lock():
+            from Utils.games.instances import require_handler_reference_idle
+            require_handler_reference_idle(game_id, names=[self._state()["names"].get(game_id, "")])
             if check is not None:
                 check()
             state = self._state()
@@ -302,6 +320,10 @@ class HandlerSources:
             raise ValueError("Unsafe handler filename.")
         gid, definition = _definition(raw)
         with self._lock():
+            from Utils.games.instances import require_handler_reference_idle
+            require_handler_reference_idle(gid, names=[definition["name"], self._state()["names"].get(gid, "")])
+            from Utils.games.instances import validate_handler_identity
+            validate_handler_identity(gid, definition["name"])
             state = self._state()
             if not any(s == source and s["enabled"] for s in state["sources"]):
                 raise ValueError("Handler repository is no longer enabled.")

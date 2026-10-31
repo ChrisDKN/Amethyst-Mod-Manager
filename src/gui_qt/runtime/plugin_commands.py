@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
@@ -107,7 +109,7 @@ class PluginCommands(QObject):
 
     def target(self):
         state = self.ui.host._gs
-        return (state.game.game_id if state.game else "", state.profile)
+        return (game_instance_id(state.game) if state.game else "", state.profile)
 
     def context(self):
         self.ui.selections.flush()

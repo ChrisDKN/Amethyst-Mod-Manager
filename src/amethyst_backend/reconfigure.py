@@ -95,6 +95,7 @@ def _build_plan(
         and callable(getattr(selected, "get_appimage_path", None))
         and callable(getattr(selected, "set_appimage_path", None)))
     old_appimage = selected.get_appimage_path() if appimage_supported else None
+    old_openmw_cfg = selected.get_openmw_cfg_path() if appimage_supported else None
     old_runtime = (selected.get_runtime_mode()
                    if game.game_id == "baldurs_gate_3" else None)
     old_method = _deploy_method(selected)
@@ -104,6 +105,11 @@ def _build_plan(
     staging_path = changes.get("staging_path", selected._staging_path)
     saves_path = changes.get("save_path_override", old_saves)
     appimage_path = changes.get("appimage_path", old_appimage)
+    openmw_cfg = changes.get("openmw_cfg_path", old_openmw_cfg)
+    if "openmw_cfg_path" in changes:
+        if not appimage_supported:
+            raise JobError("game_configuration_failed", "Only OpenMW accepts openmw_cfg_path.")
+        selected._openmw_cfg_path = openmw_cfg
     if "appimage_path" in changes and not appimage_supported:
         raise JobError("appimage_path_unsupported",
                        "This game does not use an AppImage path.")
@@ -198,6 +204,8 @@ def _build_plan(
         if real == staged or real in staged.parents or staged in real.parents:
             raise JobError("staging_path_overlap",
                            "The staging root must be separate from game and prefix paths.")
+    from Utils.games.instances import validate_paths
+    validate_paths(selected)
     problem = staging_root_problem(new_root, game.name, current_root=old_root)
     if problem is not None:
         code, detail = problem
@@ -232,6 +240,7 @@ def _build_plan(
         "staging_path": str(new_root),
         "save_path_override": (str(saves_path) if saves_path else None),
         "appimage_path": (str(appimage_path) if appimage_path else None),
+        "openmw_cfg_path": (str(openmw_cfg) if openmw_cfg else None),
         "deploy_mode": target_method,
         "runtime_mode": (selected.get_runtime_mode()
                          if game.game_id == "baldurs_gate_3" else None),
@@ -242,6 +251,7 @@ def _build_plan(
         "staging_path": str(old_root),
         "save_path_override": (str(old_saves) if old_saves else None),
         "appimage_path": (str(old_appimage) if old_appimage else None),
+        "openmw_cfg_path": (str(old_openmw_cfg) if old_openmw_cfg else None),
         "deploy_mode": old_method,
         "runtime_mode": old_runtime,
     }
@@ -333,7 +343,7 @@ def reconfigure_game(
                                {"profile": profile_dir.name,
                                 "target": str(requested_profile)})
             paths_file = Path(game._paths_file)
-            snapshot_paths = [paths_file, Path(game._settings_file)]
+            snapshot_paths = [paths_file, Path(game._settings_file), paths_file.parent / "instance_targets.json"]
             for directory in sorted((old_root / "profiles").glob("*")):
                 if directory.is_dir() and not directory.is_symlink():
                     snapshot_paths.extend((directory / "profile_state.json",

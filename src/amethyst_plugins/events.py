@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import threading
 from collections import deque
 from copy import deepcopy
@@ -73,6 +75,6 @@ def operation_event(kind):
                 success = bool(result)
                 return result
             finally:
-                publish_event(f"{kind}.completed", game.game_id, str(profile), success=success)
+                publish_event(f"{kind}.completed", game_instance_id(game), str(profile), success=success)
         return run
     return decorate

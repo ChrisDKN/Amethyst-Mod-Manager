@@ -566,6 +566,9 @@ class BaldursGate3(BaseGame):
         root = self._larian_root()
         return root / _MODS_REL if root is not None else None
 
+    def get_instance_write_targets(self):
+        return [*super().get_instance_write_targets(), ("BG3 user data", self._larian_root())]
+
     def get_mod_staging_path(self) -> Path:
         if self._staging_path is not None:
             return self._staging_path / "mods"

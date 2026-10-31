@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from Utils.games.instances import instance_id as game_instance_id
+
 import importlib.util
 import sys
 import uuid
@@ -50,7 +52,7 @@ class LifecycleHooks:
                 context = {
                     "api_version": 1, "plugin_id": plugin.id, "event": event,
                     "plugin_dir": str(plugin_directory(plugin)), "settings": deepcopy(settings),
-                    "data": load_data(plugin), "game_id": self.game.game_id,
+                    "data": load_data(plugin), "game_id": self.game.game_id, "instance_id": game_instance_id(self.game),
                     "game": getattr(self.game, "name", self.game.game_id),
                     "profile": self.profile_dir.name, "profile_dir": str(self.profile_dir.absolute()),
                     "log": lambda message, p=plugin: self.log(f"{p.name}: {message}"),

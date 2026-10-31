@@ -49,7 +49,7 @@ def entry_launch_runner(entry, params, manager, check_cancelled=lambda: None):
         target = deployed[0] if deployed and "executable" not in params and entry["installed"] else None
         identity = {"id": entry["id"], "name": entry["name"], "provider_id": entry["provider_id"]}
         if target is not None:
-            identity.update(id=target[0].game_id, name=target[0].name, launcher_id=entry["id"])
+            identity.update(id=target[0].instance_id, name=target[0].name, launcher_id=entry["id"])
         launch = manager.reserve(identity, target[1].name if target else None)
         launch_id = launch["id"]
         if target is not None:

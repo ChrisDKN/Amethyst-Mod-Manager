@@ -1410,7 +1410,11 @@ class CustomGameView(QWidget):
         image_url = defn.get("image_url", "")
         game_id = defn.get("game_id", "")
 
-        save_custom_game_definition(defn)
+        try:
+            save_custom_game_definition(defn)
+        except (ValueError, OSError, RuntimeError) as exc:
+            self._validation.setText(str(exc))
+            return
         # Materialise the handler so any errors surface here, not later.
         make_custom_game(defn)
 
@@ -1424,7 +1428,11 @@ class CustomGameView(QWidget):
             return
         game_id = self._existing.get("game_id", "")
         if game_id:
-            delete_custom_game_definition(game_id)
+            try:
+                delete_custom_game_definition(game_id)
+            except (ValueError, OSError, RuntimeError) as exc:
+                self._validation.setText(str(exc))
+                return
             img = get_custom_game_images_dir() / f"{game_id}.png"
             img.unlink(missing_ok=True)
         self._on_done(None, True)

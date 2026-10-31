@@ -198,6 +198,9 @@ class ProjectZomboid(BaseGame):
             return self._prefix_zomboid_dir(prefix)
         return Path.home() / "Zomboid"
 
+    def get_instance_write_targets(self):
+        return [*super().get_instance_write_targets(), ("Zomboid user data", self.resolve_zomboid_dir())]
+
     @staticmethod
     def _prefix_zomboid_dir(prefix: Path) -> Path:
         users = prefix / _PREFIX_USERS_SUBPATH
