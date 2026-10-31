@@ -61,6 +61,8 @@ py.install_sources(
   'tux.png',
   'ui.png',
   'Thunderstore.png',
+  'Hexium.png',
+  'update_hexium.png',
   'update_modio.png',
   'update_thunderstore.png',
   'update.png',

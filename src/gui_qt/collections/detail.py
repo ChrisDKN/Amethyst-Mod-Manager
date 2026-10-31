@@ -220,11 +220,12 @@ class CollectionDetailView(QWidget):
         self._update_install_btn_state()
         profile = self._r2_profile
         community = self._game.thunderstore_community
+        hexium_community = self._game.hexium_community
 
         def worker():
             from Thunderstore.r2_profile import prepare_import
             try:
-                return prepare_import(profile, community), ""
+                return prepare_import(profile, community, hexium_community=hexium_community), ""
             except Exception as exc:
                 return None, str(exc)
 
@@ -840,7 +841,7 @@ class CollectionDetailView(QWidget):
             game_text = (self.tr("Game: {0} ({1}).") if self._r2_profile.community
                          else self.tr("No game recorded in the manifest. Using selected game: {0} ({1})."))
             self._r2_status.setText(
-                game_text.format(self._game.name, self._game.thunderstore_community)
+                game_text.format(self._game.name, self._game.thunderstore_community or self._game.hexium_community)
                 + "\n" + self.tr("New profile: {0} (profile-specific mods)").format(self.r2_destination_name())
                 + "\n" + state)
             if self._r2_profile.archived:
@@ -1023,7 +1024,7 @@ class CollectionDetailView(QWidget):
         # Thunderstore install pass does not consult the skip set anyway, so a
         # box here would be a choice that silently does nothing.
         optionals = [m for m in self._mods if m.optional
-                     and getattr(m, "source_type", "") != "thunderstore"]
+                     and getattr(m, "source_type", "") not in {"thunderstore", "hexium"}]
         has_opt = bool(optionals)
         self._select_all_btn.setEnabled(has_opt)
         self._deselect_all_btn.setEnabled(has_opt)
@@ -1272,20 +1273,20 @@ class CollectionDetailView(QWidget):
         pass before the orchestrator runs, which is keyed on the integer Nexus
         file ids a Thunderstore package has none of."""
         return [m for m in self._mods
-                if getattr(m, "source_type", "") != "thunderstore"
+                if getattr(m, "source_type", "") not in {"thunderstore", "hexium"}
                 and not (getattr(m, "optional", False)
                          and m.file_id in skipped_fids)]
 
     def thunderstore_mods(self):
         """The manifest's Thunderstore entries (excluded from install_mods)."""
         return [m for m in self._mods
-                if getattr(m, "source_type", "") == "thunderstore"]
+                if getattr(m, "source_type", "") in {"thunderstore", "hexium"}]
 
     def skipped_optional_mods(self, skipped_fids):
         """The full mod objects for the unticked optionals - the orchestrator
         removes these from an existing profile on continue/append/update."""
         return [m for m in self._mods
-                if getattr(m, "source_type", "") != "thunderstore"
+                if getattr(m, "source_type", "") not in {"thunderstore", "hexium"}
                 and getattr(m, "optional", False)
                 and m.file_id in skipped_fids]
 

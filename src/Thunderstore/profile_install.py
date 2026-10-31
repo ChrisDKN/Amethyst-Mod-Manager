@@ -30,7 +30,7 @@ class _Package:
 
     @property
     def name(self):
-        return self.link.full_name
+        return f"{getattr(self.link, 'source', 'thunderstore')}:{self.link.full_name}"
 
 
 def install_entries(entries, game, profile_dir, *, stamp_meta,
@@ -39,6 +39,9 @@ def install_entries(entries, game, profile_dir, *, stamp_meta,
     ctl = control or InstallControl()
     if not entries or ctl.stop.is_set():
         return [], 0, []
+    if any(entry.get("source") == "hexium" for entry in entries):
+        from Thunderstore.repositories import catalogue
+        catalogue(game.hexium_community, force=True)
     profile_dir = Path(profile_dir)
     staging = Path(resolve_target_staging(game, profile_dir))
     dest = get_download_cache_dir_for_game(game.name)
@@ -48,8 +51,12 @@ def install_entries(entries, game, profile_dir, *, stamp_meta,
     jobs, failures, installed, deferred = [], {}, {}, []
     for index, entry in enumerate(entries):
         try:
-            link = Ror2mmLink(namespace=entry["namespace"], name=entry["package"],
-                              version=entry["version"], community=entry.get("community", ""))
+            from Thunderstore.repositories import make_link
+            source = entry.get("source", "thunderstore")
+            community = entry.get("community", "")
+            if source == "hexium" and getattr(game, "hexium_community", "") != community:
+                raise ValueError("Hexium package does not belong to the selected game")
+            link = make_link(entry["namespace"], entry["package"], entry["version"], community, source=source)
             jobs.append(_Package(index, entry, link, max(0, int(entry.get("file_size") or 0))))
         except (KeyError, TypeError, ValueError) as exc:
             failures[index] = (entry.get("full_name", "?"), str(exc))
@@ -116,6 +123,9 @@ def install_entries(entries, game, profile_dir, *, stamp_meta,
                     if not result.success or not result.file_path:
                         raise RuntimeError(result.error or "Download failed")
                     info = job.entry.get("version_info")
+                    if getattr(job.link, "source", "thunderstore") == "hexium":
+                        from Thunderstore.repositories import version_info
+                        info = version_info(job.link.namespace, job.link.name, job.link.version, job.link.community)
                     if not isinstance(info, dict):
                         try:
                             info = fetch_version_info(job.link)

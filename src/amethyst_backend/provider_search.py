@@ -3,22 +3,23 @@ from dataclasses import asdict
 from .jobs import JobError
 
 
-def thunderstore_runner(community, options, *, filters=False):
+def thunderstore_runner(community, options, *, filters=False, source="thunderstore"):
     def run(_log, progress):
         from Thunderstore.thunderstore_api import fetch_filters, fetch_listing, package_url, PAGE_SIZE
 
         progress(0, 1, "Reading Thunderstore catalogue")
         if filters:
-            result = fetch_filters(community)
+            result = fetch_filters(community, source=source)
             if result is None:
                 raise JobError("thunderstore_catalog_unavailable", "Could not read Thunderstore filters.")
             return {"community": community, **asdict(result)}
         try:
-            rows, total = fetch_listing(community, strict=True, **options)
+            rows, total = fetch_listing(community, strict=True, source=source, **options)
         except (ValueError, TypeError) as exc:
             raise JobError("thunderstore_catalog_unavailable", "Could not read the Thunderstore catalogue.") from exc
+        from Thunderstore.repositories import package_url
         items = [{**asdict(row), "package_id": row.package_id,
-                  "url": package_url(community, row.namespace, row.name)} for row in rows]
+                  "url": package_url(community, row.namespace, row.name, source=source)} for row in rows]
         page = options["page"]
         progress(1, 1, "Reading Thunderstore catalogue")
         return {"community": community, "packages": items, "total": total, "page": page,

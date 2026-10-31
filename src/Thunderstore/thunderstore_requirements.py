@@ -57,6 +57,7 @@ class ResolvedPackage:
     # Every version this package was pinned at across the graph, when the
     # resolver had to choose between conflicting pins.
     pinned_versions: list = field(default_factory=list)
+    source: str = "thunderstore"
 
     @property
     def package_id(self) -> str:
@@ -104,7 +105,7 @@ def size_api_url(namespace: str, name: str, version: str,
 
 
 def _fetch_version(namespace: str, name: str, version: str,
-                   host: str = "thunderstore.io") -> dict | None:
+                   host: str = "thunderstore.io", community: str = "") -> dict | None:
     """Fetch one package version's metadata, merging both APIs.
 
     Neither endpoint is sufficient alone: the experimental one carries
@@ -112,6 +113,9 @@ def _fetch_version(namespace: str, name: str, version: str,
     a ``dependency_count``. Size is the ONLY integrity check Thunderstore
     offers (no hashes exist), so it is worth the second request.
     """
+    if host == "hexium.gg":
+        from Thunderstore.repositories import version_info
+        return version_info(namespace, name, version, community)
     data = fetch_json(version_api_url(namespace, name, version, host))
     if not isinstance(data, dict):
         return None
@@ -152,6 +156,9 @@ def resolve_dependencies(link, *, host: str = "thunderstore.io",
     dependencies-FIRST (so installing in order satisfies each package's
     requirements before it lands), with the root package last.
     """
+    if getattr(link, "source", "thunderstore") == "hexium":
+        from Thunderstore.repositories import resolve
+        return resolve(link, progress_cb)
     result = ResolveResult()
 
     # Breadth-first walk, collecting every pin seen per package id.
@@ -275,9 +282,10 @@ def filter_already_installed(packages, staging_root: Path,
     reads as "already satisfied".
     """
     from Thunderstore.thunderstore_meta import read_meta
+    from Thunderstore.repositories import version_key
 
     staging_root = Path(staging_root)
-    installed: dict[str, str] = {}     # package_id → version
+    installed: dict[tuple, str] = {}     # package_id → version
     folder_names: set = set()
     if staging_root.is_dir():
         for folder in staging_root.iterdir():
@@ -292,10 +300,10 @@ def filter_already_installed(packages, staging_root: Path,
             except Exception:
                 continue
             if meta.package_id:
-                prev = installed.get(meta.package_id)
-                if prev is None or (_parse_version(meta.version) or ()) > (
-                        _parse_version(prev) or ()):
-                    installed[meta.package_id] = meta.version
+                prev = installed.get((meta.source, meta.package_id))
+                parse = version_key if meta.source == "hexium" else _parse_version
+                if prev is None or (parse(meta.version) or ()) > (parse(prev) or ()):
+                    installed[(meta.source, meta.package_id)] = meta.version
 
     to_install: list = []
     present: list = []
@@ -305,16 +313,17 @@ def filter_already_installed(packages, staging_root: Path,
         if keep_root and getattr(pkg, "is_root", False):
             to_install.append(pkg)
             continue
-        have = installed.get(pkg.package_id)
+        have = installed.get((pkg.source, pkg.package_id))
         if have:
-            hv, wv = _parse_version(have), _parse_version(pkg.version)
+            parse = version_key if pkg.source == "hexium" else _parse_version
+            hv, wv = parse(have), parse(pkg.version)
             if hv is not None and wv is not None and hv >= wv:
                 present.append(pkg)
                 continue
             # Installed but older → reinstall at the required version.
             to_install.append(pkg)
             continue
-        if pkg.full_name.lower() in folder_names:
+        if pkg.source == "thunderstore" and pkg.full_name.lower() in folder_names:
             present.append(pkg)
             continue
         to_install.append(pkg)

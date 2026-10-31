@@ -2157,7 +2157,7 @@ def save_header_position(value: str) -> None:
 # Restore, notifications and Settings are deliberately absent - hiding those
 # would leave the bar unable to do its job.
 _HIDEABLE_HEADER_BUTTONS = (
-    "install", "proton", "wizard", "nexus", "thunderstore", "wabbajack")
+    "install", "proton", "wizard", "nexus", "thunderstore", "hexium", "wabbajack")
 
 
 def load_hidden_header_buttons() -> set[str]:

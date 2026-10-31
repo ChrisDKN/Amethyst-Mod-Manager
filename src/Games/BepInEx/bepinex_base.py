@@ -57,7 +57,7 @@ def _thunderstore_plugin_subdirs(staging_root: Path, entries,
 
 class BepInExBase(ProfileVFSGameMixin, BaseGame):
 
-    filegraph_routing_revision = 1
+    filegraph_routing_revision = 2
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,

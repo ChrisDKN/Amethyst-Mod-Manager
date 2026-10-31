@@ -152,7 +152,7 @@ class ThunderstoreDepsOverlay(OverlayBase):
         h = QHBoxLayout(frame)
         h.setContentsMargins(10, 7, 10, 7)
         h.setSpacing(8)
-        box = QCheckBox(pkg.full_name)
+        box = QCheckBox(f"{pkg.full_name} [{getattr(pkg, 'source', 'thunderstore')}] ")
         box.setChecked(True)
         box.setCursor(Qt.PointingHandCursor)
         box.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-size:13px;")

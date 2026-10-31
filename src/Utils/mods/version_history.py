@@ -41,7 +41,7 @@ class PreviousVersion:
     def valid(self):
         if self.source == "nexus":
             return bool(self.game_domain and self.mod_id > 0 and self.file_id > 0)
-        return bool(self.source == "thunderstore" and self.namespace
+        return bool(self.source in {"thunderstore", "hexium"} and self.namespace
                     and self.name and self.version)
 
     def nexus_meta(self):
@@ -54,7 +54,7 @@ class PreviousVersion:
     def thunderstore_meta(self):
         from Thunderstore.thunderstore_meta import ThunderstoreModMeta
         return ThunderstoreModMeta(
-            community=self.community, namespace=self.namespace, name=self.name,
+            source=self.source, community=self.community, namespace=self.namespace, name=self.name,
             version=self.version, file_size=self.file_size)
 
 
@@ -67,6 +67,7 @@ def previous_version(meta, thunderstore_meta, source):
             installation_file=meta.installation_file, file_size=meta.file_size,
             mod_name=meta.mod_name)
     ts = thunderstore_meta
+    source = ts.source
     return PreviousVersion(
         source=source, community=ts.community, namespace=ts.namespace,
         name=ts.name, version=ts.version,
@@ -193,7 +194,7 @@ class VersionChangeContext:
             ts.ignored_version = self.previous_thunderstore.ignored_version
             ts.installed = self.previous_thunderstore.installed or ts.installed
             ts.community = ts.community or self.previous_thunderstore.community
-            write_ts_meta(meta_path, ts)
+            write_ts_meta(meta_path, ts, replace_source=self.previous_thunderstore.source != ts.source)
             new.version = ts.version
         new.installed = old.installed or new.installed
         new.root_folder = old.root_folder

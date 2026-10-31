@@ -173,7 +173,7 @@ def _reinstall_target(
     if nexus_meta.installation_file:
         recorded_names.add(nexus_meta.installation_file)
     if thunderstore_meta is not None and thunderstore_meta.full_name:
-        recorded_names.add(f"{thunderstore_meta.full_name}.zip")
+        recorded_names.add(f"{'hexium-' if thunderstore_meta.source == 'hexium' else ''}{thunderstore_meta.full_name}.zip")
     if modio_meta is not None and modio_meta.file_id > 0:
         recorded_names.add(f"modio-6715-{modio_meta.mod_id}-{modio_meta.file_id}.zip")
     nexus_identity = None
@@ -233,7 +233,7 @@ def _select_reinstall_archive(
 
     def identity_conflicts(archive: dict[str, Any]) -> bool:
         thunderstore_meta = context.get("thunderstore_meta")
-        identity = archive.get("thunderstore")
+        identity = archive.get(thunderstore_meta.source if thunderstore_meta is not None else "thunderstore")
         if thunderstore_meta is not None and isinstance(identity, dict):
             if (identity.get("namespace"), identity.get("package"), identity.get("package_version")) != (thunderstore_meta.namespace, thunderstore_meta.name, thunderstore_meta.version):
                 return True
@@ -288,8 +288,8 @@ def _select_reinstall_archive(
                       and not identity_conflicts(archive)]
     if not candidates and context.get("thunderstore_meta") is not None:
         meta = context["thunderstore_meta"]
-        candidates = [archive for archive in archives if (archive.get("thunderstore") or {}).get("namespace") == meta.namespace
-                      and archive["thunderstore"].get("package") == meta.name and archive["thunderstore"].get("package_version") == meta.version
+        candidates = [archive for archive in archives if (archive.get(meta.source) or {}).get("namespace") == meta.namespace
+                      and archive[meta.source].get("package") == meta.name and archive[meta.source].get("package_version") == meta.version
                       and not identity_conflicts(archive)]
 
     expected_nexus = (
@@ -703,14 +703,15 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
             if job.kind in {"downloads.install", "mods.reinstall"} and replacement is None:
                 from .thunderstore import downloaded_metadata as thunderstore_metadata
                 from .modio_versions import downloaded_metadata as modio_metadata
-                for source, reader in (("thunderstore", thunderstore_metadata), ("modio", modio_metadata)):
+                from functools import partial
+                for source, reader in (("thunderstore", thunderstore_metadata), ("hexium", partial(thunderstore_metadata, source="hexium")), ("modio", modio_metadata)):
                     retained = reader(resolved, job.game)
                     if retained is not None:
                         if source_download is not None:
                             raise JobError("install_source_ambiguous", "The archive has conflicting source metadata sidecars.")
                         source_download = retained
                         if reinstall is None:
-                            source_metadata = {f"{source}_meta": retained[1]}
+                            source_metadata = {f"{'thunderstore' if source == 'hexium' else source}_meta": retained[1]}
                 if source_download is not None and prebuilt_meta is None:
                     prebuilt_meta = source_download[0]
             prepared = prepare_archive(
@@ -722,6 +723,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 preferred_name=preferred_name,
                 prebuilt_meta=prebuilt_meta,
                 cancel=getattr(job, "cancel_event", None),
+                allow_repository_switch=bool(job.options.get("allow_source_switch")) or bool(replacement and replacement.get("operation") == "rollback"),
             )
             if prepared is None:
                 if getattr(job, "cancel_event", None) is not None and job.cancel_event.is_set():
@@ -922,7 +924,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 def installation_verify(name):
                     try:
                         for installed_name in prepared.installed_mod_names or [name]:
-                            _stamp_sources(reinstall_sources, staging_root / installed_name / "meta.ini", **source_metadata)
+                            _stamp_sources(reinstall_sources, staging_root / installed_name / "meta.ini", replace_source=bool(job.options.get("allow_source_switch")), **source_metadata)
                     except Exception as exc:
                         raise JobError("reinstall_metadata_failed" if reinstall_sources else "install_source_metadata_failed",
                                        "The installed source metadata could not be verified.",

@@ -171,6 +171,10 @@ def _specs():
                         "low_priority": {"type": "boolean"}}.items():
         add("extraction_" + key, "extraction", lambda key=key: uc.load_extraction_settings()[key],
             getattr(uc, "save_extraction_" + key), schema)
+    add("hexium_include_prereleases", "appearance",
+        lambda: uc.load_thunderstore_flag("hexium_include_prereleases"),
+        lambda value: uc.save_thunderstore_flag("hexium_include_prereleases", value),
+        {"type": "boolean"})
     add("hidden_header_buttons", "appearance", lambda: sorted(uc.load_hidden_header_buttons()),
         uc.save_hidden_header_buttons, {"type": "array", "items": {"enum": list(uc._HIDEABLE_HEADER_BUTTONS)},
                                       "uniqueItems": True, "maxItems": len(uc._HIDEABLE_HEADER_BUTTONS)},

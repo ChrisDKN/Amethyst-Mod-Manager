@@ -55,6 +55,7 @@ class ManifestInfo:
 class IdentifyResult:
     """Outcome of identifying one staging folder."""
 
+    source: str = "thunderstore"
     mod_name: str = ""            # staging folder name
     manifest: Optional[ManifestInfo] = None
     namespace: str = ""
@@ -154,16 +155,28 @@ def resolve_namespace(community: str, name: str, version: str = "",
     return best.namespace, candidates
 
 
-def identify_mod(mod_dir: Path, community: str) -> IdentifyResult:
+def identify_mod(mod_dir: Path, community: str, source="thunderstore") -> IdentifyResult:
     """Identify one installed mod folder from its manifest + the API."""
     mod_dir = Path(mod_dir)
-    res = IdentifyResult(mod_name=mod_dir.name, community=community)
+    res = IdentifyResult(mod_name=mod_dir.name, community=community, source=source)
 
     manifest = read_manifest(mod_dir)
     if manifest is None:
         res.reason = "no manifest.json"
         return res
     res.manifest = manifest
+    if source == "hexium":
+        from Thunderstore.repositories import catalogue
+        matches = [p for p in catalogue(community).values()
+                   if p["name"].casefold() == manifest.name.casefold()
+                   and any(v["version_number"] == manifest.version for v in p["versions"])]
+        res.candidates = sorted(p["owner"] for p in matches)
+        res.ambiguous = len(matches) > 1
+        if len(matches) == 1:
+            res.namespace, res.matched = res.candidates[0], True
+        else:
+            res.reason = "Choose an author" if matches else "No matching Hexium version"
+        return res
 
     # The folder is often still named "{namespace}-{name}-{version}" (the
     # archive name), which gives the namespace for free - no API call needed.
@@ -209,7 +222,7 @@ def stamp_identified(mod_dir: Path, result: IdentifyResult) -> bool:
 
     m = result.manifest
     meta = ThunderstoreModMeta(
-        community=result.community,
+        source=result.source, community=result.community,
         namespace=result.namespace,
         name=m.name,
         version=m.version,
@@ -246,7 +259,7 @@ def scan_unidentified(staging_root: Path) -> list:
 
 
 def identify_all(staging_root: Path, community: str, *,
-                 save: bool = True,
+                 save: bool = True, source="thunderstore",
                  progress_cb: Optional[Callable[[str], None]] = None,
                  ) -> list:
     """
@@ -259,7 +272,7 @@ def identify_all(staging_root: Path, community: str, *,
     for folder in scan_unidentified(staging_root):
         if progress_cb:
             progress_cb(f"identifying {folder.name}")
-        res = identify_mod(folder, community)
+        res = identify_mod(folder, community, source=source)
         if res.matched and save:
             try:
                 stamp_identified(folder, res)

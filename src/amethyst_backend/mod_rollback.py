@@ -20,7 +20,9 @@ def runner(game, profile, mod, options, *, apply):
                 if apply:
                     raise JobError("mod_rollback_unavailable", "This mod has no recorded previous version.")
                 return {"available": False, "mod": mod, "profile": profile.name, "revision": properties["revision"]}
-            context = _context(game, profile, mod, properties["revision"], previous.source)
+            from Thunderstore.thunderstore_meta import read_meta as read_repository_meta
+            current_source = read_repository_meta(Path(properties["path"])).source if previous.source in {"thunderstore", "hexium"} else previous.source
+            context = _context(game, profile, mod, properties["revision"], current_source)
             context.update(game=game, operation="rollback")
             _selected_target(game, context)
             if properties["routing_scan_errors"]:
@@ -37,7 +39,7 @@ def runner(game, profile, mod, options, *, apply):
                         raise JobError("mod_version_metadata_failed", "The restored Nexus identity did not match the recorded version.")
             else:
                 from .thunderstore import package_link, retained_archive, dependency_report
-                link = package_link(previous.namespace, previous.name, previous.version, context["community"])
+                link = package_link(previous.namespace, previous.name, previous.version, context["community"], source=previous.source)
                 fresh = previous.thunderstore_meta()
                 def archive_reader(archive_id):
                     return retained_archive(game, profile, link, previous.file_size, archive_id)
@@ -51,7 +53,7 @@ def runner(game, profile, mod, options, *, apply):
                                        {"dependencies": missing})
             metadata.version = previous.version or metadata.version
             archive = archive_reader(options.get("archive_id"))
-            if previous.source == "thunderstore" and archive is not None:
+            if previous.source in {"thunderstore", "hexium"} and archive is not None:
                 import json
                 import zipfile
                 from Thunderstore.thunderstore_meta import build_meta_from_link

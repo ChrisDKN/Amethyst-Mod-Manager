@@ -79,24 +79,31 @@ class ClientWorkflows:
                                              input_wait=lambda: service._jobs.input_wait({"type": "browser_download"})),
                                       control, disconnect=True)
                 return {**result, "browser_url": browser_url(domain, mod_id, file_id)}
-            if method == "thunderstore.install.plan.start":
+            source = "hexium" if method.startswith("hexium.") else "thunderstore"
+            if method in {"thunderstore.install.plan.start", "hexium.install.plan.start"}:
                 from .thunderstore import package_link
                 link = package_link(*(service._required_text(params, name) for name in ("namespace", "package", "version")),
-                                    getattr(game, "thunderstore_community", ""))
+                                    getattr(game, f"{source}_community", ""), source=source)
                 options = {name: params[name] for name in ("namespace", "package", "version")}
-                return self._submit("thunderstore.install.plan", game, profile, options,
+                return self._submit(f"{source}.install.plan", game, profile, options,
                                     lambda log, progress: self.thunderstore.plan(game, profile, link, log, progress, control), control)
             plan_id = service._required_text(params, "plan_id")
             revision = service._required_text(params, "revision")
-            self.thunderstore.get(plan_id, revision, game, profile)
+            plan = self.thunderstore.get(plan_id, revision, game, profile)
+            if plan["public"].get("source", "thunderstore") != source:
+                raise JobError("mod_source_mismatch", "The plan belongs to another repository.")
             self._confirm(params)
             options = self._install_options(params)
+            for key in ("allow_source_switch", "allow_thunderstore_fallback"):
+                if not isinstance(params.get(key, False), bool):
+                    raise ServiceError(-32602, "invalid_params", f"{key} must be boolean")
+                options[key] = params.get(key, False)
             dependencies = params.get("dependencies")
             if "dependencies" in params and (not isinstance(dependencies, list) or len(dependencies) > 256
                     or any(not isinstance(value, str) or not value or len(value) > 255 for value in dependencies)
                     or len(set(dependencies)) != len(dependencies)):
                 raise ServiceError(-32602, "invalid_params", "'dependencies' must list up to 256 unique package IDs.")
-            return self._submit("thunderstore.install", game, profile,
+            return self._submit(f"{source}.install", game, profile,
                                 {"plan_id": plan_id, "revision": revision, "dependencies": dependencies, **options},
                                 lambda log, progress: self.thunderstore.install(game, profile, plan_id, revision,
                                                                               dependencies, options, log, progress, control), control)

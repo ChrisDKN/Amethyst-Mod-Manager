@@ -10,7 +10,7 @@ from Utils.mods.state import ModStateError
 
 
 FIELDS = frozenset(("version_label", "root_folder", "ignore_updates"))
-UPDATE_SOURCES = frozenset(("nexus", "thunderstore", "plugin"))
+UPDATE_SOURCES = frozenset(("nexus", "thunderstore", "hexium", "plugin"))
 
 
 def validate_changes(changes):
@@ -58,11 +58,12 @@ def _summary(cp, *, is_bg3=False):
             return 0
     try:
         label = value("General", "version")
-        ts_version = value("thunderstore", "version")
-        if value("thunderstore", "fullName") and not (
-                value("thunderstore", "namespace") and value("thunderstore", "name")):
+        ts_source = "hexium" if cp.has_section("hexium") else "thunderstore"
+        ts_version = value(ts_source, "version")
+        if value(ts_source, "fullName") and not (
+                value(ts_source, "namespace") and value(ts_source, "name")):
             from Thunderstore.thunderstore_meta import parse_full_name
-            ts_version = ts_version or parse_full_name(value("thunderstore", "fullName"))[2]
+            ts_version = ts_version or parse_full_name(value(ts_source, "fullName"))[2]
         modio_version = modio_value("version", "modioVersion")
         plugin_metadata = json.loads(value("ManagerPluginSource", "metadata", raw=True) or "{}")
         plugin_version = plugin_metadata.get("version", "") if isinstance(plugin_metadata, dict) else ""
@@ -76,15 +77,15 @@ def _summary(cp, *, is_bg3=False):
         if not version and is_bg3 and modio_id > 0 and modio_version:
             version, source = modio_version, "modio"
         if not version and ts_version:
-            version, source = ts_version, "thunderstore"
+            version, source = ts_version, ts_source
         if not version and plugin_version:
             version, source = plugin_version, "plugin"
         sources = {}
         if number("General", "modId") > 0:
             sources["nexus"] = "General"
-        if ((value("thunderstore", "namespace") and value("thunderstore", "name"))
-                or value("thunderstore", "fullName")):
-            sources["thunderstore"] = "thunderstore"
+        if ((value(ts_source, "namespace") and value(ts_source, "name"))
+                or value(ts_source, "fullName")):
+            sources[ts_source] = ts_source
         if value("ManagerPluginSource", "plugin_id", raw=True):
             sources["plugin"] = "ManagerPluginUpdate"
         updates = {}
@@ -103,7 +104,8 @@ def _summary(cp, *, is_bg3=False):
         return {"version_label": label, "version": version or None, "version_source": source,
                 "root_folder": flag("General", "rootFolder"), "updates": updates,
                 "source_versions": {"nexus": label if "nexus" in sources else None,
-                                    "thunderstore": ts_version or None,
+                                    "thunderstore": ts_version or None if ts_source == "thunderstore" else None,
+                                    "hexium": ts_version or None if ts_source == "hexium" else None,
                                     "plugin": plugin_version or None,
                                     "modio": modio_version or None}}
     except (configparser.Error, ValueError, AttributeError) as exc:
@@ -151,7 +153,7 @@ def edit_properties(path, changes, *, is_bg3=False):
             if current is None:
                 raise ModStateError("update_source_unavailable", "This mod has no saved identity for the requested update source.",
                                     {"source": source})
-            section = "General" if source == "nexus" else "ManagerPluginUpdate" if source == "plugin" else "thunderstore"
+            section = "General" if source == "nexus" else "ManagerPluginUpdate" if source == "plugin" else source
             pinned = current["latest_version"] if source == "nexus" and ignored else (
                 current["ignored_version"] if ignored else "")
             if current["ignore_update"] == ignored and current["ignored_version"] == pinned:
@@ -173,7 +175,7 @@ def edit_properties(path, changes, *, is_bg3=False):
                     available = bool(known_update or (file_id > 0 and latest_id > 0 and file_id != latest_id)
                                      or (latest and installed and _version_is_newer(latest, installed)))
                 else:
-                    from Thunderstore.thunderstore_update_checker import _parse_version
+                    from Thunderstore.repositories import version_key as _parse_version
                     old, new = _parse_version(installed), _parse_version(latest)
                     available = bool(known_update or (old is not None and new is not None and new > old))
             put(section, "hasUpdate", "true" if available else "false")

@@ -470,10 +470,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     # A mod can legitimately carry both sections (same mod mirrored on both
     # stores), so this is independent of the Nexus block above.
     if _is_thunderstore_mod(view, name):
-        submenu(_mt("Thunderstore Actions"), [
+        submenu(_mt("Hexium Actions") if _thunderstore_meta(view, name).source == "hexium" else _mt("Thunderstore Actions"), [
             (_mt("Change Version"),
              lambda: _thunderstore_change_version(view, name)),
-            (_mt("Open on Thunderstore"),
+            (_mt("Open on Hexium") if _thunderstore_meta(view, name).source == "hexium" else _mt("Open on Thunderstore"),
              lambda: _open_on_thunderstore(view, name)),
         ])
     if _modio_url(view, name):
@@ -778,7 +778,7 @@ def _ignore_updates(view, names, state):
             if _has_nexus_id(view, name):
                 sources["nexus"] = state
             if _is_thunderstore_mod(view, name):
-                sources["thunderstore"] = state
+                sources[_thunderstore_meta(view, name).source] = state
             if _provider_record(view, name):
                 sources["plugin"] = state
             if sources:
@@ -880,9 +880,9 @@ def _has_update_flag(view, name: str) -> bool:
         model = view.model()
     except Exception:
         return False
-    from gui_qt.modlist.data import FLAG_UPDATE
+    from gui_qt.modlist.data import FLAG_UPDATE, FLAG_THUNDERSTORE_UPDATE, FLAG_HEXIUM_UPDATE
     bits = model._flags.get(name, 0) if hasattr(model, "_flags") else 0
-    return bool(bits & FLAG_UPDATE)
+    return bool(bits & (FLAG_UPDATE | FLAG_THUNDERSTORE_UPDATE | FLAG_HEXIUM_UPDATE))
 
 
 def _has_missing_reqs(view, name: str) -> bool:
@@ -1170,8 +1170,8 @@ def _thunderstore_url(view, name: str) -> str:
     community = (meta.community or "").strip()
     if not community:
         return ""
-    return (f"https://thunderstore.io/c/{community}/p/"
-            f"{meta.namespace}/{meta.name}/")
+    from Thunderstore.repositories import package_url
+    return package_url(community, meta.namespace, meta.name, source=meta.source)
 
 
 def _open_on_thunderstore(view, name: str):
@@ -1427,7 +1427,7 @@ def _installation_archive(view, name: str):
             and ts_meta.version:
         ts_full_name = (ts_meta.full_name or
                         f"{ts_meta.namespace}-{ts_meta.name}-{ts_meta.version}")
-        ts_filename = f"{ts_full_name}.zip"
+        ts_filename = f"{'hexium-' if ts_meta.source == 'hexium' else ''}{ts_full_name}.zip"
         if ts_filename not in filenames:
             filenames.append(ts_filename)
     if not filenames:

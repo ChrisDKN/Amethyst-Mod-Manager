@@ -46,7 +46,7 @@ def _state(game, profile):
             continue
         meta = read_meta(path)
         if meta.package_id:
-            installed.setdefault(meta.package_id, []).append({"name": folder.name, "version": meta.version})
+            installed.setdefault(meta.package_id, []).append({"name": folder.name, "version": meta.version, "source": meta.source})
     rows = {entry.name: entry.enabled for entry in read_modlist(profile / "modlist.txt")
             if not entry.is_separator and not entry.is_group_header}
     digest = hashlib.sha256(json.dumps({
@@ -58,7 +58,7 @@ def _state(game, profile):
 
 
 def _ordered(packages):
-    from Nexus.nexus_update_checker import _parse_version
+    from Thunderstore.repositories import version_key as _parse_version
     from Thunderstore.thunderstore_meta import parse_full_name
 
     by_id = {pkg.package_id: pkg for pkg in packages}
@@ -96,7 +96,7 @@ class ThunderstorePlans:
         self._plans.clear()
 
     def plan(self, game, profile, link, log, progress, cancel):
-        from Nexus.nexus_update_checker import _parse_version
+        from Thunderstore.repositories import version_key as _parse_version
         from Thunderstore.thunderstore_download import resolve_communities
         from Thunderstore.thunderstore_requirements import resolve_dependencies
         from Utils.operations import acquire_game_operation
@@ -107,6 +107,8 @@ class ThunderstorePlans:
         def resolving(full_name):
             _check(cancel)
             progress(0, 1, f"Resolving {full_name}")
+        if getattr(link, "source", "thunderstore") == "hexium":
+            link.thunderstore_community = getattr(game, "thunderstore_community", "")
         resolved = resolve_dependencies(link, community=link.community, progress_cb=resolving)
         _check(cancel)
         if resolved.failed or not resolved.packages or not any(pkg.is_root for pkg in resolved.packages):
@@ -119,7 +121,8 @@ class ThunderstorePlans:
             packages = []
             for pkg in _ordered(resolved.packages):
                 from .thunderstore import package_link
-                package_link(pkg.namespace, pkg.name, pkg.version, link.community)
+                community = getattr(game, f"{pkg.source}_community", "")
+                package_link(pkg.namespace, pkg.name, pkg.version, community, source=pkg.source)
                 if pkg.file_size <= 0:
                     raise JobError("thunderstore_size_unavailable", "A package has no verifiable archive size.")
                 matches = installed.get(pkg.package_id, [])
@@ -128,17 +131,23 @@ class ThunderstorePlans:
                                    {"package": pkg.package_id, "mods": matches})
                 existing = matches[0] if matches else None
                 action = "replace" if existing else "install"
-                if existing and not pkg.is_root:
+                if existing and existing["source"] == pkg.source and not pkg.is_root:
                     have, want = _parse_version(existing["version"]), _parse_version(pkg.version)
                     if have is not None and want is not None and have >= want and existing["name"] in enabled:
                         action = "satisfied" if enabled[existing["name"]] else "enable"
+                from .mod_properties import get_properties
+                affected = get_properties(game, profile, existing["name"])["affected_profiles"] if existing else []
                 packages.append({
-                    "id": pkg.package_id, "namespace": pkg.namespace, "package": pkg.name,
+                    "affected_profiles": affected,
+                    "id": pkg.package_id, "source": pkg.source, "community": community,
+                    "source_switch": bool(existing and existing["source"] != pkg.source),
+                    "fallback": getattr(link, "source", "thunderstore") == "hexium" and pkg.source == "thunderstore",
+                    "namespace": pkg.namespace, "package": pkg.name,
                     "version": pkg.version, "full_name": pkg.full_name,
                     "size_bytes": pkg.file_size, "dependencies": list(pkg.dependencies),
                     "root": pkg.is_root, "action": action,
                     "mod_name": existing["name"] if existing else pkg.full_name,
-                    "installed": existing, "enable": True,
+                    "installed": existing, "enable": enabled.get(existing["name"], False) if existing and existing["source"] != pkg.source else True,
                 })
             now = time.monotonic()
             self._plans = {key: plan for key, plan in self._plans.items() if now - plan["created"] < self.lifetime}
@@ -147,7 +156,7 @@ class ThunderstorePlans:
             plan_id = uuid.uuid4().hex
             from Utils.mods.copy import resolve_target_staging
             from Utils.profiles.state import profile_uses_specific_mods
-            public = {"id": plan_id, "profile": profile.name, "community": link.community,
+            public = {"id": plan_id, "source": getattr(link, "source", "thunderstore"), "profile": profile.name, "community": link.community,
                       "staging_path": str(resolve_target_staging(game, profile)),
                       "shared_staging": not profile_uses_specific_mods(profile),
                       "packages": packages, "conflicts": resolved.conflicts,
@@ -197,12 +206,19 @@ class ThunderstorePlans:
             if replacements and options["if_exists"] != "replace":
                 raise JobError("mod_already_exists", "The plan replaces existing mods; explicitly allow replacement.",
                                {"mods": replacements})
+            if any(pkg["source_switch"] for pkg in wanted) and not options.get("allow_source_switch"):
+                raise JobError("source_switch_required", "Explicitly approve the source changes in this plan.")
+            if any(pkg["fallback"] for pkg in wanted) and not options.get("allow_thunderstore_fallback"):
+                raise JobError("source_fallback_required", "Explicitly approve the Thunderstore dependencies in this plan.")
+            if public.get("source") == "hexium":
+                from Thunderstore.repositories import catalogue
+                catalogue(public["community"], force=True)
             metadata_by_package = {}
             for pkg in wanted:
                 _check(cancel, report)
                 if pkg["action"] not in {"install", "replace"}:
                     continue
-                link = package_link(pkg["namespace"], pkg["package"], pkg["version"], public["community"])
+                link = package_link(pkg["namespace"], pkg["package"], pkg["version"], pkg["community"], source=pkg["source"])
                 if link.community not in resolve_communities(link):
                     raise JobError("thunderstore_community_mismatch", "A dependency is not listed for this game's community.")
                 metadata = version_metadata(link)
@@ -216,24 +232,35 @@ class ThunderstorePlans:
                     if pkg["action"] == "satisfied":
                         report["satisfied"].append(pkg["id"])
                     elif pkg["action"] in {"install", "replace"}:
-                        link = package_link(pkg["namespace"], pkg["package"], pkg["version"], public["community"])
+                        link = package_link(pkg["namespace"], pkg["package"], pkg["version"], pkg["community"], source=pkg["source"])
                         path = download(game, link, metadata_by_package[pkg["id"]], log, progress, cancel)
                         _check(cancel, report)
                         archive = next((item for item in build_inventory(game, profile)["archives"]
                                         if Path(item["path"]).resolve() == path.resolve()), None)
                         if archive is None:
                             raise JobError("archive_not_found", "The downloaded Thunderstore archive is unavailable.")
-                        root_options = options if pkg["root"] else {"installer_policy": "reject", "if_exists": options["if_exists"]}
+                        root_options = options if pkg["root"] else {"installer_policy": "reject", "if_exists": options["if_exists"], "allow_source_switch": options.get("allow_source_switch", False)}
                         job = SimpleNamespace(id=uuid.uuid4().hex, kind="downloads.install", game=game,
                                               profile=profile.name, options={**root_options, "archive_id": archive["id"],
                                                                              "name": pkg["mod_name"]})
                         def verify(prepared, _path):
                             if prepared.is_multi_mod():
                                 raise JobError("installer_unsupported", "A Thunderstore package must install as one managed mod.")
-                        installed = _install_download(job, log, progress, operation_locked=True, verify_prepared=verify)
+                        from Utils.mods.version_history import VersionChangeContext
+                        history = None
+                        if pkg["installed"]:
+                            history = VersionChangeContext.capture(game, profile, pkg["mod_name"], pkg["installed"]["source"])
+                            history.target_thunderstore = metadata_by_package[pkg["id"]]
+                            history.validate()
+                        def stamp(name):
+                            if history is not None:
+                                from Utils.mods.copy import resolve_target_staging
+                                history.commit(Path(resolve_target_staging(game, profile)) / name / "meta.ini")
+                        installed = _install_download(job, log, progress, operation_locked=True, verify_prepared=verify,
+                                                      verify_install=stamp, before_install=history.validate if history else None)
                         report["installed"].append({"package": pkg["id"], "result": installed})
                     if pkg["action"] != "satisfied":
-                        set_mods_enabled(game, profile, [(pkg["mod_name"], True)], log_fn=log,
+                        set_mods_enabled(game, profile, [(pkg["mod_name"], pkg["enable"])], log_fn=log,
                                          progress_fn=progress, operation_locked=True)
                         report["enabled"].append(pkg["id"])
                     report["remaining"].remove(pkg["id"])

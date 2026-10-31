@@ -9,12 +9,17 @@ from pathlib import Path
 from .jobs import JobCancelled, JobError, _validated_archive_path
 
 
-def package_link(namespace, package, version, community):
+def package_link(namespace, package, version, community, source="thunderstore"):
     from Thunderstore.ror2mm_handler import Ror2mmLink
 
     try:
+        if source not in {"thunderstore", "hexium"}:
+            raise ValueError("Unknown repository source")
         if not isinstance(community, str) or re.fullmatch(r"[a-z0-9_-]+", community) is None:
             raise ValueError("Invalid community")
+        if source == "hexium":
+            from Thunderstore.repositories import make_link
+            return make_link(namespace, package, version, community, source)
         link = Ror2mmLink.parse(f"ror2mm://v1/install/thunderstore.io/{namespace}/{package}/{version}/")
         if (link.namespace, link.name, link.version) != (namespace, package, version):
             raise ValueError("Invalid package identity")
@@ -30,12 +35,12 @@ def version_catalog(context):
     from Thunderstore.thunderstore_download import resolve_communities
 
     meta = context["thunderstore_meta"]
-    link = package_link(meta.namespace, meta.name, "0.0.0", context["community"])
+    link = package_link(meta.namespace, meta.name, "0.0.0", context["community"], source=meta.source)
     if getattr(meta, "community", "") != link.community and link.community not in resolve_communities(link):
         raise JobError("thunderstore_community_mismatch", "The package is not listed for the selected game's community.")
     from .batch import cached_read
-    raw = cached_read(("thunderstore.versions", meta.namespace, meta.name),
-                      lambda: fetch_versions(meta.namespace, meta.name))
+    raw = cached_read((meta.source + ".versions", link.community, meta.namespace, meta.name),
+                      lambda: fetch_versions(meta.namespace, meta.name, source=meta.source, community=link.community))
     if not isinstance(raw, list) or not raw:
         raise JobError("mod_version_catalog_unavailable", "Could not read the Thunderstore version catalogue.")
     rows, seen = [], set()
@@ -43,7 +48,7 @@ def version_catalog(context):
         if not isinstance(item, dict):
             raise JobError("mod_version_catalog_unavailable", "The Thunderstore version catalogue is invalid.")
         version = str(item.get("version_number") or "")
-        selected = package_link(meta.namespace, meta.name, version, link.community)
+        selected = package_link(meta.namespace, meta.name, version, link.community, source=meta.source)
         if version in seen:
             raise JobError("mod_version_catalog_unavailable", "The Thunderstore version catalogue has duplicate versions.")
         seen.add(version)
@@ -52,17 +57,21 @@ def version_catalog(context):
                      "uploaded_at": str(item.get("datetime_created") or ""),
                      "download_count": int(item.get("download_count") or 0),
                      "dependency_count": int(item.get("dependency_count") or 0)})
-    rows.sort(key=lambda item: _parse_version(item["version"]) or (), reverse=True)
-    latest = rows[0]["version"]
-    rows[0]["recommended"] = latest != meta.version
-    return {"versions": rows, "recommended_version": latest if latest != meta.version else None}
+    from Thunderstore.repositories import version_key, include_prereleases
+    rows.sort(key=lambda item: version_key(item["version"]), reverse=True)
+    latest = next((r["version"] for r in rows if meta.source != "hexium" or include_prereleases() or "-" not in r["version"]), "")
+    if meta.version and version_key(latest) < version_key(meta.version):
+        latest = ""
+    for row in rows:
+        row["recommended"] = bool(latest and row["version"] == latest and latest != meta.version)
+    return {"versions": rows, "recommended_version": latest if latest and latest != meta.version else None}
 
 
 def version_metadata(link):
     from Thunderstore.thunderstore_meta import build_meta_from_link
     from Thunderstore.thunderstore_requirements import _fetch_version
 
-    info = _fetch_version(link.namespace, link.name, link.version)
+    info = _fetch_version(link.namespace, link.name, link.version, link.host, community=link.community)
     if not isinstance(info, dict) or str(info.get("version_number") or "") != link.version:
         raise JobError("mod_version_not_found", "The selected Thunderstore version is unavailable.")
     if not isinstance(info.get("dependencies"), list):
@@ -85,6 +94,8 @@ def validate_archive(path, link, size):
             if len(manifests) != 1 or manifests[0].file_size > 1048576:
                 raise ValueError("Missing or oversized manifest")
             manifest = json.loads(archive.read(manifests[0]))
+            if getattr(link, "source", "thunderstore") == "hexium" and archive.testzip() is not None:
+                raise ValueError("Corrupt archive member")
         if not isinstance(manifest, dict) or (manifest.get("name"), manifest.get("version_number")) != (link.name, link.version):
             raise ValueError("Wrong package manifest")
     except (OSError, ValueError, KeyError, zipfile.BadZipFile, RuntimeError) as exc:
@@ -98,10 +109,10 @@ def retained_archive(game, profile, link, size, archive_id=None, downloaded=None
     inventory = build_inventory(game, profile)
     candidates = []
     for item in inventory["archives"]:
-        identity = item.get("thunderstore")
+        identity = item.get(getattr(link, "source", "thunderstore"))
         match = (identity is not None and (identity.get("namespace"), identity.get("package"), identity.get("package_version"))
                  == (link.namespace, link.name, link.version))
-        if match or (identity is None and item["name"] == f"{link.full_name}.zip"):
+        if match or (identity is None and item["name"] == getattr(link, "archive_name", f"{link.full_name}.zip")):
             candidates.append(item)
     if archive_id is not None:
         item = next((value for value in inventory["archives"] if value["id"] == archive_id), None)
@@ -121,7 +132,7 @@ def retained_archive(game, profile, link, size, archive_id=None, downloaded=None
     if item is None:
         return None
     path = _validated_archive_path(inventory, item)
-    paths = [path, path.with_suffix(path.suffix + ".thunderstore.json")]
+    paths = [path, path.with_suffix(path.suffix + f".{getattr(link, 'source', 'thunderstore')}.json")]
     tokens = [_token(value, required=index == 0) for index, value in enumerate(paths)]
     if tokens[1] is not None:
         try:
@@ -147,7 +158,7 @@ def download(game, link, metadata, log, progress, control=None):
     if control is not None and control.is_set():
         raise JobCancelled("Download cancelled.")
     destination = Path(get_download_cache_dir_for_game(game.name))
-    final = destination / f"{link.full_name}.zip"
+    final = destination / getattr(link, "archive_name", f"{link.full_name}.zip")
     with acquire_resource_operation(f"thunderstore:{final.resolve()}", "Thunderstore download", cancel=control):
         if final.is_symlink() or final.with_suffix(".zip.part").is_symlink():
             raise JobError("unsafe_archive", "The Thunderstore download path is a symbolic link.")
@@ -162,7 +173,7 @@ def download(game, link, metadata, log, progress, control=None):
         if Path(result.file_path).resolve() != final.resolve():
             raise JobError("unsafe_archive", "The downloader returned an unexpected archive path.")
         validate_archive(final, link, metadata.file_size)
-        sidecar = final.with_suffix(final.suffix + ".thunderstore.json")
+        sidecar = final.with_suffix(final.suffix + f".{getattr(link, 'source', 'thunderstore')}.json")
         identity = {"version": 1, "namespace": link.namespace, "package": link.name,
                     "package_version": link.version, "community": link.community,
                     "metadata": asdict(metadata)}
@@ -174,7 +185,7 @@ def download(game, link, metadata, log, progress, control=None):
 
 
 def missing_dependencies(game, profile, metadata):
-    from Nexus.nexus_update_checker import _parse_version
+    from Thunderstore.repositories import version_key as _parse_version
     from Thunderstore.thunderstore_meta import read_meta, parse_full_name
     from Utils.mods.modlist import read_modlist
 
@@ -189,7 +200,7 @@ def missing_dependencies(game, profile, metadata):
     missing = []
     for dependency in metadata.dependency_list():
         namespace, package, version = parse_full_name(dependency)
-        package_link(namespace, package, version, metadata.community)
+        package_link(namespace, package, version, metadata.community, source=metadata.source)
         if f"{namespace}-{package}" == metadata.package_id and (_parse_version(metadata.version) or ()) >= (_parse_version(version) or ()):
             continue
         if not any((_parse_version(value) or ()) >= (_parse_version(version) or ())
@@ -214,12 +225,12 @@ def dependency_report(game, context, metadata):
     return missing
 
 
-def downloaded_metadata(path, game):
+def downloaded_metadata(path, game, source="thunderstore"):
     from Nexus.nexus_meta import NexusModMeta
     from Thunderstore.thunderstore_meta import ThunderstoreModMeta
     from .download_archives import _token
 
-    sidecar = path.with_suffix(path.suffix + ".thunderstore.json")
+    sidecar = path.with_suffix(path.suffix + f".{source}.json")
     if not sidecar.exists() and not sidecar.is_symlink():
         return None
     tokens = [_token(value, required=True) for value in (path, sidecar)]
@@ -227,10 +238,12 @@ def downloaded_metadata(path, game):
         raw = json.loads(sidecar.read_text())
         if not isinstance(raw, dict) or raw.get("version") != 1:
             raise ValueError("Unknown sidecar version")
-        link = package_link(raw["namespace"], raw["package"], raw["package_version"], raw["community"])
-        if link.community != getattr(game, "thunderstore_community", ""):
+        link = package_link(raw["namespace"], raw["package"], raw["package_version"], raw["community"], source=source)
+        if link.community != getattr(game, f"{source}_community", ""):
             raise JobError("thunderstore_community_mismatch", "The archive belongs to another game's Thunderstore community.")
         metadata = ThunderstoreModMeta(**raw["metadata"])
+        if metadata.source != source:
+            raise ValueError("Conflicting repository identity")
         if type(metadata.file_size) is not int or metadata.file_size <= 0:
             raise ValueError("Invalid archive size")
         if (metadata.namespace, metadata.name, metadata.version, metadata.community, metadata.full_name) != (link.namespace, link.name, link.version, link.community, link.full_name):
@@ -249,10 +262,10 @@ def versions_runner(game, link):
 
         with acquire_game_operation(game, "thunderstore.packages.versions"):
             progress(0, 1, "Reading Thunderstore versions")
-            meta = SimpleNamespace(namespace=link.namespace, name=link.name, version="", community="")
+            meta = SimpleNamespace(namespace=link.namespace, name=link.name, version="", community="", source=getattr(link, "source", "thunderstore"))
             catalog = version_catalog({"thunderstore_meta": meta, "community": link.community})
             progress(1, 1, "Thunderstore versions ready")
-            return {"version_catalog": {"source": "thunderstore", "community": link.community,
+            return {"version_catalog": {"source": getattr(link, "source", "thunderstore"), "community": link.community,
                                         "namespace": link.namespace, "package": link.name, **catalog}}
     return run
 
@@ -269,10 +282,13 @@ def download_runner(game, link, control):
                 progress(0, 1, "Reading Thunderstore package metadata")
                 if link.community not in resolve_communities(link):
                     raise JobError("thunderstore_community_mismatch", "The package is not listed for the selected game's community.")
+                if getattr(link, "source", "thunderstore") == "hexium":
+                    from Thunderstore.repositories import catalogue
+                    catalogue(link.community, force=True)
                 metadata = version_metadata(link)
                 path = download(game, link, metadata, log, progress, control)
                 return {"archive": {"path": str(path), "name": path.name, "size_bytes": path.stat().st_size},
-                        "thunderstore": {"namespace": link.namespace, "package": link.name,
+                        getattr(link, "source", "thunderstore"): {"namespace": link.namespace, "package": link.name,
                                          "version": link.version, "community": link.community,
                                          "dependencies": metadata.dependency_list()}}
         except OperationCancelled as exc:

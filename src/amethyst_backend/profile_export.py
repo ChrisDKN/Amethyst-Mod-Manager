@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 from .jobs import JobCancelled, JobError
 
-SOURCES = ("nexus", "thunderstore", "plugin", "direct", "browse", "manual", "bundle", "ignore")
+SOURCES = ("nexus", "thunderstore", "hexium", "plugin", "direct", "browse", "manual", "bundle", "ignore")
 CHANGE_KEYS = {"mod", "source", "mod_id", "file_id", "version", "size_bytes", "game_domain",
                "optional", "phase", "update_policy", "fomod_export", "save_edits",
                "direct_url", "instructions", "ts_version", "ts_size_bytes", "archive_id"}
@@ -275,7 +275,7 @@ def _snapshot(game, profile, options, stop, log, progress):
                 export.apply_source_defaults(rows)
                 _apply_changes(rows, options["changes"])
                 for row in rows:
-                    if row["source"] == "thunderstore" and row["ts_namespace"] and row["ts_name"] and not row["ts_version"]:
+                    if row["source"] in {"thunderstore", "hexium"} and row["ts_namespace"] and row["ts_name"] and not row["ts_version"]:
                         row["source"] = "bundle"
                 included = {row["name"] for row in rows if row["source"] != "ignore"}
                 write_modlist(snapshot / "modlist.txt", [entry for entry in record["entries"]
@@ -374,13 +374,15 @@ def _plan(context, profile, options, progress):
             nexus[row["file_id"]] = name
         if source == "plugin" and not row.get("plugin_source_uri"):
             blockers.append({"mod": name, "name": "plugin_source_missing"})
-        if source == "thunderstore" and not (row["ts_namespace"] and row["ts_name"] and row["ts_version"]):
+        if source in {"thunderstore", "hexium"} and not (row["ts_namespace"] and row["ts_name"] and row["ts_version"]):
             blockers.append({"mod": name, "name": "thunderstore_pin_missing"})
-        elif source == "thunderstore":
+        elif source in {"thunderstore", "hexium"}:
+            if row.get("ts_source", "thunderstore") != source:
+                blockers.append({"mod": name, "name": "repository_source_mismatch"})
             from .thunderstore import package_link
             try:
                 package_link(row["ts_namespace"], row["ts_name"], row["ts_version"],
-                             row["ts_community"] or "export")
+                             row["ts_community"] or "export", source=source)
             except JobError:
                 blockers.append({"mod": name, "name": "thunderstore_pin_invalid"})
         if source in ("direct", "browse", "manual") and row.get("direct_url"):
@@ -403,11 +405,11 @@ def _plan(context, profile, options, progress):
         inventory = build_inventory(context["game"], context["profile"])
         for row in wanted:
             context["check"]()
-            if row["source"] == "thunderstore":
+            if row["source"] in {"thunderstore", "hexium"}:
                 matches = [item for item in inventory["archives"] if (
-                    (item.get("thunderstore") or {}).get("namespace"),
-                    (item.get("thunderstore") or {}).get("package"),
-                    (item.get("thunderstore") or {}).get("package_version")) == (
+                    (item.get(row["source"]) or {}).get("namespace"),
+                    (item.get(row["source"]) or {}).get("package"),
+                    (item.get(row["source"]) or {}).get("package_version")) == (
                         row["ts_namespace"], row["ts_name"], row["ts_version"])]
             elif row["source"] == "plugin":
                 record = row["plugin_source"]
@@ -444,7 +446,7 @@ def _plan(context, profile, options, progress):
                 path = _validated_archive_path(inventory, chosen)
                 archives[row["name"]] = path
                 archive_inputs[path] = _token(path)
-                for suffix in (".fileid", ".nexus.json", ".thunderstore.json"):
+                for suffix in (".fileid", ".nexus.json", ".thunderstore.json", ".hexium.json"):
                     _metadata(path.with_suffix(path.suffix + suffix), context["captured"])
     scratch = context["scratch"]
     try:

@@ -14,6 +14,7 @@ JSON format (~/.config/AmethystModManager/custom_games/<game_id>.json):
   "nexus_game_domain": "",           // optional Nexus domain slug
   "additional_nexus_domains": [],     // optional extra Nexus domain slugs
   "thunderstore_community": "",      // optional Thunderstore community slug
+  "hexium_community": "",           // optional Hexium community slug
   "image_url":         "",           // optional banner image URL
   "auto_install_deps": ["vcredist", "dotnet6"], // optional prefix dependencies
   "vortex_mod_types": {"mygame-loader": {"dest": "bin/plugins"}},
@@ -210,6 +211,7 @@ BUILTIN_GAME_TEMPLATES: list[dict] = [
         "nexus_game_domain": "",
         "additional_nexus_domains": [],
         "thunderstore_community": "",
+        "hexium_community": "",
         "image_url": "",
         "mod_folder_strip_prefixes": ["BepInEx", "plugins"],
         "conflict_ignore_filenames": [],
@@ -470,6 +472,10 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
     @property
     def thunderstore_community(self) -> str:
         return self._defn.get("thunderstore_community", "")
+
+    @property
+    def hexium_community(self) -> str:
+        return self._defn.get("hexium_community", "")
 
     @property
     def image_url(self) -> str:
@@ -950,6 +956,10 @@ class Ue5CustomGame(UE5Game):
     @property
     def thunderstore_community(self) -> str:
         return self._defn.get("thunderstore_community", "")
+
+    @property
+    def hexium_community(self) -> str:
+        return self._defn.get("hexium_community", "")
 
     @property
     def image_url(self) -> str:

@@ -7,10 +7,10 @@ from .methods import REGISTRY, contracts
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 _CONTRACTS = contracts()
 
-_BOOL = set('accept_game_version_mismatch accept_known_issues allow_patch_warnings allow_unverified_source active_only all append apply apply_order cached_only check_proton clear_archives collapsed configured_only confirm create_mod deploy download_only enabled force hidden ignored include_adult include_manifest include_overwrite include_root_folder include_saves manual_interactive migrate_staging move open_browser overwrite overwrite_existing prefer_discrete_gpu preserve_conflicts profile_specific_mods refresh replace_existing replace_output root_folder root_folder_enabled save_settings skip skip_existing use_64bit winetricks_style'.split())
+_BOOL = set('allow_source_switch allow_thunderstore_fallback accept_game_version_mismatch accept_known_issues allow_patch_warnings allow_unverified_source active_only all append apply apply_order cached_only check_proton clear_archives collapsed configured_only confirm create_mod deploy download_only enabled force hidden ignored include_adult include_manifest include_overwrite include_root_folder include_saves manual_interactive migrate_staging move open_browser overwrite overwrite_existing prefer_discrete_gpu preserve_conflicts profile_specific_mods refresh replace_existing replace_output root_folder root_folder_enabled save_settings skip skip_existing use_64bit winetricks_style'.split())
 _INTEGER = set('after created_since_days file_id limit mod_id offset protocol_version request_id uploader_id version_index wait_ms'.split())
 _ARRAY = set('archive_ids bain_selected bundle_selected categories checks dependencies entries exclusions expected_members fixes items members mods overwrite_excluded pack_indices paths plugins profiles requirement_ids reset rules skipped_optional_file_ids sources'.split())
-_OBJECT = set('archives changes client filters fomod_selections game_roots groups manual_archives options overrides per_mod renames settings setup_options'.split())
+_OBJECT = set('identities archives changes client filters fomod_selections game_roots groups manual_archives options overrides per_mod renames settings setup_options'.split())
 _DYNAMIC = {'expected_value', 'value', 'position'}
 _JOB = {
     'type': 'object',
@@ -59,10 +59,10 @@ def _parameter(method, name):
         return {'type': 'object', 'maxProperties': 4096, 'additionalProperties': {'type': 'string', 'minLength': 1}}
     if method.startswith('installers.sessions.') and name in {'step', 'group'}:
         return {'type': 'integer', 'minimum': 0, 'maximum': 100000}
-    if method == 'thunderstore.install.start' and name == 'dependencies':
+    if method in {'thunderstore.install.start', 'hexium.install.start'} and name == 'dependencies':
         return {'type': 'array', 'maxItems': 256, 'uniqueItems': True,
                 'items': {'type': 'string', 'minLength': 1, 'maxLength': 255}}
-    if method == 'thunderstore.install.start' and name == 'installer_policy':
+    if method in {'thunderstore.install.start', 'hexium.install.start'} and name == 'installer_policy':
         return {'enum': ['reject', 'defaults'], 'default': 'reject'}
     if method.startswith('games.custom.'):
         if name == 'definition':
@@ -102,7 +102,7 @@ def _parameter(method, name):
         return {'type': 'string', 'pattern': '^[0-9a-f]{64}$'}
     if method == 'loverslab.credentials.set.start':
         return {'type': 'string', 'minLength': 1, 'maxLength': 512 if name == 'email' else 4096}
-    if method == 'thunderstore.packages.search.start':
+    if method in {'thunderstore.packages.search.start', 'hexium.packages.search.start'}:
         if name == 'include_deprecated':
             return {'type': 'boolean'}
         if name == 'page':
@@ -195,7 +195,7 @@ def _params(method):
             })
     if method == 'mods.version.change.start':
         schema['oneOf'] = [
-            {'properties': {'source': {'const': 'thunderstore'}}, 'required': ['source', 'version']},
+            {'properties': {'source': {'enum': ['thunderstore', 'hexium']}}, 'required': ['source', 'version']},
             {'properties': {'source': {'enum': ['nexus', 'modio']}}, 'required': ['file_id']},
             {'properties': {'source': {'pattern': '^plugin:[a-z0-9][a-z0-9_.-]{0,99}/[a-z0-9][a-z0-9_.-]{0,99}$'}},
              'required': ['source', 'version', 'catalogue_revision']},

@@ -25,6 +25,7 @@ py.install_sources(
   'installer_requests.py',
   'install_options.py',
   'history.py',
+  'hexium.py',
   'jobs.py',
   'methods.py',
   'launch.py',

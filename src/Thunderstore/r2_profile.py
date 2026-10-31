@@ -7,7 +7,6 @@ from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
 from urllib.error import HTTPError
-from urllib.parse import quote
 from urllib.request import urlopen
 from zipfile import ZipFile
 
@@ -42,23 +41,24 @@ class R2Profile:
     config_count: int = 0
     skipped_files: tuple[str, ...] = ()
 
-    def manifest(self, community, versions=None):
+    def manifest(self, community, versions=None, *, communities=None):
         mods, omitted = [], []
         for mod in self.mods:
-            if mod.source != "Thunderstore":
+            if mod.source not in {"Thunderstore", "Hexium"}:
                 omitted.append(f"{mod.full_name}: unsupported source {mod.source}")
                 continue
-            if versions is not None and mod.full_name not in versions:
+            if versions is not None and (mod.source.lower(), mod.full_name) not in versions:
                 omitted.append(f"{mod.full_name}: version unavailable in {community}")
                 continue
-            data = (versions or {}).get(mod.full_name, {})
+            data = (versions or {}).get((mod.source.lower(), mod.full_name), {})
             mods.append({
                 "name": mod.package_id, "version": mod.version,
                 "enabled": mod.enabled, "optional": False,
                 "source": {
-                    "type": "thunderstore", "namespace": mod.namespace,
+                    "type": mod.source.lower(), "namespace": mod.namespace,
                     "name": mod.name, "version": mod.version,
-                    "fullName": mod.full_name, "community": community,
+                    "fullName": mod.full_name,
+                    "community": (communities or {}).get(mod.source.lower(), community),
                     "logicalFilename": mod.package_id,
                     "fileSize": data.get("file_size", 0),
                     "versionInfo": ({
@@ -75,6 +75,8 @@ class R2Profile:
         omitted.extend(f"Bundled file {name}: not a supported configuration file"
                        for name in self.skipped_files)
         details = {"community": community, "omitted": omitted}
+        if communities is not None:
+            details["communities"] = communities
         if self.archived:
             details["archive"] = {"path": self.archive_path, "signature": self.archive_signature}
         return {"info": {"name": self.name}, "mods": mods, "r2Import": details}
@@ -105,20 +107,35 @@ def parse_profile(text: str) -> R2Profile:
         identity = row.get("name")
         match = (re.fullmatch(r"([A-Za-z0-9_]+)-([A-Za-z0-9_][A-Za-z0-9_-]*)", identity)
                  if isinstance(identity, str) else None)
-        if match is None:
+        identity_parts = match.groups() if match is not None else ()
+        if row.get("source") == "Hexium" and isinstance(identity, str):
+            from Thunderstore.repositories import split_full_name
+            namespace, package, _ = split_full_name(identity + "-0.0.0")
+            identity_parts = (namespace, package) if namespace else ()
+        if not identity_parts:
             raise ValueError(f"Invalid package name in entry {index}.")
         version = row.get("version", row.get("versionNumber"))
-        if not isinstance(version, dict) or any(
-                type(version.get(key)) is not int or version[key] < 0
-                for key in ("major", "minor", "patch")):
+        if isinstance(version, str):
+            from Thunderstore.repositories import version_key
+            if version_key(version)[0] < 0:
+                raise ValueError(f"Invalid version for {identity}.")
+            version_string = version
+        elif isinstance(version, dict) and all(type(version.get(key)) is int and version[key] >= 0 for key in ("major", "minor", "patch")):
+            version_string = ".".join(str(version[key]) for key in ("major", "minor", "patch"))
+            prerelease = version.get("preRelease", version.get("prerelease", ""))
+            if prerelease:
+                version_string += "-" + str(prerelease)
+                from Thunderstore.repositories import version_key
+                if version_key(version_string)[0] < 0:
+                    raise ValueError(f"Invalid version for {identity}.")
+        else:
             raise ValueError(f"Invalid version for {identity}.")
         enabled = row.get("enabled", True)
         source = row.get("source", "Thunderstore")
         if type(enabled) is not bool or not isinstance(source, str) or not source.strip():
             raise ValueError(f"Invalid enabled state or source for {identity}.")
-        mod = R2Mod(*match.groups(),
-                    ".".join(str(version[key]) for key in ("major", "minor", "patch")),
-                    enabled, source)
+        mod = R2Mod(*identity_parts,
+                    version_string, enabled, source)
         key = mod.package_id.casefold()
         if key in mods and mods[key] != mod:
             raise ValueError(f"Conflicting duplicate package: {identity}.")
@@ -155,13 +172,16 @@ def normalise_share_code(code: str) -> str:
     return code.lower()
 
 
-def download_share_profile(code: str, destination) -> R2Profile:
+def download_share_profile(code: str, destination, source="thunderstore") -> R2Profile:
     from Thunderstore.thunderstore_download import build_request
 
     code = normalise_share_code(code)
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
-    url = f"https://thunderstore.io/api/experimental/legacyprofile/get/{code}/"
+    if source not in {"thunderstore", "hexium"}:
+        raise ValueError("Unsupported share-code repository")
+    host = "hexium.gg" if source == "hexium" else "thunderstore.io"
+    url = f"https://{host}/api/experimental/legacyprofile/get/{code}/"
     limit = 256 * 1024 ** 2
     with TemporaryDirectory(prefix=".thunderstore-profile-", dir=destination) as temporary:
         archive_path = Path(temporary) / "profile.r2z"
@@ -200,7 +220,7 @@ def download_share_profile(code: str, destination) -> R2Profile:
                 raise ValueError("Thunderstore rate limited this request. Wait a moment and try again.") from exc
             raise
         profile = read_profile(archive_path)
-        final_path = destination / f"thunderstore-profile-{code}.r2z"
+        final_path = destination / f"{source}-profile-{code}.r2z"
         archive_path.replace(final_path)
         return replace(profile, archive_path=str(final_path.resolve()))
 
@@ -213,23 +233,40 @@ def check_community(profile: R2Profile, community: str):
                          f"game uses '{community}'. Switch games first, then import.")
 
 
-def prepare_import(profile: R2Profile, community: str) -> dict:
-    from Thunderstore.thunderstore_download import fetch_json
+def check_import_game(details, game):
+    communities = details.get("communities")
+    if communities is None:
+        if details.get("community") not in {
+                getattr(game, "thunderstore_community", ""), getattr(game, "hexium_community", "")}:
+            raise ValueError("The profile belongs to another game.")
+        return
+    if any(not community or community != getattr(game, f"{source}_community", "")
+           for source, community in communities.items()):
+        raise ValueError("The profile contains packages for another game's repository community.")
 
-    check_community(profile, community)
-    data = fetch_json(
-        f"https://thunderstore.io/c/{quote(community, safe='')}/api/v1/package/",
-        timeout=60)
-    if not isinstance(data, list) or any(
-            not isinstance(package, dict) or not isinstance(package.get("versions"), list)
-            for package in data):
-        raise ValueError("Could not load the Thunderstore catalogue. Retry to check availability.")
+
+def import_manifest(profile: R2Profile, community: str, *, hexium_community=None) -> dict:
+    communities = {source: (hexium_community if source == "hexium" and hexium_community is not None else community)
+                   for source in {mod.source.lower() for mod in profile.mods if mod.source in {"Hexium", "Thunderstore"}}}
+    if not communities:
+        check_community(profile, community or hexium_community)
+        return profile.manifest(community or hexium_community)
+    if any(not value for value in communities.values()):
+        raise ValueError("The selected game does not support every repository in this profile.")
+    if profile.community and profile.community.casefold() not in {slug.casefold() for slug in communities.values()}:
+        raise ValueError("The profile belongs to another game's repository community.")
+    selected = next((slug for slug in communities.values() if slug.casefold() == profile.community.casefold()),
+                    community or hexium_community)
+    return profile.manifest(selected, communities=communities)
+
+
+def prepare_import(profile: R2Profile, community: str, *, hexium_community=None) -> dict:
+    manifest = import_manifest(profile, community, hexium_community=hexium_community)
+    communities = manifest["r2Import"].get("communities", {})
+    from Thunderstore.repositories import catalogue
     versions = {}
-    for package in data:
-        for version in package["versions"]:
-            if not isinstance(version, dict) or not isinstance(version.get("full_name"), str):
-                raise ValueError("Invalid Thunderstore catalogue response. Retry to check availability.")
-            if type(version.get("file_size", 0)) is not int or version.get("file_size", 0) < 0:
-                raise ValueError("Invalid package size in the Thunderstore catalogue. Retry to check availability.")
-            versions[version["full_name"]] = version
-    return profile.manifest(community, versions)
+    for source, slug in communities.items():
+        for package in catalogue(slug, force=True, source=source).values():
+            for version in package["versions"]:
+                versions[(source, version["full_name"])] = version
+    return profile.manifest(manifest["r2Import"]["community"], versions, communities=communities)

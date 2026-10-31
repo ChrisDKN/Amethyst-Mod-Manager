@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 
 TEXT_FIELDS = (
     "name", "game_id", "exe_name", "deploy_type", "mod_data_path", "steam_id",
-    "nexus_game_domain", "thunderstore_community", "image_url", "mod_install_prefix",
+    "nexus_game_domain", "thunderstore_community", "hexium_community", "image_url", "mod_install_prefix",
     "filemap_casing",
 )
 LIST_FIELDS = (
@@ -124,6 +124,10 @@ def validate_definition(value):
     if url and (urlsplit(url).scheme not in ("https", "http") or not urlsplit(url).netloc):
         raise ValueError("image_url must be an HTTP or HTTPS URL.")
     result["thunderstore_community"] = result.get("thunderstore_community", "").lower()
+    result["hexium_community"] = result.get("hexium_community", "").lower()
+    if result["hexium_community"]:
+        from Thunderstore.repositories import validate_community
+        validate_community(result["hexium_community"])
     rules = result.get("custom_routing_rules", [])
     if not isinstance(rules, list) or len(rules) > 512:
         raise ValueError("Supply at most 512 routing rules.")

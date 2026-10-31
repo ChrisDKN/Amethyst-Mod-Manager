@@ -109,6 +109,9 @@ def fetch_json(url: str, timeout: int = 30):
 
 def fetch_version_info(link) -> dict | None:
     """Fetch cyberstorm version detail for a parsed ror2mm link (best-effort)."""
+    if getattr(link, "source", "thunderstore") == "hexium":
+        from Thunderstore.repositories import version_info
+        return version_info(link.namespace, link.name, link.version, link.community)
     return fetch_json(link.version_api_url)
 
 
@@ -120,6 +123,9 @@ def resolve_communities(link) -> list[str]:
     (BepInExPack appears under both Subnautica communities), so callers must
     treat the result as a set to test membership against - not a single answer.
     """
+    if getattr(link, "source", "thunderstore") == "hexium":
+        from Thunderstore.repositories import versions
+        return [link.community] if versions(link.namespace, link.name, link.community) else []
     data = fetch_json(link.api_url)
     if not isinstance(data, dict):
         return []
@@ -141,8 +147,18 @@ def download_package(link, dest_dir: Path,
     from contextlib import nullcontext
     from Utils.operations import OperationCancelled, acquire_resource_operation
 
+    if getattr(link, "source", "thunderstore") == "hexium":
+        info = fetch_version_info(link)
+        if not isinstance(info, dict) or type(info.get("file_size")) is not int or info["file_size"] <= 0:
+            return ThunderstoreDownloadResult(error="Hexium archive size is unavailable")
+        if expected_size and expected_size != info["file_size"]:
+            return ThunderstoreDownloadResult(error="Hexium package changed; refresh before downloading")
+        if link.download_override and link.download_override != info.get("download_url"):
+            return ThunderstoreDownloadResult(error="Hexium package URL changed; refresh before downloading")
+        expected_size = info["file_size"]
+        link.download_override = info["download_url"]
     destination = Path(dest_dir)
-    filename = f"{link.full_name}.zip"
+    filename = getattr(link, "archive_name", f"{link.full_name}.zip")
     if any(value in filename for value in ("/", "\\", "\0", "\r", "\n")):
         return ThunderstoreDownloadResult(error="unsafe Thunderstore archive filename")
     final = destination / filename
@@ -180,7 +196,7 @@ def _download_package_unlocked(link, dest_dir: Path,
         result.cancelled = True
         return result
 
-    file_name = f"{link.full_name}.zip"
+    file_name = getattr(link, "archive_name", f"{link.full_name}.zip")
     result.file_name = file_name
     dest_dir = Path(dest_dir)
     try:
@@ -249,6 +265,9 @@ def _download_package_unlocked(link, dest_dir: Path,
             app_log(f"thunderstore: {result.error}")
             return result
 
+    if getattr(link, "source", "thunderstore") == "hexium" and verify_archive is None:
+        from amethyst_backend.thunderstore import validate_archive
+        verify_archive = lambda path: validate_archive(path, link, expected_size)
     if verify_archive is not None:
         try:
             verify_archive(part_path)
@@ -270,6 +289,19 @@ def _download_package_unlocked(link, dest_dir: Path,
         result.error = f"could not finalise download: {exc}"
         return result
 
+    if getattr(link, "source", "thunderstore") == "hexium":
+        from dataclasses import asdict
+        import json
+        from Thunderstore.thunderstore_meta import build_meta_from_link
+        from Utils.atomic_write import write_atomic_text
+        info = fetch_version_info(link)
+        if not isinstance(info, dict):
+            result.error = "Hexium metadata is unavailable"
+            return result
+        identity = {"version": 1, "namespace": link.namespace, "package": link.name,
+                    "package_version": link.version, "community": link.community,
+                    "metadata": asdict(build_meta_from_link(link, info))}
+        write_atomic_text(final_path.with_suffix(".zip.hexium.json"), json.dumps(identity))
     result.success = True
     result.file_path = final_path
     app_log(f"thunderstore: downloaded {file_name} "

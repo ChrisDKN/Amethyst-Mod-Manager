@@ -72,6 +72,7 @@ class ThunderstoreModMeta:
     has_update: bool = False      # latest_version differs from version
     ignore_update: bool = False   # user muted updates for this mod
     ignored_version: str = ""     # version the user chose to skip
+    source: str = "thunderstore"
 
     @property
     def package_id(self) -> str:
@@ -132,32 +133,41 @@ def parse_full_name(full_name: str) -> tuple[str, str, str]:
     raw = (full_name or "").strip()
     if not raw:
         return "", "", ""
+    from Thunderstore.repositories import split_full_name
+    parsed = split_full_name(raw)
+    if parsed[0]:
+        return parsed
     parts = raw.rsplit("-", 2)
     if len(parts) != 3:
         return "", "", ""
     return parts[0], parts[1], parts[2]
 
 
-def read_meta(meta_ini_path: Path) -> ThunderstoreModMeta:
+def read_meta(meta_ini_path: Path, source=None) -> ThunderstoreModMeta:
     """Parse the [thunderstore] section of a ``meta.ini``.
 
     Missing keys are silently defaulted. Results are cached by file signature.
     """
+    meta_ini_path = Path(meta_ini_path)
     path_str = str(meta_ini_path)
+    cache_key = (path_str, source)
     signature = meta_file_signature(path_str)
     if signature is not None:
-        entry = _META_CACHE.get(path_str)
+        entry = _META_CACHE.get(cache_key)
         if entry is not None and entry[0] == signature:
             return copy.copy(entry[1])
 
     signature, cp, _ = read_meta_ini(path_str)
 
-    meta = ThunderstoreModMeta()
+    section = source or ("hexium" if cp.has_section("hexium") else SECTION)
+    if section not in ("hexium", SECTION):
+        raise ValueError("Unknown repository source")
+    meta = ThunderstoreModMeta(source=section)
     meta.mod_name = meta_ini_path.parent.name
 
-    if cp.has_section(SECTION):
+    if cp.has_section(section):
         for ini_key, attr in _KEY_MAP.items():
-            raw = cp.get(SECTION, ini_key, fallback=None)
+            raw = cp.get(section, ini_key, fallback=None)
             if raw is None:
                 continue
             if attr in _INT_FIELDS:
@@ -184,12 +194,12 @@ def read_meta(meta_ini_path: Path) -> ThunderstoreModMeta:
         if len(_META_CACHE) >= _META_CACHE_MAX:
             for k in list(_META_CACHE.keys())[: _META_CACHE_MAX // 4]:
                 _META_CACHE.pop(k, None)
-        _META_CACHE[path_str] = (signature, copy.copy(meta))
+        _META_CACHE[cache_key] = (signature, copy.copy(meta))
     return meta
 
 
 @locked_meta_write
-def write_meta(meta_ini_path: Path, meta: ThunderstoreModMeta) -> None:
+def write_meta(meta_ini_path: Path, meta: ThunderstoreModMeta, *, replace_source=False) -> None:
     """Write Thunderstore metadata into a ``meta.ini`` [thunderstore] section.
 
     Existing content - including the Nexus-owned [General] section - is read
@@ -203,8 +213,16 @@ def write_meta(meta_ini_path: Path, meta: ThunderstoreModMeta) -> None:
             app_log(f"thunderstore write_meta: tolerating malformed "
                     f"{meta_ini_path}: {e}")
 
-    if not cp.has_section(SECTION):
-        cp.add_section(SECTION)
+    section = meta.source
+    if section not in ("hexium", SECTION):
+        raise ValueError("Unknown repository source")
+    other = "hexium" if section == SECTION else SECTION
+    if cp.has_section(other):
+        if not replace_source:
+            raise ValueError("Changing repository source requires explicit approval")
+        cp.remove_section(other)
+    if not cp.has_section(section):
+        cp.add_section(section)
 
     if not meta.full_name and meta.namespace and meta.name and meta.version:
         meta.full_name = f"{meta.namespace}-{meta.name}-{meta.version}"
@@ -214,13 +232,13 @@ def write_meta(meta_ini_path: Path, meta: ThunderstoreModMeta) -> None:
         if value is None:
             continue
         if attr in _BOOL_FIELDS:
-            cp.set(SECTION, ini_key, "true" if value else "false")
+            cp.set(section, ini_key, "true" if value else "false")
             continue
         if attr in _NEVER_BLANK and not value:
             continue
         # '%' is configparser's interpolation sigil - escape it so package
         # descriptions containing e.g. "+50% speed" round-trip intact.
-        cp.set(SECTION, ini_key, str(value).replace("%", "%%"))
+        cp.set(section, ini_key, str(value).replace("%", "%%"))
 
     meta_ini_path.parent.mkdir(parents=True, exist_ok=True)
     with atomic_writer(meta_ini_path) as f:
@@ -244,6 +262,7 @@ def build_meta_from_link(link, version_info: dict | None = None
     """
     info = version_info or {}
     meta = ThunderstoreModMeta(
+        source=getattr(link, "source", "thunderstore"),
         community=getattr(link, "community", "") or "",
         namespace=link.namespace,
         name=link.name,
@@ -253,11 +272,11 @@ def build_meta_from_link(link, version_info: dict | None = None
         download_url=info.get("download_url") or link.download_url,
         website_url=info.get("website_url") or "",
         description=info.get("description") or "",
-        icon_url=info.get("icon_url") or "",
+        icon_url=info.get("icon_url") or info.get("icon") or "",
         installed=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
     )
     try:
-        meta.file_size = int(info.get("size") or 0)
+        meta.file_size = int(info.get("size") or info.get("file_size") or 0)
     except (TypeError, ValueError):
         meta.file_size = 0
 

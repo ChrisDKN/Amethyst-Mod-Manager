@@ -144,6 +144,7 @@ def load_rows(entries, game) -> list[dict]:
         col_install_type = ""
         ts_ns = ts_pkg = ts_version = ts_full = ts_community = ""
         ts_size = 0
+        ts_source = "thunderstore"
         plugin_source = None
         plugin_source_uri = ""
         if staging_root:
@@ -176,6 +177,7 @@ def load_rows(entries, game) -> list[dict]:
                 try:
                     tsm = ts_read_meta(meta_path)
                     if tsm.package_id:
+                        ts_source = tsm.source
                         ts_ns = tsm.namespace
                         ts_pkg = tsm.name
                         ts_version = tsm.version or ""
@@ -229,11 +231,12 @@ def load_rows(entries, game) -> list[dict]:
             # rather than in apply_source_defaults: that helper is shared with
             # the Nexus-collection publisher, which must never offer this
             # source (see CreateCollectionView._seed_rows).
-            "source":           "plugin" if plugin_source_uri else "thunderstore" if (ts_ns and ts_pkg) else "nexus",
+            "source":           "plugin" if plugin_source_uri else ts_source if (ts_ns and ts_pkg) else "nexus",
             "plugin_source":    plugin_source,
             "plugin_source_uri": plugin_source_uri,
             "direct_url":       "",
             "source_instructions": "",
+            "ts_source":        ts_source,
             "ts_namespace":     ts_ns,
             "ts_name":          ts_pkg,
             "ts_version":       ts_version,
@@ -323,7 +326,7 @@ def read_settings(in_path, rows, *, preserve_pins=False) -> None:
         # recorded "nexus" for these mods, and honouring it would silently undo
         # the detection on every load.
         saved_source = m.get("source") or ""
-        if saved_source == "nexus" and row.get("source") == "thunderstore":
+        if saved_source == "nexus" and row.get("source") in {"thunderstore", "hexium"}:
             saved_source = ""
         row["source"] = saved_source or row.get("source", "nexus")
         row["direct_url"] = m.get("direct_url", "")
@@ -541,7 +544,7 @@ def _thunderstore_source(row: dict) -> dict:
     if not (ns and pkg and version):
         return {"bundle": True}
     source: dict = {
-        "type":      "thunderstore",
+        "type":      row.get("source", "thunderstore"),
         "namespace": ns,
         "name":      pkg,
         "version":   version,
@@ -558,7 +561,7 @@ def _thunderstore_source(row: dict) -> dict:
 
 def is_thunderstore_source(src: dict) -> bool:
     """Whether a manifest ``source`` object points at a Thunderstore package."""
-    return ((src or {}).get("type") or "").strip().lower() == "thunderstore"
+    return ((src or {}).get("type") or "").strip().lower() in {"thunderstore", "hexium"}
 
 
 def manifest_needs_nexus(manifest: dict) -> bool:
@@ -574,7 +577,7 @@ def manifest_needs_nexus(manifest: dict) -> bool:
         src = mod.get("source") or {}
         stype = (src.get("type") or "").strip().lower()
         if src.get("bundle") is True or stype in (
-                "bundle", "thunderstore", "plugin", "browse", "direct", "manual"):
+                "bundle", "thunderstore", "hexium", "plugin", "browse", "direct", "manual"):
             continue
         return True
     return False
@@ -612,6 +615,7 @@ def thunderstore_entries(manifest: dict) -> list[dict]:
         out.append({
             "array_index": idx,
             "name":        mod.get("name") or "",
+            "source":      src.get("type", "thunderstore").lower(),
             "namespace":   ns,
             "package":     pkg,
             "version":     version,
@@ -666,11 +670,11 @@ def manifest_install_mods(manifest: dict):
             mods.append(NexusCollectionMod(
                 mod_name=name, file_name=name, source_type="bundle"))
             continue
-        if source_type == "thunderstore":
+        if source_type in {"thunderstore", "hexium"}:
             mods.append(NexusCollectionMod(
                 mod_name=name,
                 file_name=str(src.get("fullName") or name),
-                size_bytes=file_size, source_type="thunderstore",
+                size_bytes=file_size, source_type=source_type,
                 version=str(src.get("version") or ""),
                 optional=bool(mod.get("optional", False))))
             continue
@@ -722,7 +726,7 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
                 source["url"] = row["direct_url"]
             if row.get("source_instructions"):
                 source["instructions"] = row["source_instructions"]
-        elif row_source == "thunderstore":
+        elif row_source in {"thunderstore", "hexium"}:
             source = _thunderstore_source(row)
         elif row_source == "plugin":
             record = row["plugin_source"]
@@ -768,7 +772,7 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
         row_version = row.get("version") or ""
         if not row_version:
             row_version = split_ver_label(ver_label)[1]
-        if not row_version and row_source == "thunderstore":
+        if not row_version and row_source in {"thunderstore", "hexium"}:
             # A Thunderstore-only mod has no [General] version - the pin is the
             # version, and it may be a user override from the version picker.
             row_version = row.get("ts_version") or ""
@@ -1291,7 +1295,7 @@ def build_code_manifest(entries, game, app_version: str, *,
         if row.get("source") == "plugin":
             keep.append(row)
             continue
-        if row.get("source") == "thunderstore":
+        if row.get("source") in {"thunderstore", "hexium"}:
             if row.get("ts_namespace") and row.get("ts_name") and row.get("ts_version"):
                 keep.append(row)
                 continue

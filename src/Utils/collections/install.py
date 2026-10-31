@@ -2851,7 +2851,7 @@ def _apply_schema_disabled_mods(modlist_path, collection_schema,
         if m.get("enabled") is not False:
             continue
         folder = ""
-        if (m.get("source") or {}).get("type") == "thunderstore":
+        if (m.get("source") or {}).get("type") in {"thunderstore", "hexium"}:
             folder = preinstalled_by_index.get(index, "")
         fid = (m.get("source") or {}).get("fileId")
         if fid is not None:

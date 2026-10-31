@@ -46,6 +46,7 @@ class ThunderstoreUpdateInfo:
     # True when the package could not be looked up (deleted, renamed, offline),
     # so the state is genuinely unknown rather than up to date.
     unknown: bool = False
+    source: str = "thunderstore"
 
     @property
     def package_id(self) -> str:
@@ -58,9 +59,14 @@ def package_api_url(namespace: str, name: str,
     return f"https://{host}/api/experimental/package/{namespace}/{name}/"
 
 
-def _newest_version(namespace: str, name: str, host: str
+def _newest_version(namespace: str, name: str, host: str, community: str = ""
                     ) -> tuple[str, bool, bool]:
     """Return ``(latest_version, is_deprecated, ok)`` for a package."""
+    if host == "hexium.gg":
+        from Thunderstore.repositories import latest, catalogue, versions
+        value = latest(namespace, name, community)
+        deprecated = catalogue(community).get(f"{namespace}-{name}", {}).get("is_deprecated", False)
+        return value, deprecated, bool(versions(namespace, name, community))
     data = fetch_json(package_api_url(namespace, name, host))
     if not isinstance(data, dict):
         return "", False, False
@@ -112,13 +118,25 @@ def check_for_updates(staging_root: Path, *,
         installed = [(f, m) for (f, m) in installed if f.name in subset]
 
     # One lookup per distinct package, even when several folders share it.
-    packages = {m.package_id: (m.namespace, m.name) for _, m in installed}
+    packages = {(m.source, m.community, m.package_id): (m.source, m.community, m.namespace, m.name)
+                for _, m in installed}
+    unavailable = set()
+    for community in {m.community for _, m in installed if m.source == "hexium"}:
+        from Thunderstore.repositories import catalogue
+        try:
+            catalogue(community, force=True)
+        except (ValueError, OSError) as exc:
+            unavailable.add(community)
+            app_log(f"hexium: update catalogue unavailable for {community}: {exc}")
 
     def lookup(package):
-        namespace, name = package
+        source, community, namespace, name = package
         if progress_cb:
             progress_cb(f"checking {namespace}-{name}")
-        return _newest_version(namespace, name, host)
+        if source == "hexium" and community in unavailable:
+            return "", False, False
+        return _newest_version(namespace, name, "hexium.gg" if source == "hexium" else host,
+                               community=community)
 
     looked_up: dict = {}
     if packages:
@@ -129,10 +147,12 @@ def check_for_updates(staging_root: Path, *,
 
     for folder, meta in installed:
         pkg_id = meta.package_id
-        latest, deprecated, ok = looked_up[pkg_id]
+        latest, deprecated, ok = looked_up[(meta.source, meta.community, pkg_id)]
+        if ok and not latest:
+            latest = meta.version
 
         info = ThunderstoreUpdateInfo(
-            mod_name=folder.name,
+            source=meta.source, mod_name=folder.name,
             namespace=meta.namespace,
             name=meta.name,
             installed_version=meta.version,
@@ -146,8 +166,10 @@ def check_for_updates(staging_root: Path, *,
             results.append(info)
             continue
 
-        cur = _parse_version(meta.version)
-        new = _parse_version(latest)
+        from Thunderstore.repositories import version_key
+        parse = version_key if meta.source == "hexium" else _parse_version
+        cur = parse(meta.version)
+        new = parse(latest)
         info.has_update = bool(cur is not None and new is not None and new > cur)
 
         # Respect the user's mute: either "ignore all updates for this mod" or

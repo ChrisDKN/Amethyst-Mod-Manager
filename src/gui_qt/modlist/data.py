@@ -27,6 +27,7 @@ FLAG_MODIO_UPDATE = 1 << 10  # BG3 mod.io update (file id or embedded version)
 FLAG_PRERTX = 1 << 11      # contains pre-RTX (natives/x64) files - filemap-derived
 FLAG_ROOT_RULE = 1 << 12   # owns files with a custom root-routing rule - filemap-derived
 FLAG_RERUN_FOMOD = 1 << 13  # a FOMOD option's fileDependency plugin is now in the load order - live overlay
+FLAG_HEXIUM_UPDATE = 1 << 18
 FLAG_THUNDERSTORE_UPDATE = 1 << 14  # Thunderstore update ([thunderstore] hasUpdate)
 FLAG_SKSE_INCOMPATIBLE = 1 << 15
 FLAG_SYMLINK = 1 << 16
@@ -261,10 +262,10 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                 if _ts_desc:
                     descriptions[e.name] = _ts_desc
             if _ts.package_id and _ts.has_update and not _ts.ignore_update:
-                bits |= FLAG_THUNDERSTORE_UPDATE
+                bits |= FLAG_HEXIUM_UPDATE if _ts.source == "hexium" else FLAG_THUNDERSTORE_UPDATE
                 updates.add(e.name)
             if _ts.package_id:
-                sources.add("thunderstore")
+                sources.add(_ts.source)
         except Exception:
             pass
         try:

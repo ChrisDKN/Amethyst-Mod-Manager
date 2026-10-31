@@ -670,6 +670,9 @@ class AmethystService:
                 "thunderstore_install": {"plan": "thunderstore.install.plan.start", "apply": "thunderstore.install.start",
                                          "dependencies_first": True, "revision_checked": True,
                                          "dependency_selection": True, "partial_results": True},
+                "hexium_install": {"plan": "hexium.install.plan.start", "apply": "hexium.install.start",
+                                   "dependencies_first": True, "revision_checked": True,
+                                   "source_switch_approval": True, "fallback_approval": True},
                 "schemas": {"method": "system.schema.get", "version": 1,
                             "dialect": "https://json-schema.org/draft/2020-12/schema"},
                 "cached_reads": {"methods": sorted(SNAPSHOT_METHODS), "opt_out": "allow_cached:false",
@@ -772,13 +775,13 @@ class AmethystService:
                                         "revision_checked": True, "shared_desktop_execution": True},
                 },
                 "profile_share": {
-                    "format": "AMMCODE1", "sources": ["nexus", "thunderstore", "plugin"],
+                    "format": "AMMCODE1", "sources": ["nexus", "thunderstore", "hexium", "plugin"],
                     "inspect": True, "import": True, "profile_groups": True,
                     "maximum_code_length": 8388608, "maximum_manifest_bytes": 16777216,
                     "upload": False, "local_files": False,
                 },
                 "profile_export": {
-                    "format": "amethyst", "sources": ["nexus", "thunderstore", "plugin", "direct", "browse", "manual", "bundle", "ignore"],
+                    "format": "amethyst", "sources": ["nexus", "thunderstore", "hexium", "plugin", "direct", "browse", "manual", "bundle", "ignore"],
                     "preview": True, "saved_settings": True, "profile_groups": True,
                     "file_edits": True, "revision_checked": True, "atomic": True,
                     "overwrite": "explicit", "maximum_changes": 4096,
@@ -793,12 +796,12 @@ class AmethystService:
                 },
                 "mod_properties": {
                     "version_label": True, "root_folder": True,
-                    "update_ignores": ["nexus", "thunderstore", "plugin"],
+                    "update_ignores": ["nexus", "thunderstore", "hexium", "plugin"],
                     "revision_checked": True, "owner_resolution": True,
                     "routing_sync": "affected_profiles",
                 },
                 "mod_versions": {
-                    "sources": ["nexus", "thunderstore", "modio", "plugin"], "catalog": True,
+                    "sources": ["nexus", "thunderstore", "hexium", "modio", "plugin"], "catalog": True,
                     "plugin_source_prefix": "plugin:",
                     "installed_highlights": True, "name_matched_recommendations": True,
                     "update_group_recommendations": True,
@@ -881,7 +884,7 @@ class AmethystService:
                         "group_aware_moves": True,
                     },
                     "update_check": {
-                        "sources": ["nexus", "thunderstore", "modio", "plugins"],
+                        "sources": ["nexus", "thunderstore", "hexium", "modio", "plugins"],
                         "selection": True,
                         "persists_metadata": True,
                     },
@@ -3084,7 +3087,7 @@ class AmethystService:
                     {"parameter": "path"},
                 )
             source_path = raw_path.absolute()
-            if (source_path.suffix.casefold() not in {".amethyst", ".zip", ".json", ".r2x", ".txt"}
+            if (source_path.suffix.casefold() not in {".amethyst", ".zip", ".json", ".r2x", ".r2z", ".txt"}
                     or source_path.is_symlink() or not source_path.is_file()):
                 raise ServiceError(
                     -32003, "resource_unavailable",
@@ -5132,17 +5135,17 @@ class AmethystService:
         optional = set() if filters else {"query", "sort"}
         if not filters:
             optional |= ({"page", "included_categories", "excluded_categories", "section", "include_adult", "include_deprecated"}
-                         if provider == "thunderstore" else {"offset", "limit"})
+                         if provider in {"thunderstore", "hexium"} else {"offset", "limit"})
         self._check_params(params, {"game"} | optional, {"game"})
         self._require_idle_state()
         game = self._resolve_game(self._required_text(params, "game"))
         query = params.get("query", "")
         if not isinstance(query, str) or len(query) > 512 or "\x00" in query:
             raise ServiceError(-32602, "invalid_params", "'query' must be text of at most 512 characters.")
-        if provider == "thunderstore":
+        if provider in {"thunderstore", "hexium"}:
             from Thunderstore.thunderstore_api import ORDERINGS
             import re
-            community = getattr(game, "thunderstore_community", "") or ""
+            community = getattr(game, f"{provider}_community", "") or ""
             if not isinstance(community, str) or re.fullmatch(r"[a-z0-9_-]+", community) is None:
                 raise ServiceError(-32009, "operation_not_supported", "This game has no Thunderstore community.")
             sort = params.get("sort", "last-updated")
@@ -5159,8 +5162,8 @@ class AmethystService:
                 if not isinstance(params.get(key, False), bool):
                     raise ServiceError(-32602, "invalid_params", f"'{key}' must be boolean.")
                 options[target] = params.get(key, False)
-            kind = "thunderstore.packages.filters" if filters else "thunderstore.packages.search"
-            runner = thunderstore_runner(community, options, filters=filters)
+            kind = f"{provider}.packages.filters" if filters else f"{provider}.packages.search"
+            runner = thunderstore_runner(community, options, filters=filters, source=provider)
         else:
             if getattr(game, "game_id", "") != "baldurs_gate_3":
                 raise ServiceError(-32009, "operation_not_supported", "mod.io browsing is supported for Baldur's Gate 3.")
@@ -5471,10 +5474,10 @@ class AmethystService:
         if not isinstance(source, str):
             raise ServiceError(-32602, "invalid_params", "'source' must be a source name.")
         import re
-        if source not in {"nexus", "thunderstore", "modio"} and re.fullmatch(r"plugin:[a-z0-9][a-z0-9_.-]{0,99}/[a-z0-9][a-z0-9_.-]{0,99}", source) is None:
+        if source not in {"nexus", "thunderstore", "hexium", "modio"} and re.fullmatch(r"plugin:[a-z0-9][a-z0-9_.-]{0,99}/[a-z0-9][a-z0-9_.-]{0,99}", source) is None:
             raise ServiceError(-32009, "operation_not_supported",
                                "The installed-version source is unsupported.",
-                               {"supported_sources": ["nexus", "thunderstore", "modio", "plugin:<plugin-id>/<provider-id>"]})
+                               {"supported_sources": ["nexus", "thunderstore", "hexium", "modio", "plugin:<plugin-id>/<provider-id>"]})
         if source == "modio" and getattr(game, "game_id", "") != "baldurs_gate_3":
             raise ServiceError(-32009, "operation_not_supported", "mod.io version changes support Baldur's Gate 3.")
         return game, profile, mod
@@ -5491,43 +5494,73 @@ class AmethystService:
             runner=versions_runner(self._nexus_session, game, profile, mod, params.get("source", "nexus")))
         return {"job": job}
 
-    def _thunderstore_target(self, params, *, version=False):
+    def _thunderstore_target(self, params, *, version=False, source="thunderstore"):
         game = self._resolve_game(self._required_text(params, "game"))
         self._require_configured(game)
-        community = getattr(game, "thunderstore_community", "") or ""
+        community = getattr(game, f"{source}_community", "") or ""
         if not community:
-            raise ServiceError(-32009, "operation_not_supported", "This game has no Thunderstore community.")
+            raise ServiceError(-32009, "operation_not_supported", f"This game has no {source.title()} community.")
         from .thunderstore import package_link
         from .jobs import JobError
         try:
             link = package_link(self._required_text(params, "namespace"), self._required_text(params, "package"),
-                                self._required_text(params, "version") if version else "0.0.0", community)
+                                self._required_text(params, "version") if version else "0.0.0", community, source=source)
         except JobError as exc:
             raise ServiceError(-32602, "invalid_params", str(exc)) from exc
         return game, link
 
-    def _start_thunderstore_versions(self, params):
+    def _start_hexium_identify(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "confirm", "identities"}, {"game", "profile"})
+        game, profile = self._batch_profile(params)
+        if not getattr(game, "hexium_community", ""):
+            self._unsupported_operation(game, "Hexium identification")
+        identities = params.get("identities", {})
+        confirm = params.get("confirm", False)
+        if not isinstance(confirm, bool) or not isinstance(identities, dict) or len(identities) > 4096 or any(not isinstance(k, str) or not isinstance(v, str) for k, v in identities.items()):
+            raise ServiceError(-32602, "invalid_params", "Supply boolean confirm and author choices keyed by mod name.")
+        from .hexium import identify_runner
+        return {"job": self._jobs.submit("hexium.mods.identify", game, self._canonical_game(game), profile.name,
+            {"confirm": confirm, "identities": identities}, runner=identify_runner(game, profile, identities, confirm))}
+
+    def _start_hexium_share(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"game", "code"}, {"game", "code"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        if not getattr(game, "hexium_community", ""):
+            self._unsupported_operation(game, "Hexium profile imports")
+        from Thunderstore.r2_profile import normalise_share_code
+        try:
+            code = normalise_share_code(self._required_text(params, "code"))
+        except ValueError as exc:
+            raise ServiceError(-32602, "invalid_params", str(exc)) from exc
+        from .hexium import share_runner
+        return {"job": self._jobs.submit("hexium.profiles.share.download", game, self._canonical_game(game), None,
+            {"code": code}, runner=share_runner(game, code))}
+
+    def _start_thunderstore_versions(self, params, source="thunderstore"):
         self._require_idle_state()
         required = {"game", "namespace", "package"}
         self._check_params(params, required, required)
-        game, link = self._thunderstore_target(params)
+        game, link = self._thunderstore_target(params, source=source)
         from .thunderstore import versions_runner
         job = self._jobs.submit(
-            "thunderstore.packages.versions", game, self._canonical_game(game), None,
+            f"{source}.packages.versions", game, self._canonical_game(game), None,
             {"namespace": link.namespace, "package": link.name, "community": link.community},
             runner=versions_runner(game, link))
         return {"job": job}
 
-    def _start_thunderstore_download(self, params):
+    def _start_thunderstore_download(self, params, source="thunderstore"):
         self._require_idle_state()
         required = {"game", "namespace", "package", "version"}
         self._check_params(params, required, required)
-        game, link = self._thunderstore_target(params, version=True)
+        game, link = self._thunderstore_target(params, version=True, source=source)
         from Utils.downloads.control import DownloadControl
         from .thunderstore import download_runner
         control = DownloadControl()
         job = self._jobs.submit(
-            "thunderstore.download", game, self._canonical_game(game), None,
+            f"{source}.download", game, self._canonical_game(game), None,
             {"namespace": link.namespace, "package": link.name, "version": link.version,
              "community": link.community}, runner=download_runner(game, link, control),
             cancel=control.cancel, pause=control.pause, resume=control.resume)
@@ -5538,12 +5571,12 @@ class AmethystService:
         source = params.get("source", "nexus")
         required = {"game", "profile", "mod", "revision", "confirm"}
         plugin_source = isinstance(source, str) and source.startswith("plugin:")
-        required.add("version" if source == "thunderstore" or plugin_source else "file_id")
+        required.add("version" if source in {"thunderstore", "hexium"} or plugin_source else "file_id")
         if plugin_source:
             required.add("catalogue_revision")
         allowed = required | {"source", "archive_id", "installer_policy",
                               "bain_selected", "fomod_selections", "bundle_selected"}
-        if source == "thunderstore":
+        if source in {"thunderstore", "hexium"}:
             allowed.add("dependency_policy")
         elif source == "nexus":
             allowed.add("nxm_url")
@@ -5557,14 +5590,14 @@ class AmethystService:
         if len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
             raise ServiceError(-32602, "invalid_params",
                                "'revision' must come from the installed version catalog.")
-        file_id = self._positive_integer(params, "file_id") if source != "thunderstore" and not plugin_source else None
+        file_id = self._positive_integer(params, "file_id") if source not in {"thunderstore", "hexium"} and not plugin_source else None
         version = None
         if plugin_source:
             version = self._required_text(params, "version")
-        if source == "thunderstore":
+        if source in {"thunderstore", "hexium"}:
             version = self._required_text(params, "version")
             import re
-            if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is None:
+            if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-(?:alpha|beta|rc)\.[0-9]+)?" if source == "hexium" else r"[0-9]+\.[0-9]+\.[0-9]+", version) is None:
                 raise ServiceError(-32602, "invalid_params", "Choose a numeric Thunderstore version from the catalogue.")
             dependency_policy = params.get("dependency_policy", "reject")
             if dependency_policy not in ("reject", "ignore"):
@@ -5580,7 +5613,7 @@ class AmethystService:
                    "bundle_selected": self._bundle_selection(params, policy)}
         if plugin_source:
             options["catalogue_revision"] = self._required_text(params, "catalogue_revision")
-        if source == "thunderstore":
+        if source in {"thunderstore", "hexium"}:
             options["dependency_policy"] = dependency_policy
         nxm_link = None
         if "archive_id" in params:
@@ -5598,7 +5631,7 @@ class AmethystService:
         job = self._jobs.submit(
             "mods.version.change", game, self._canonical_game(game), profile.name,
             {"mod": mod, "source": source, "revision": revision,
-             **({"version": version} if source == "thunderstore" or plugin_source else {"file_id": file_id}), **options},
+             **({"version": version} if source in {"thunderstore", "hexium"} or plugin_source else {"file_id": file_id}), **options},
             runner=change_runner(self._nexus_session, game, profile, mod, revision,
                                  file_id, options, nxm_link, source, version))
         return {"job": job}
@@ -6381,7 +6414,7 @@ class AmethystService:
                 )
             unsupported = [
                 source for source in sources
-                if source not in {"nexus", "thunderstore", "modio", "plugins"}
+                if source not in {"nexus", "thunderstore", "hexium", "modio", "plugins"}
             ]
             if unsupported:
                 raise ServiceError(
@@ -6391,16 +6424,18 @@ class AmethystService:
                     {
                         "parameter": "sources",
                         "unsupported": unsupported,
-                        "supported": ["nexus", "thunderstore", "modio", "plugins"],
+                        "supported": ["nexus", "thunderstore", "hexium", "modio", "plugins"],
                     },
                 )
             requested_sources = set(sources)
             sources = [
-                source for source in ("nexus", "thunderstore", "modio", "plugins")
+                source for source in ("nexus", "thunderstore", "hexium", "modio", "plugins")
                 if source in requested_sources
             ]
         else:
             sources = (["nexus"] if domains else []) + ["thunderstore", "plugins"]
+            if getattr(game, "hexium_community", ""):
+                sources.append("hexium")
             if is_bg3:
                 try:
                     from .modio import credential_status
@@ -6410,6 +6445,8 @@ class AmethystService:
                     pass
         if "nexus" in sources and not domains:
             self._unsupported_operation(game, "Nexus Mods metadata")
+        if "hexium" in sources and not getattr(game, "hexium_community", ""):
+            self._unsupported_operation(game, "Hexium updates")
         if "modio" in sources and not is_bg3:
             self._unsupported_operation(game, "mod.io updates")
         domain = domains[0] if domains else ""
@@ -8370,6 +8407,7 @@ class AmethystService:
                 self._safe_call(game, "effective_steam_id", "") or "") or None,
             "nexus_domains": nexus_domains,
             "thunderstore_community": thunderstore or None,
+            "hexium_community": self._safe_attr(game, "hexium_community", "") or None,
             "last_active_profile": str(
                 self._safe_call(game, "get_last_active_profile", "default")
                 or "default"),
@@ -8388,6 +8426,7 @@ class AmethystService:
                         game, "get_mod_staging_path", None))),
                 "nexus": bool(nexus_domains),
                 "thunderstore": bool(thunderstore),
+                "hexium": bool(self._safe_attr(game, "hexium_community", "")),
                 "plugins": bool(plugin_extensions),
                 "plugin_userlist": bool(
                     plugin_extensions and self._safe_attr(game, "loot_sort_enabled", False)),
@@ -8481,7 +8520,7 @@ class AmethystService:
                 "requirements": {
                     "nexus": {"all": [], "missing": []},
                 },
-                "sources": {"nexus": None, "thunderstore": None, "modio": None},
+                "sources": {"nexus": None, "thunderstore": None, "hexium": None, "modio": None},
             }
 
         safe_name = (Path(entry.name).name == entry.name
@@ -8591,6 +8630,7 @@ class AmethystService:
                 if meta.package_id or meta.community or meta.full_name:
                     thunderstore = {
                         "community": meta.community or None,
+                        "source": meta.source,
                         "package_id": meta.package_id or None,
                         "full_name": meta.full_name or None,
                         "version": meta.version or None,
@@ -8627,7 +8667,8 @@ class AmethystService:
             "update_available": update_available,
             "requirements": requirements,
             "sources": {
-                "nexus": nexus, "thunderstore": thunderstore,
+                "nexus": nexus, "thunderstore": thunderstore if not thunderstore or thunderstore.get("source") != "hexium" else None,
+                "hexium": thunderstore if thunderstore and thunderstore.get("source") == "hexium" else None,
                 "modio": modio,
                 "plugin": plugin_source,
             },

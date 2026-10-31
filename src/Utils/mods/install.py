@@ -1565,7 +1565,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     archive_probe: "ArchiveProbe | None" = None,
                     load_fomod_context: bool = True,
                     detect_installers: bool = True,
-                    version_change=None,
+                    version_change=None, allow_repository_switch=False,
                     ) -> PreparedInstall | None:
     """Extract *archive_path* to a kept temp dir and detect FOMOD. The caller
     either runs the wizard (is_fomod) then `finish_install(prepared, selections)`,
@@ -1582,7 +1582,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     plugin_source = read_source(archive, verify=True, cancel=cancel)
     if plugin_source is not None:
         if any(archive.with_suffix(archive.suffix + suffix).exists() for suffix in (
-                ".fileid", ".nexus.json", ".thunderstore.json", ".modio.json", ".tool.json")):
+                ".fileid", ".nexus.json", ".thunderstore.json", ".hexium.json", ".modio.json", ".tool.json")):
             raise ValueError("The archive has conflicting download-source sidecars.")
         if prebuilt_meta is None:
             from Nexus.nexus_meta import NexusModMeta
@@ -1599,11 +1599,48 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         if prebuilt_meta.workshop_app_id != workshop_app_id(game):
             log_fn("Install: this Workshop mod belongs to a different game.")
             return None
+    repository_record = None
+    repository_sources = [source for source in ("thunderstore", "hexium")
+                          if archive.with_suffix(archive.suffix + f".{source}.json").exists()]
+    if repository_sources:
+        if len(repository_sources) != 1 or any(archive.with_suffix(archive.suffix + suffix).exists() for suffix in (".modio.json", ".nexus.json", ".plugin.json")):
+            raise ValueError("The archive has conflicting repository sidecars")
+        from amethyst_backend.thunderstore import downloaded_metadata
+        repository_record = downloaded_metadata(archive, game, source=repository_sources[0])
+        if prebuilt_meta is None:
+            prebuilt_meta = repository_record[0]
+
+    def with_repository(prepared):
+        if repository_record is not None:
+            if prepared.is_multi_mod() or prepared.is_bundle():
+                prepared.cleanup()
+                raise ValueError("A managed package must install as one mod")
+            prepared.repository_record = repository_record
+            prepared.allow_repository_switch = allow_repository_switch
+        return prepared
+
     # Resolve staging from the TARGET profile dir, not the game's mutable
     # active-profile state: installs into a non-active profile (Profile Group
     # member picker) land in that profile's own mods folder.
     from Utils.mods.copy import resolve_target_staging
     staging_root = resolve_target_staging(game, profile_dir)
+    if repository_record is not None and staging_root is not None:
+        from Thunderstore.thunderstore_meta import read_meta as read_repository_meta
+        incoming = repository_record[1]
+        matches = [(folder, read_repository_meta(folder / "meta.ini")) for folder in Path(staging_root).iterdir()
+                   if folder.is_dir() and read_repository_meta(folder / "meta.ini").package_id == incoming.package_id] if Path(staging_root).is_dir() else []
+        if len(matches) > 1:
+            raise ValueError("Several installed mods identify this package")
+        if matches:
+            folder, existing = matches[0]
+            if existing.source != incoming.source and version_change is None and not allow_repository_switch:
+                raise ValueError("Changing stores requires reviewing the source change in its repository browser")
+            if not preferred_name:
+                preferred_name = folder.name
+            if version_change is None and not allow_repository_switch:
+                from Utils.mods.version_history import VersionChangeContext
+                version_change = VersionChangeContext.capture(game, profile_dir, folder.name, existing.source)
+                version_change.target_thunderstore = incoming
     if staging_root is None:
         log_fn("Install: no staging folder configured.")
         return None
@@ -1695,7 +1732,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         prepared.force_replace = bool(preferred_name)
         prepared.plugin_source = plugin_source
         prepared._tmp_reserved = tmp_reserved
-        return prepared
+        return with_repository(prepared)
 
     # A `.fomod`-wrapper archive needs a second extraction pass before FOMOD
     # detection can find fomod/ModuleConfig.xml (Tk parity).
@@ -1766,7 +1803,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             from amethyst_plugins.installers import prepare_installer
             prepared.plugin_install = prepare_installer(prepared, log_fn, progress_fn, cancel,
                                                        kind=prepared.installer_kind)
-            return prepared
+            return with_repository(prepared)
     except BaseException:
         prepared.cleanup()
         raise
@@ -1845,7 +1882,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         except BaseException:
             prepared.cleanup()
             raise
-    return prepared
+    return with_repository(prepared)
 
 
 def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
@@ -2534,6 +2571,16 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             parser.set("General", "multiModSource", p._multi_source_name)
             with atomic_writer(meta_path) as stream:
                 parser.write(stream)
+    if getattr(p, "repository_record", None) is not None:
+        from amethyst_backend.download_archives import _token
+        from Thunderstore.thunderstore_meta import write_meta as write_repository_meta
+        _, repository_meta, sidecar, tokens = p.repository_record
+        if [_token(path, required=True) for path in (p.archive, sidecar)] != tokens:
+            raise ValueError("The package archive or its metadata changed during installation")
+        if p.version_change is not None:
+            p.version_change.target_thunderstore = repository_meta
+        else:
+            write_repository_meta(dest_root / "meta.ini", repository_meta, replace_source=p.allow_repository_switch)
     if p.version_change is not None:
         p.version_change.commit(dest_root / "meta.ini")
     else:

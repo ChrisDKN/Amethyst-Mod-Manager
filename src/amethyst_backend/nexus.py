@@ -180,6 +180,7 @@ def _missing_requirements(value: Any) -> dict[str, Any]:
 
 def _thunderstore_update(value: Any) -> dict[str, Any]:
     return {
+        "source": getattr(value, "source", "thunderstore"),
         "mod": str(value.mod_name),
         "namespace": str(value.namespace or ""),
         "package": str(value.name or ""),
@@ -730,13 +731,13 @@ def check_updates_runner(
                         if meta.mod_name in target_set
                     }
 
-                if "thunderstore" in sources:
+                if "thunderstore" in sources or "hexium" in sources:
                     from Thunderstore.thunderstore_update_checker import (
                         scan_installed as scan_thunderstore,
                     )
 
                     try:
-                        thunderstore_installed = scan_thunderstore(staging)
+                        thunderstore_installed = [(folder, meta) for folder, meta in scan_thunderstore(staging) if meta.source in sources]
                     except Exception as exc:
                         source_errors.append({
                             "source": "thunderstore",
@@ -811,7 +812,7 @@ def check_updates_runner(
                     phase += 1
                     progress(phase, total_phases, "check_nexus_updates")
 
-                if "thunderstore" in sources:
+                if "thunderstore" in sources or "hexium" in sources:
                     progress(phase, total_phases,
                              "check_thunderstore_updates")
                     if thunderstore_tracked:
@@ -921,11 +922,14 @@ def check_updates_runner(
                     "counts": {
                         "targeted": len(targets),
                         "nexus_tracked": len(nexus_tracked),
-                        "thunderstore_tracked": len(thunderstore_tracked),
+                        "thunderstore_tracked": sum(folder.name in target_set and meta.source == "thunderstore" for folder, meta in thunderstore_installed),
+                        "hexium_tracked": sum(folder.name in target_set and meta.source == "hexium" for folder, meta in thunderstore_installed),
                         "modio_tracked": len(modio_tracked),
                         "updates": len(update_rows),
-                        "thunderstore_updates": len(thunderstore_rows),
-                        "thunderstore_unknown": len(thunderstore_unknown),
+                        "thunderstore_updates": sum(r.get("source") == "thunderstore" for r in thunderstore_rows),
+                        "hexium_updates": sum(r.get("source") == "hexium" for r in thunderstore_rows),
+                        "thunderstore_unknown": sum(r.get("source") == "thunderstore" for r in thunderstore_unknown),
+                        "hexium_unknown": sum(r.get("source") == "hexium" for r in thunderstore_unknown),
                         "modio_updates": len(modio_rows),
                         "plugin_updates": sum(bool(row["has_update"]) for row in plugin_results["items"]),
                         "modio_unknown": len(modio_unknown),
@@ -937,8 +941,10 @@ def check_updates_runner(
                     },
                     "updates": update_rows,
                     "missing_requirements": missing_rows,
-                    "thunderstore_updates": thunderstore_rows,
-                    "thunderstore_unknown": thunderstore_unknown,
+                    "thunderstore_updates": [r for r in thunderstore_rows if r.get("source") != "hexium"],
+                    "hexium_updates": [r for r in thunderstore_rows if r.get("source") == "hexium"],
+                    "thunderstore_unknown": [r for r in thunderstore_unknown if r.get("source") != "hexium"],
+                    "hexium_unknown": [r for r in thunderstore_unknown if r.get("source") == "hexium"],
                     "modio_updates": modio_rows,
                     "plugin_updates": plugin_results["items"],
                     "modio_unknown": modio_unknown,

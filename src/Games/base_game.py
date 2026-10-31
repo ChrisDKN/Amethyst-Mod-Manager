@@ -1503,6 +1503,11 @@ class BaseGame(ABC):
         return ""
 
     @property
+    def hexium_community(self) -> str:
+        """Hexium community slug; empty disables Hexium integration."""
+        return ""
+
+    @property
     def additional_nexus_domains(self) -> list[str]:
         """Additional Nexus game domains whose mods are valid for this game.
 

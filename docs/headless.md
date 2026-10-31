@@ -1437,6 +1437,23 @@ existing staging/profile location. Per-game routing overrides are retained;
 `custom_routing_rules` in the definition edits handler defaults, while
 `games.routing.*` edits Data-tab overrides for any game.
 
+Definitions can opt into Hexium with `"hexium_community":"<community-slug>"`,
+alongside the independent `thunderstore_community` field. The custom-game editor
+exposes both fields. An empty or omitted Hexium community disables integration.
+The field applies to standard, root, and UE5 custom handlers, including definitions
+loaded from handler repositories. Built-in and Python plugin handlers opt in by
+overriding `BaseGame.hexium_community`:
+
+```python
+@property
+def hexium_community(self) -> str:
+    return "my-game"
+```
+
+Use the slug of a game actually hosted by Hexium. Declaring a community enables
+its browser, install links, identification, updates, and Headless capability;
+the handler still controls how the game's mods are installed and deployed.
+
 Previous definitions and source-selection metadata are retained under
 `handler_store/backups/<game_id>/<backup_id>/`; the job returns `backup`.
 Removing a handler backs up every available source candidate. Profiles and game
@@ -3116,6 +3133,93 @@ replacement completes its atomic operation before pausing or cancelling.
 Cancellation after acquisition starts reports the same partial summary under
 `error.details.quick_update`; cancellation while replanning can stop before
 that summary exists. The planning job itself is not cancellable.
+
+### Hexium
+
+Handlers expose `hexium_community` and the `hexium` capability when enabled.
+Valheim currently opts in with `hexium_community:"valheim"`. Other built-in,
+plugin, and custom handlers can declare their own Hexium community without
+changes to the repository integration. Community slugs are carried through
+catalogues, versions, updates, downloads, metadata, and profile imports.
+Thunderstore fallback dependencies use the handler's separate Thunderstore
+community and are unavailable when that integration is disabled.
+Hexium reads and downloads require no login. The following jobs mirror the
+Thunderstore package workflows:
+
+- `hexium.packages.search.start`: `game`, optional `query`, `page`, `sort`,
+  `included_categories`, `excluded_categories`, `include_adult`, and
+  `include_deprecated`. Pages are zero-based, with 20 packages per page.
+- `hexium.packages.filters.start`: `game`; returns category names as IDs and
+  an empty sections list.
+- `hexium.packages.versions.start`: `game`, `namespace`, `package`.
+- `hexium.download.start`: `game`, `namespace`, `package`, `version`;
+  supports pause, resume, and cancellation.
+- `hexium.install.plan.start`: `game`, `profile`, `namespace`, `package`,
+  `version`; returns a revision-checked dependency-first installation plan.
+- `hexium.install.start`: `game`, `profile`, `plan_id`, `revision`,
+  `confirm:true`; accepts the existing dependency selection, replacement,
+  and installer options.
+
+For example:
+
+```json
+{"jsonrpc":"2.0","id":"hex-plan","method":"hexium.install.plan.start","params":{"game":"Valheim","profile":"default","namespace":"ExampleTeam","package":"ExampleMod","version":"1.2.3"}}
+```
+
+The plan identifies each package's `source`, `source_switch`, `fallback`,
+installed identity, and affected profiles. Missing Hexium dependencies may be
+proposed from Thunderstore. Applying a plan with those dependencies requires
+`allow_thunderstore_fallback:true`. Replacing a package from the other store
+requires `allow_source_switch:true` and `if_exists:"replace"`. These approvals
+apply to the selected members of the reviewed plan; new library changes require
+a new plan. Skipping a dependency is explicit and appears in the result.
+
+```json
+{"jsonrpc":"2.0","id":"hex-install","method":"hexium.install.start","params":{"game":"Valheim","profile":"default","plan_id":"<plan id>","revision":"<plan revision>","confirm":true,"if_exists":"replace","allow_source_switch":true,"allow_thunderstore_fallback":true}}
+```
+
+Installed Hexium mods use `source:"hexium"` in `mods.versions.get.start`,
+`mods.version.change.start`, and their shared batch workflows. Select a
+`version`, rather than a Nexus `file_id`. Rollback retains the previous store's
+identity and consumes the saved target after a successful rollback. Update
+checks accept `sources:["hexium"]` and return `hexium_updates` and
+`hexium_unknown` separately from Thunderstore results. The default update
+check includes Hexium for handlers declaring a Hexium community. Installed
+inventory exposes `sources.hexium`.
+
+Stable releases are recommended by default. The persisted
+`hexium_include_prereleases` setting, available through `settings.get` and
+`settings.set.start`, also controls the desktop browser and update checks.
+Exact version selections and profile imports can pin supported
+`-alpha.N`, `-beta.N`, and `-rc.N` versions. Automatic recommendations never
+downgrade an installed version.
+
+Managed archives have source-specific `hexium-namespace-package-version.zip`
+names and `.hexium.json` sidecars. `downloads.list` exposes the identity as
+`hexium`; archive movement and removal include the sidecar. Download and install
+validate the declared size, ZIP contents, and manifest identity. A retained
+archive can be installed through the shared Downloads APIs. An ordinary retained
+archive installation cannot silently change an installed package's store; review
+that replacement through the dependency-plan APIs. Thunderstore plans also accept
+`allow_source_switch:true` for an explicitly reviewed switch back to Thunderstore.
+Hexium does not provide a
+published checksum through this integration.
+
+`hexium.mods.identify.start` accepts `game`, `profile`, optional `confirm`, and
+optional `identities`, an object mapping installed folder names to publishing
+team names. The default previews matching candidates without stamping metadata.
+With `confirm:true`, unambiguous matches and explicitly selected candidates are
+saved. Existing store-owned mods are left unchanged.
+
+`hexium.profiles.share.download.start` accepts `game` and a UUID `code`. It
+retrieves the profile from Hexium and returns a local `.r2z` `path` and manifest
+preview. Pass that path to `collections.import.start` for installation into a
+new profile. `.r2x`, `.txt`, `.r2z`, Amethyst profile archives, and Amethyst share
+manifests preserve Hexium and Thunderstore sources per entry. Missing legacy
+source fields mean Thunderstore. Imports preserve exact pins, order and enabled
+state, and `.r2z` imports restore supported bundled configurations into the
+isolated profile. A legacy version object containing only major/minor/patch
+cannot recover a prerelease qualifier absent from the file.
 
 ### Thunderstore versions and downloads
 

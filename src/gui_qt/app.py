@@ -257,7 +257,7 @@ class _CurrentPageStack(QStackedWidget):
 # (_sync_thunderstore_button decides those); the rest answer to the user's
 # hide-set alone.
 _GAME_GATED_HEADER_BUTTONS = frozenset(
-    {"proton", "nexus", "thunderstore", "wabbajack"})
+    {"proton", "nexus", "thunderstore", "hexium", "wabbajack"})
 
 
 class _HeaderBar(QWidget):
@@ -459,7 +459,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
     # NXM download worker → UI thread: (DownloadResult, mod_info, file_info).
     _nxm_download_done = Signal(object)
     _resumable_download_done = Signal(object)
-    # Thunderstore ror2mm:// link received from a second instance (worker
+    # ror2mm:// or gale:// install link received from a second instance (worker
     # thread → UI thread). Shares the NXM IPC socket; routed by scheme.
     _ror2mm_received = Signal(str)
     # Thunderstore resolve worker → UI thread: (Ror2mmLink, ResolveResult,
@@ -2719,6 +2719,14 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 (self.tr("Identify installed mods"),
                  self._identify_thunderstore_mods),
             ]),
+            ("Hexium", self.tr("Hexium"), "Hexium.png", [
+                (self.tr("Browse Hexium"), self._open_hexium_browser_tab),
+                (self.tr("Open game on Hexium"), self._open_game_on_hexium),
+                (self.tr("Import r2modman/Gale profile…"), self._import_r2_profile),
+                (self.tr("Import share code…"), lambda: self._import_thunderstore_share_code(source="hexium")),
+                None,
+                (self.tr("Identify installed mods"), lambda: self._identify_thunderstore_mods(source="hexium")),
+            ]),
             ("Wabbajack", self.tr("Wabbajack"), "Wabbajack.png", [
                 (self.tr("Browse Wabbajack modlists…"), self._open_wabbajack_tab),
                 (self.tr("Installed Lists"), self._open_installed_wabbajack_tab),
@@ -2741,6 +2749,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 # re-evaluate their visibility each time it opens so game
                 # switches are handled for free.
                 b._menu.aboutToShow.connect(self._sync_proton_menu)
+            elif label == "Hexium":
+                self._hexium_btn = b
             elif label == "Thunderstore":
                 self._thunderstore_btn = b
             elif label == "Wabbajack":
@@ -3293,6 +3303,12 @@ class MainWindow(QMainWindow, PluginPanelControls):
         # into the loop above would close the wrong tab.
         community = ((getattr(game, "thunderstore_community", "") or "").strip()
                      if game else "")
+        hexium_community = getattr(game, "hexium_community", "")
+        hexium_view = getattr(self, "_hexium_view", None)
+        if not hexium_community and self._tabs.has_key("hexium_browser"):
+            self._tabs.close_tab("hexium_browser")
+        elif hexium_view is not None:
+            hexium_view.set_game(game, hexium_community)
         ts_view = getattr(self, "_thunderstore_view", None)
         if ts_view is not None:
             if not community:
@@ -4381,15 +4397,15 @@ class MainWindow(QMainWindow, PluginPanelControls):
         QTimer.singleShot(500, lambda: self._process_nxm_link(nxm_url))
 
     def _handle_ror2mm_argv(self):
-        """Check sys.argv for a ror2mm:// link and kick off a download once the
-        window has finished building."""
+        """Process repository install links after the window has finished building."""
         from PySide6.QtCore import QTimer
         from Nexus.nxm_handler import nxm_log
         from Thunderstore.ror2mm_handler import ror2mm_url_from_argv
-        url = ror2mm_url_from_argv()
+        from Thunderstore.gale_handler import gale_url_from_argv
+        url = ror2mm_url_from_argv() or gale_url_from_argv()
         if not url:
             return
-        nxm_log("Fresh instance: processing ror2mm link after window build")
+        nxm_log("Fresh instance: processing repository install link after window build")
         QTimer.singleShot(
             500, lambda: self._process_ror2mm_link(url, auto_open=False))
 
@@ -4637,49 +4653,52 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._deliver_download([str(result.file_path)])
 
     def _receive_ror2mm(self, url: str):
-        """UI thread: receive a ror2mm:// link handed over IPC."""
+        """UI thread: receive a repository install link handed over IPC."""
         from Nexus.nxm_handler import nxm_log
-        nxm_log("ror2mm link reached UI thread of running instance")
-        self._append_log("[thunderstore] received install link from browser")
+        is_gale = url.lower().startswith("gale://")
+        scheme = "gale" if is_gale else "ror2mm"
+        nxm_log(f"{scheme} link reached UI thread of running instance")
+        self._append_log(f"[{scheme}] received install link from browser")
         # Re-assert our handler registration once per session for the same
         # reason the NXM path does: the click may have been routed here by a
         # stale .desktop belonging to a different install variant.
-        if not getattr(self, "_ror2mm_reregistered", False):
-            self._ror2mm_reregistered = True
+        registered_attr = f"_{scheme}_reregistered"
+        if not getattr(self, registered_attr, False):
+            setattr(self, registered_attr, True)
             import threading
 
             def _rereg():
                 from Thunderstore.ror2mm_handler import Ror2mmHandler
+                from Thunderstore.gale_handler import GaleHandler
                 try:
-                    Ror2mmHandler.register()
+                    (GaleHandler if is_gale else Ror2mmHandler).register()
                 except Exception as exc:
-                    nxm_log(f"ror2mm re-register after IPC receive failed: {exc}")
+                    nxm_log(f"{scheme} re-register after IPC receive failed: {exc}")
 
             threading.Thread(target=_rereg, daemon=True,
-                             name="ror2mm-rereg").start()
+                             name=f"{scheme}-rereg").start()
         self._activate_for_protocol_link()
         self._process_ror2mm_link(url, auto_open=False)
 
     def _process_ror2mm_link(self, url: str, auto_open: bool = True,
                              version_change=None):
-        """Handle a ror2mm:// link - download a Thunderstore package.
-
-        Unlike nxm://, the link carries no game identifier, so the package
-        installs into the CURRENTLY SELECTED game. That is a deliberate
-        product decision: clicking install while on another game's profile is
-        unlikely, and a wrong-profile install is harmless and reversible.
-        No login/API key is needed - Thunderstore downloads are public.
-        """
+        """Install a repository package into the selected game and profile."""
         from Nexus.nxm_handler import nxm_log
-        from Thunderstore.ror2mm_handler import parse_ror2mm_url
-        nxm_log(f"Processing ror2mm link: {url}")
+        from Thunderstore.ror2mm_handler import Ror2mmLink, parse_ror2mm_url
+        from Thunderstore.gale_handler import parse_gale_url
+        nxm_log(f"Processing repository install link: {url}")
 
         try:
-            link = parse_ror2mm_url(url)
+            from Thunderstore.repositories import RepositoryLink
+            if isinstance(url, (RepositoryLink, Ror2mmLink)):
+                link = url
+            else:
+                link = (parse_gale_url(url) if url.lower().startswith("gale://")
+                        else parse_ror2mm_url(url))
         except ValueError as exc:
-            nxm_log(f"Bad ror2mm:// URL - {exc}")
-            self._append_log(f"[thunderstore] bad ror2mm:// URL - {exc}")
-            self._notify(self.tr("Received a malformed Thunderstore link."),
+            nxm_log(f"Bad repository install URL - {exc}")
+            self._append_log(f"[repository] bad install URL - {exc}")
+            self._notify(self.tr("Received an invalid or unsupported repository install link."),
                          "warning")
             return
 
@@ -4690,7 +4709,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 f"cannot install {link.full_name}")
             self._notify(
                 self.tr("Select and configure a game before installing "
-                        "Thunderstore mods."), "warning")
+                        "repository mods."), "warning")
             return
 
         if version_change is not None and version_change.game_name != game.name:
@@ -4702,8 +4721,16 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._append_log(
             f"[thunderstore] resolving {link.full_name} "
             f"for '{self._gs.game_name}'…")
-        self._notify(self.tr("Checking Thunderstore dependencies…"), "info")
-        community = self._thunderstore_community()
+        self._notify(self.tr("Checking {0} dependencies…").format(getattr(link, "source", "thunderstore").title()), "info")
+        source = getattr(link, "source", "thunderstore")
+        community = getattr(game, f"{source}_community", "")
+        if not community:
+            self._notify(self.tr("This repository does not support the selected game."), "warning")
+            return
+        link.community = community
+        if source == "hexium":
+            link.thunderstore_community = getattr(game, "thunderstore_community", "")
+        link._origin = (self._gs.game_name, str(profile_dir or ""))
 
         import threading
 
@@ -4759,7 +4786,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                     if len(names) == 1:
                         try:
                             version_change.dependency_changes[package_id] = VersionChangeContext.capture(
-                                game, profile_dir, names[0], "thunderstore")
+                                game, profile_dir, names[0], meta.source)
                         except Exception as exc:
                             self._append_log(f"[thunderstore] could not track {package_id}: {exc}")
             safe_emit(
@@ -4778,11 +4805,60 @@ class MainWindow(QMainWindow, PluginPanelControls):
         link, res, wanted, auto_open, version_change = payload
 
         if res is None or res.failed:
+            self._repository_qu_queue = []
             self._notify(
-                self.tr("Could not resolve all Thunderstore dependencies. "
+                self.tr("Could not resolve all package dependencies. "
                         "Installation stopped; please try again. See the log for details."),
                 "warning")
             return
+
+        from Thunderstore.repositories import source_of
+        if getattr(link, "_origin", None) != (self._gs.game_name, str(self._gs.profile_dir() or "")):
+            self._repository_qu_queue = []
+            self._notify(self.tr("Game or profile changed. Start the installation again."), "warning")
+            return
+        if not getattr(link, "_reviewed_sources", False):
+            from Thunderstore.thunderstore_meta import read_meta
+            from Utils.mods.version_history import VersionChangeContext
+            staging = self._thunderstore_staging()
+            changes, notices = {}, []
+            try:
+                installed_by_package = {}
+                for folder in staging.iterdir():
+                    if folder.is_dir():
+                        existing = read_meta(folder / "meta.ini")
+                        if existing.package_id:
+                            installed_by_package.setdefault(existing.package_id, []).append((folder, existing))
+                for pkg in wanted:
+                    matches = installed_by_package.get(pkg.package_id, [])
+                    if len(matches) > 1:
+                        raise ValueError(f"Several installed mods identify {pkg.package_id}")
+                    if matches:
+                        folder, existing = matches[0]
+                        changes[pkg.package_id] = VersionChangeContext.capture(
+                            self._gs.game, self._gs.profile_dir(), folder.name, existing.source)
+                        if existing.source != pkg.source:
+                            notices.append(f"{folder.name}: {existing.source} {existing.version} → {pkg.source} {pkg.version}")
+                    if source_of(link) == "hexium" and pkg.source == "thunderstore":
+                        notices.append(f"{pkg.package_id}: use Thunderstore dependency {pkg.version}")
+            except Exception as exc:
+                self._notify(str(exc), "warning")
+                return
+            link._changes = changes
+            link._reviewed_sources = True
+            if notices:
+                from gui_qt.dialogs.confirm import ConfirmOverlay
+                def approve_sources(accepted):
+                    if accepted:
+                        self._on_ror2mm_resolved(payload)
+                    else:
+                        self._repository_qu_queue = []
+                ConfirmOverlay.show_over(
+                    self, self.tr("Review package sources"),
+                    "\n".join(notices) + "\n\n" + self.tr("Replacements affect every profile using these mod folders. Continue?"),
+                    approve_sources,
+                    confirm_label=self.tr("Continue"), danger=False)
+                return
 
         root = None
         deps = []
@@ -4803,6 +4879,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
 
         def _decided(chosen):
             if chosen is None:
+                self._repository_qu_queue = []
                 self._append_log(
                     f"[thunderstore] install of {link.full_name} cancelled")
                 self._notify(self.tr("Install cancelled."), "info")
@@ -4838,7 +4915,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._append_log(
             f"[thunderstore] downloading {total} package(s) "
             f"into '{game_name}' with {workers} worker(s)…")
-        self._notify(self.tr("Downloading mod from Thunderstore…"), "info")
+        self._notify(self.tr("Downloading mod from {0}…").format(getattr(link, "source", "thunderstore").title()), "info")
         dl_key = self._new_dl_key()
         import threading
         import time
@@ -4892,9 +4969,11 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 if pkg is None:
                     sub_link, expected, info = link, 0, None
                 else:
-                    sub_link = Ror2mmLink(
-                        namespace=pkg.namespace, name=pkg.name,
-                        version=pkg.version, host=link.host)
+                    from Thunderstore.repositories import make_link
+                    package_community = (link.community if pkg.source == getattr(link, "source", "thunderstore")
+                                         else link.thunderstore_community)
+                    sub_link = make_link(pkg.namespace, pkg.name, pkg.version, package_community,
+                                         source=pkg.source, download_url=pkg.download_url)
                     expected = pkg.file_size
                     info = {
                         "full_version_name": pkg.full_name,
@@ -4915,6 +4994,15 @@ class MainWindow(QMainWindow, PluginPanelControls):
                         progress_cb=lambda d, t: _progress(idx, d, t),
                         cancel=cancel)
                     if result.success and result.file_path:
+                        if getattr(sub_link, "source", "thunderstore") == "hexium":
+                            from Thunderstore.thunderstore_meta import build_meta_from_link
+                            from Utils.atomic_write import write_atomic_text
+                            from dataclasses import asdict
+                            import json
+                            identity = {"version": 1, "namespace": sub_link.namespace, "package": sub_link.name,
+                                        "package_version": sub_link.version, "community": sub_link.community,
+                                        "metadata": asdict(build_meta_from_link(sub_link, info))}
+                            write_atomic_text(result.file_path.with_suffix(".zip.hexium.json"), json.dumps(identity))
                         size = result.file_path.stat().st_size
                         _progress(idx, size, size, finished=True)
                 except Exception as exc:
@@ -4943,6 +5031,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this card
 
         if cancelled:
+            self._repository_qu_queue = []
             self._append_log(f"[thunderstore] download of {link.full_name} cancelled")
             self._notify(self.tr("Download cancelled."), "info")
             return
@@ -4954,7 +5043,12 @@ class MainWindow(QMainWindow, PluginPanelControls):
                     f"[thunderstore] download failed for {sub_link.full_name} "
                     f"- {result.error}")
 
+        if getattr(link, "source", "thunderstore") == "hexium" and len(good) != len(downloads):
+            self._repository_qu_queue = []
+            self._notify(self.tr("A package download failed. Completed archives were retained; installation stopped."), "warning")
+            return
         if not good:
+            self._repository_qu_queue = []
             err = downloads[0][0].error if downloads else "no packages resolved"
             self._notify(
                 self.tr("Thunderstore download failed - {0}").format(err), "error")
@@ -4995,6 +5089,13 @@ class MainWindow(QMainWindow, PluginPanelControls):
             self._stamp_thunderstore_install_results(records, installed)
 
         changes, preferred = {}, {}
+        from Thunderstore.thunderstore_meta import build_meta_from_link
+        for result, sub_link, info in good:
+            change = getattr(link, "_changes", {}).get(sub_link.package_id)
+            if change is not None:
+                change.target_thunderstore = build_meta_from_link(sub_link, info)
+                changes[str(result.file_path)] = change
+                preferred[str(result.file_path)] = change.mod_name
         if version_change is not None:
             from Thunderstore.thunderstore_meta import build_meta_from_link
             for result, sub_link, info in good:
@@ -5014,9 +5115,18 @@ class MainWindow(QMainWindow, PluginPanelControls):
                        if str(r.file_path) not in changes]
             def _stamp(_ok, _total, _names, installed):
                 self._stamp_thunderstore_install_results(records, installed)
-        self._deliver_download(paths, on_all_done=_stamp,
+        records = [(str(r.file_path), l, i) for r, l, i in good if str(r.file_path) not in changes]
+        def _stamp(_ok, _total, _names, installed):
+            self._stamp_thunderstore_install_results(records, installed)
+            if _ok == _total:
+                QTimer.singleShot(0, self._start_next_repository_update)
+            else:
+                self._repository_qu_queue = []
+        queued = self._deliver_download(paths, on_all_done=_stamp,
                                preferred_names=preferred,
                                version_changes=changes)
+        if not queued:
+            QTimer.singleShot(0, self._start_next_repository_update)
 
     def _stamp_thunderstore_install_results(self, records, installed):
         """Stamp exact archive→folder install results with Thunderstore meta.
@@ -5100,14 +5210,15 @@ class MainWindow(QMainWindow, PluginPanelControls):
             from Utils.mods.version_history import VersionChangeContext
             try:
                 change = VersionChangeContext.capture(
-                    game, profile_dir, mod_name, "thunderstore")
+                    game, profile_dir, mod_name, meta.source)
             except Exception as exc:
                 self._append_log(f"[thunderstore] {mod_name}: {exc}")
                 self._notify(self.tr("Could not start the version change - see log."), "warning")
                 return
-            self._process_ror2mm_link(
-                f"ror2mm://v1/install/thunderstore.io/"
-                f"{namespace}/{name}/{version}/", version_change=change)
+            from Thunderstore.repositories import make_link
+            link = make_link(namespace, name, version, meta.community, source=meta.source)
+            self._process_ror2mm_link(link if meta.source == "hexium" else
+                f"ror2mm://v1/install/thunderstore.io/{namespace}/{name}/{version}/", version_change=change)
 
         from gui_qt.thunderstore.version import ThunderstoreVersionView
         view = ThunderstoreVersionView(
@@ -5140,7 +5251,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         subset = set(names) if names else None
         n = len(subset) if subset else self.tr("all")
         toast = self._notify(
-            self.tr("Checking Thunderstore for updates ({0})…").format(n),
+            self.tr("Checking package repositories for updates ({0})…").format(n),
             "info", sticky=True)
 
         import threading
@@ -5189,7 +5300,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             _finish(self.tr("{0} package(s) could not be checked.")
                     .format(len(unknown)), "warning")
         else:
-            _finish(self.tr("All Thunderstore mods are up to date."), "info")
+            _finish(self.tr("All checked packages are up to date."), "info")
         self._refresh_modlist_flags(subset)
 
     def _update_thunderstore_mod(self, mod_name: str):
@@ -5235,18 +5346,18 @@ class MainWindow(QMainWindow, PluginPanelControls):
             from Utils.mods.version_history import VersionChangeContext
             try:
                 change = VersionChangeContext.capture(
-                    game, profile_dir, mod_name, "thunderstore")
+                    game, profile_dir, mod_name, meta.source)
             except Exception as exc:
                 self._append_log(f"[thunderstore] {mod_name}: {exc}")
                 self._notify(self.tr("Could not start the version change - see log."), "warning")
                 return
             from Thunderstore.ror2mm_handler import Ror2mmLink
-            link = Ror2mmLink(namespace=meta.namespace, name=meta.name,
-                              version=target)
+            from Thunderstore.repositories import make_link
+            link = make_link(meta.namespace, meta.name, target, meta.community, source=meta.source)
             self._append_log(
                 f"[thunderstore] updating {meta.package_id} "
                 f"{meta.version} → {target}")
-            self._process_ror2mm_link(link.raw or
+            self._process_ror2mm_link(link if meta.source == "hexium" else link.raw or
                                       f"ror2mm://v1/install/{link.host}/"
                                       f"{link.namespace}/{link.name}/{target}/",
                                       version_change=change)
@@ -5312,7 +5423,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         def _on_nxm(url: str):
             # One socket carries every protocol link; route by scheme here.
             scheme = (url or "").lower()
-            if scheme.startswith("ror2mm://"):
+            if scheme.startswith(("ror2mm://", "gale://")):
                 safe_emit(self._ror2mm_received, url)
             elif scheme.startswith("modl://"):
                 safe_emit(self._modl_received, url)
@@ -5806,7 +5917,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             self, root=root, dependencies=missing, conflicts=[],
             on_done=_decided)
 
-    def _identify_thunderstore_mods(self):
+    def _identify_thunderstore_mods(self, source="thunderstore"):
         """Adopt manually-installed Thunderstore mods.
 
         Thunderstore has no hash lookup (unlike Nexus's MD5 → mod/file id), but
@@ -5819,10 +5930,11 @@ class MainWindow(QMainWindow, PluginPanelControls):
         if staging is None:
             self._notify(self.tr("No configured game selected."), "warning")
             return
-        community = self._thunderstore_community()
+        community = getattr(self._gs.game, f"{source}_community", "")
         toast = self._notify(self.tr("Identifying Thunderstore mods…"),
                              "info", sticky=True)
 
+        origin = (self._gs.game_name, str(self._gs.profile_dir() or ""))
         import threading
 
         def _worker():
@@ -5830,21 +5942,21 @@ class MainWindow(QMainWindow, PluginPanelControls):
             from gui_qt.runtime.safe_emit import safe_emit
             try:
                 results = identify_all(
-                    staging, community,
+                    staging, community, source=source, save=False,
                     progress_cb=lambda m: self._append_log(
                         f"[thunderstore] {m}"))
             except Exception as exc:
                 self._append_log(
                     f"[thunderstore] identify failed: {exc}")
                 results = None
-            safe_emit(self._ts_identify_ready, (results, toast))
+            safe_emit(self._ts_identify_ready, (results, toast, origin))
 
         threading.Thread(target=_worker, daemon=True,
                          name="ts-identify").start()
 
     def _on_thunderstore_identify_ready(self, payload):
         """UI thread: the identify pass finished."""
-        results, toast = payload
+        results, toast, origin = payload
 
         def _finish(text, state):
             if toast is not None:
@@ -5852,9 +5964,21 @@ class MainWindow(QMainWindow, PluginPanelControls):
             else:
                 self._notify(text, state)
 
+        if origin != (self._gs.game_name, str(self._gs.profile_dir() or "")):
+            _finish(self.tr("Game or profile changed. Start identification again."), "warning")
+            return
         if results is None:
             _finish(self.tr("Identifying mods failed - see the log."), "error")
             return
+        from Thunderstore.thunderstore_identify import stamp_identified
+        ambiguous = []
+        for result in results:
+            if getattr(result, "source", "thunderstore") == "hexium" and result.ambiguous:
+                ambiguous.append(result)
+            elif result.matched:
+                stamp_identified(self._thunderstore_staging() / result.mod_name, result)
+        if ambiguous:
+            self._choose_hexium_identity(ambiguous[0], ambiguous[1:])
         matched = [r for r in results if r.matched]
         missed = [r for r in results if not r.matched]
         for r in matched:
@@ -5879,6 +6003,46 @@ class MainWindow(QMainWindow, PluginPanelControls):
         else:
             _finish(self.tr("Could not identify any of the {0} mod(s) found.")
                     .format(len(results)), "warning")
+
+    def _open_hexium_browser_tab(self):
+        game = self._gs.game
+        if game is None or not game.is_configured() or not getattr(game, "hexium_community", ""):
+            self._notify(self.tr("Select a configured game with Hexium support first."), "warning")
+            return
+        if self._tabs.has_key("hexium_browser"):
+            self._tabs.focus_key("hexium_browser")
+            return
+        from Thunderstore.repositories import make_link
+        from gui_qt.thunderstore.browser import ThunderstoreBrowserView
+        view = ThunderstoreBrowserView(
+            game.hexium_community, game, source="hexium", log_fn=self._append_log,
+            install_fn=lambda ns, name, ver: self._process_ror2mm_link(make_link(ns, name, ver, game.hexium_community, "hexium")))
+        self._hexium_view = view
+        view.destroyed.connect(lambda *_: setattr(self, "_hexium_view", None))
+        self._tabs.open_tab(view, self.tr("Hexium"), key="hexium_browser")
+
+    def _open_game_on_hexium(self):
+        community = getattr(self._gs.game, "hexium_community", "")
+        if community:
+            from Thunderstore.repositories import validate_community
+            from Utils.environment.xdg import open_url
+            open_url(f"https://{validate_community(community)}.hexium.gg/", log_fn=self._append_log)
+
+    def _choose_hexium_identity(self, result, remaining=None):
+        origin = (self._gs.game_name, str(self._gs.profile_dir() or ""))
+        from gui_qt.dialogs.text_input import TextInputOverlay
+        def chosen(namespace):
+            if origin != (self._gs.game_name, str(self._gs.profile_dir() or "")):
+                return
+            if namespace in result.candidates:
+                from Thunderstore.thunderstore_identify import stamp_identified
+                result.namespace, result.matched = namespace, True
+                stamp_identified(self._thunderstore_staging() / result.mod_name, result)
+                self._refresh_modlist_flags([result.mod_name])
+            if remaining:
+                QTimer.singleShot(0, lambda: self._choose_hexium_identity(remaining[0], remaining[1:]))
+        TextInputOverlay.show_over(self, self.tr("Choose Hexium author"),
+            result.mod_name + "\n" + ", ".join(result.candidates), chosen, ok_label=self.tr("Identify"))
 
     def _open_thunderstore_browser_tab(self):
         """Open the Thunderstore browser as a detachable tab.
@@ -6466,7 +6630,10 @@ class MainWindow(QMainWindow, PluginPanelControls):
         if r2_import is not None:
             if r2_review and not detail_view.r2_import_ready():
                 return
-            if r2_import["community"] != self._thunderstore_community():
+            from Thunderstore.r2_profile import check_import_game
+            try:
+                check_import_game(r2_import, self._gs.game)
+            except ValueError:
                 self._notify(self.tr("Switch back to this manifest's game before importing."), "warning")
                 return
             if self._download_only_active():
@@ -7043,8 +7210,12 @@ class MainWindow(QMainWindow, PluginPanelControls):
         local_manifest = info.get("local_manifest")
         self._col_r2_import = (local_manifest or {}).get("r2Import")
         if self._col_r2_import is not None:
-            if (self._gs.game_name != game.name or not game.is_configured()
-                    or self._thunderstore_community() != self._col_r2_import["community"]):
+            from Thunderstore.r2_profile import check_import_game
+            try:
+                if self._gs.game_name != game.name or not game.is_configured():
+                    raise ValueError("The selected game changed.")
+                check_import_game(self._col_r2_import, self._gs.game)
+            except ValueError:
                 self._col_install_finished()
                 self._notify(self.tr("Switch back to this manifest's game before importing."), "warning")
                 return
@@ -8936,15 +9107,15 @@ class MainWindow(QMainWindow, PluginPanelControls):
     @staticmethod
     def _thunderstore_reinstall_record(meta, archive_path=""):
         """Build the link/API-info tuple needed to restamp an exact version."""
-        from Thunderstore.ror2mm_handler import Ror2mmLink
+        from Thunderstore.repositories import make_link
 
         if not (meta.namespace and meta.name and meta.version):
             raise ValueError("namespace, name and version are required")
-        link = Ror2mmLink(
+        link = make_link(
             namespace=meta.namespace,
             name=meta.name,
             version=meta.version,
-            community=meta.community or "",
+            community=meta.community or "", source=meta.source, download_url=meta.download_url,
         )
         info = {
             "full_version_name": meta.full_name or link.full_name,
@@ -9080,7 +9251,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 from Utils.mods.version_history import VersionChangeContext
                 try:
                     change = VersionChangeContext.capture(
-                        game, self._gs.profile_dir(), nm, previous.source, "rollback")
+                        game, self._gs.profile_dir(), nm, ts_meta.source if ts_meta is not None and previous.source in {"thunderstore", "hexium"} else previous.source, "rollback")
                     change.validate()
                 except Exception as exc:
                     missing.append(nm)
@@ -9089,13 +9260,13 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 changes[nm] = change
                 target = previous.nexus_meta()
                 meta = merge_reinstall_metadata(target, meta)
-                if previous.source == "thunderstore":
+                if previous.source in {"thunderstore", "hexium"}:
                     ts_meta = previous.thunderstore_meta()
                     change.target_thunderstore = ts_meta
                 else:
                     ts_meta = None
                 filenames = [previous.installation_file] if previous.installation_file else []
-                if previous.source == "thunderstore":
+                if previous.source in {"thunderstore", "hexium"}:
                     filenames.append(f"{previous.namespace}-{previous.name}-{previous.version}.zip")
                 arc = _find_installation_archive(
                     self._modlist_view, filenames, previous.file_size)
@@ -9847,10 +10018,23 @@ class MainWindow(QMainWindow, PluginPanelControls):
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
             return
+        from Thunderstore.thunderstore_meta import read_meta as repository_meta
+        staging = self._gs.staging_dir()
+        repository_names = []
+        for name in mod_names:
+            meta = repository_meta(Path(staging) / name / "meta.ini") if staging else None
+            if meta is not None and meta.package_id and meta.has_update and not meta.ignore_update:
+                repository_names.append(name)
+        self._repository_qu_queue = repository_names
+        self._repository_qu_origin = (self._gs.game_name, str(self._gs.profile_dir() or ""))
+        mod_names = [name for name in mod_names if name not in repository_names]
+        if not mod_names:
+            self._start_next_repository_update()
+            return
         api = self._ensure_nexus_api()
         if api is None:
-            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
-                         "warning")
+            self._notify(self.tr("Nexus login is required for the selected Nexus mods."), "warning")
+            self._start_next_repository_update()
             return
         staging = self._gs.staging_dir()
         if staging is None:
@@ -10136,12 +10320,39 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._install_paths(paths, metas=metas, preferred_names=preferred,
                             on_all_done=_done, version_changes=changes)
 
+    def _start_next_repository_update(self):
+        queue = getattr(self, "_repository_qu_queue", [])
+        if not queue:
+            return
+        if getattr(self, "_repository_qu_origin", None) != (self._gs.game_name, str(self._gs.profile_dir() or "")):
+            self._repository_qu_queue = []
+            return
+        name = queue.pop(0)
+        from Thunderstore.thunderstore_meta import read_meta
+        from Thunderstore.repositories import make_link
+        from Utils.mods.version_history import VersionChangeContext
+        try:
+            meta = read_meta(self._thunderstore_staging() / name / "meta.ini")
+            if not meta.latest_version or meta.ignore_update:
+                self._start_next_repository_update()
+                return
+            change = VersionChangeContext.capture(self._gs.game, self._gs.profile_dir(), name, meta.source)
+            link = make_link(meta.namespace, meta.name, meta.latest_version, meta.community, source=meta.source)
+            if meta.source == "hexium":
+                self._process_ror2mm_link(link, version_change=change)
+            else:
+                self._process_ror2mm_link(f"ror2mm://v1/install/{link.host}/{link.namespace}/{link.name}/{link.version}/", version_change=change)
+        except Exception as exc:
+            self._repository_qu_queue = []
+            self._notify(str(exc), "warning")
+
     def _qu_finish(self, updated, failed, skipped):
         """Log the batch summary + toast; warn about mods that couldn't be
         quick-updated. Re-checks flags happen via _install_paths' _reload_modlist;
         the resolve/download-only paths (nothing installed) reload here."""
         self._quick_updating = False
         self._qu_skipped = []
+        self._start_next_repository_update()
         if updated == 0:
             # No install ran → refresh flags ourselves (installed path already did).
             self._reload_modlist()
@@ -12196,7 +12407,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         note→note editor, bundle→Bundle Options."""
         from gui_qt.modlist.data import (
             FLAG_UPDATE, FLAG_MISSING_REQS, FLAG_NOTE, FLAG_MODIO_UPDATE,
-            FLAG_BUNDLE, FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_PROVIDER_UPDATE)
+            FLAG_BUNDLE, FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_HEXIUM_UPDATE, FLAG_PROVIDER_UPDATE)
         view = view or self._modlist_view
         e = view.model().entry(row)
         if e is None or e.is_separator:
@@ -12211,7 +12422,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         elif flag == FLAG_MODIO_UPDATE:
             from gui_qt.modlist.menu import _open_on_modio
             _open_on_modio(view, e.name)
-        elif flag == FLAG_THUNDERSTORE_UPDATE:
+        elif flag in {FLAG_THUNDERSTORE_UPDATE, FLAG_HEXIUM_UPDATE}:
             self._update_thunderstore_mod(e.name)
         elif flag == FLAG_PROVIDER_UPDATE:
             self._open_provider_versions(e.name)
@@ -12532,16 +12743,16 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._tabs.open_tab(view, self.tr("My Collections"),
                             key="my_collections")
 
-    def _import_thunderstore_share_code(self):
+    def _import_thunderstore_share_code(self, source="thunderstore"):
         game = self._gs.game
-        if game is None or not game.is_configured() or not self._thunderstore_community():
-            self._notify(self.tr("Select a configured Thunderstore game first."), "warning")
+        community = getattr(game, f"{source}_community", "")
+        if game is None or not game.is_configured() or not community:
+            self._notify(self.tr("Select a configured game with {0} support first.").format(source.title()), "warning")
             return
         if self._r2_share_pending:
-            self._notify(self.tr("A Thunderstore profile is already downloading."), "info")
+            self._notify(self.tr("A repository profile is already downloading."), "info")
             return
         origin = self._gs.game_name
-        community = self._thunderstore_community()
 
         def entered(code):
             if not code or not code.strip():
@@ -12554,45 +12765,46 @@ class MainWindow(QMainWindow, PluginPanelControls):
             except ValueError as exc:
                 self._notify(self.tr("Could not import share code: {0}").format(exc), "error")
                 return
-            if origin != self._gs.game_name or community != self._thunderstore_community():
+            if origin != self._gs.game_name or community != getattr(self._gs.game, f"{source}_community", ""):
                 self._notify(self.tr("Game changed. Enter the code again for the selected game."), "warning")
                 return
             self._r2_share_pending = True
-            self._notify(self.tr("Downloading Thunderstore profile…"), "info")
+            self._notify(self.tr("Downloading {0} profile…").format(source.title()), "info")
 
             def download():
                 try:
                     from Thunderstore.r2_profile import download_share_profile
                     from Utils.config_paths import get_download_cache_dir_for_game
-                    profile = download_share_profile(code, get_download_cache_dir_for_game(origin))
-                    return origin, community, profile, ""
+                    profile = download_share_profile(code, get_download_cache_dir_for_game(origin), source=source)
+                    return origin, source, community, profile, ""
                 except Exception as exc:
-                    return origin, community, None, str(exc)
+                    return origin, source, community, None, str(exc)
 
             from gui_qt.runtime.worker import run_in_worker
             run_in_worker(download, self._r2_share_ready, name="thunderstore-share-code")
 
         from gui_qt.dialogs.text_input import TextInputOverlay
         TextInputOverlay.show_over(
-            self, self.tr("Import Thunderstore share code"),
-            self.tr("Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:"),
+            self, self.tr("Import {0} share code").format(source.title()),
+            self.tr("Paste a share code from {0}:").format(source.title()),
             entered, ok_label=self.tr("Import"))
 
     def _on_r2_share_ready(self, payload):
         self._r2_share_pending = False
-        origin, community, profile, error = payload
+        origin, source, community, profile, error = payload
         if error:
             self._notify(self.tr("Could not import share code: {0}").format(error), "error")
             return
-        if origin != self._gs.game_name or community != self._thunderstore_community():
+        if origin != self._gs.game_name or community != getattr(self._gs.game, f"{source}_community", ""):
             self._notify(self.tr("Game changed. Enter the code again for the selected game."), "warning")
             return
         self._review_r2_profile(profile)
 
     def _import_r2_profile(self):
         game = self._gs.game
-        if game is None or not game.is_configured() or not self._thunderstore_community():
-            self._notify(self.tr("Select a configured Thunderstore game first."), "warning")
+        if (game is None or not game.is_configured()
+                or not (self._thunderstore_community() or getattr(game, "hexium_community", ""))):
+            self._notify(self.tr("Select a configured game with Thunderstore or Hexium support first."), "warning")
             return
         origin = self._gs.game_name
         from Utils.ui.portal import pick_file
@@ -12618,15 +12830,16 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._review_r2_profile(profile)
 
     def _review_r2_profile(self, profile):
-        from Thunderstore.r2_profile import check_community
+        from Thunderstore.r2_profile import import_manifest
         try:
-            check_community(profile, self._thunderstore_community())
+            manifest = import_manifest(profile, self._thunderstore_community(),
+                                       hexium_community=getattr(self._gs.game, "hexium_community", ""))
         except ValueError as exc:
             self._notify(self.tr("Could not read manifest: {0}").format(exc), "error")
             return
         import uuid
         self._open_manifest_import(
-            profile.manifest(self._thunderstore_community()),
+            manifest,
             f"r2_{uuid.uuid4().hex}", r2_profile=profile)
 
     def _import_profile(self):
@@ -15195,6 +15408,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         isVisible()-based early-out would skip the initial show."""
         game = self._gs.game
         wanted = {
+            "_hexium_btn": bool(getattr(game, "hexium_community", "") if game is not None else ""),
             "_thunderstore_btn": bool(
                 (getattr(game, "thunderstore_community", "") or "").strip()
                 if game is not None else ""),
@@ -19294,6 +19508,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             source_items = (
                 ("nexus", self.tr("Nexus")),
                 ("thunderstore", self.tr("Thunderstore")),
+                ("hexium", self.tr("Hexium")),
                 ("modio", self.tr("mod.io")),
                 ("plugin", self.tr("Mod providers")),
                 ("none", self.tr("None")),
@@ -19849,6 +20064,10 @@ class MainWindow(QMainWindow, PluginPanelControls):
         if nv is not None:
             nv._game = self._gs.game
             nv.refresh_installed()
+        hv = getattr(self, "_hexium_view", None)
+        if hv is not None:
+            hv._game = self._gs.game
+            hv.refresh_installed()
         tv = getattr(self, "_thunderstore_view", None)
         if tv is not None:
             tv._game = self._gs.game
@@ -22605,9 +22824,10 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 nv = getattr(self, "_nexus_view", None)
                 if nv is not None:
                     nv.refresh_installed()
-                tv = getattr(self, "_thunderstore_view", None)
-                if tv is not None:
-                    tv.refresh_installed()
+                for attr in ("_thunderstore_view", "_hexium_view"):
+                    store_view = getattr(self, attr, None)
+                    if store_view is not None:
+                        store_view.refresh_installed()
             if timing is not None:
                 timing.mark("download/store install state updated",
                             phase_started=phase_started)
@@ -24062,6 +24282,8 @@ def run(startup_timing=None) -> int:
     # (logs/nxm.log) is the only record of this launch - log it first thing.
     from Thunderstore.ror2mm_handler import (
         Ror2mmHandler, ror2mm_url_from_argv, strip_ror2mm_argv)
+    from Thunderstore.gale_handler import (
+        GaleHandler, gale_url_from_argv, strip_gale_argv)
     from Utils.downloads.modl import (
         ModlHandler, modl_url_from_argv, strip_modl_argv)
     if startup_timing is not None:
@@ -24074,9 +24296,9 @@ def run(startup_timing=None) -> int:
     if nxm_url or "--nxm" in sys.argv:
         nxm_log(f"NXM launch: argv={sys.argv[1:]}")
 
-    ror2mm_url = ror2mm_url_from_argv()
-    if ror2mm_url or "--ror2mm" in sys.argv:
-        nxm_log(f"ror2mm launch: argv={sys.argv[1:]}")
+    ror2mm_url = ror2mm_url_from_argv() or gale_url_from_argv()
+    if ror2mm_url or "--ror2mm" in sys.argv or "--gale" in sys.argv:
+        nxm_log(f"Repository install launch: argv={sys.argv[1:]}")
 
     modl_url = modl_url_from_argv()
     from amethyst_plugins.protocols import from_argv as plugin_source_from_argv, register_all as register_plugin_protocols, strip_argv as strip_plugin_argv
@@ -24103,15 +24325,15 @@ def run(startup_timing=None) -> int:
     elif "--nxm" in sys.argv:
         nxm_log("--nxm flag present but no nxm:// URL in argv")
 
-    # Same single-instance handoff for Thunderstore links - they ride the same
+    # Same single-instance handoff for repository links - they ride the same
     # IPC socket (the payload is just a URL; the receiver routes by scheme).
     if ror2mm_url:
         if NxmIPC.send_to_running(ror2mm_url):
-            nxm_log("ror2mm link handed off to running instance - exiting")
+            nxm_log("Repository install link handed off to running instance - exiting")
             return 0
         nxm_log("No running instance - continuing into full app launch")
-    elif "--ror2mm" in sys.argv:
-        nxm_log("--ror2mm flag present but no ror2mm:// URL in argv")
+    elif "--ror2mm" in sys.argv or "--gale" in sys.argv:
+        nxm_log("Repository install flag present but no install URL in argv")
 
     if modl_url:
         if NxmIPC.send_to_running(modl_url):
@@ -24157,26 +24379,24 @@ def run(startup_timing=None) -> int:
                 phase_started=registration_started,
                 lane="protocol worker", category="services")
 
-        registration_started = _startup_time.perf_counter()
-        ror2mm_current = False
-        try:
-            ror2mm_current = Ror2mmHandler.registration_is_current()
-            if ror2mm_current:
-                nxm_log(
-                    "ror2mm:// registration unchanged - skipping desktop refresh")
-            else:
-                Ror2mmHandler.register()
-        except Exception:
-            import traceback
-            nxm_log(
-                f"ror2mm registration check/update crashed:\n{traceback.format_exc()}")
-        if startup_timing is not None:
-            startup_timing.record(
-                ("Verify Thunderstore protocol handler (unchanged)"
-                 if ror2mm_current
-                 else "Register Thunderstore protocol handler"),
-                phase_started=registration_started,
-                lane="protocol worker", category="services")
+        for handler, label in ((Ror2mmHandler, "Thunderstore"), (GaleHandler, "Gale")):
+            registration_started = _startup_time.perf_counter()
+            current = False
+            try:
+                current = handler.registration_is_current()
+                if current:
+                    nxm_log(f"{label} registration unchanged - skipping desktop refresh")
+                else:
+                    handler.register()
+            except Exception:
+                import traceback
+                nxm_log(f"{label} registration check/update crashed:\n{traceback.format_exc()}")
+            if startup_timing is not None:
+                startup_timing.record(
+                    (f"Verify {label} protocol handler (unchanged)" if current
+                     else f"Register {label} protocol handler"),
+                    phase_started=registration_started,
+                    lane="protocol worker", category="services")
 
         registration_started = _startup_time.perf_counter()
         modl_current = False
@@ -24477,8 +24697,8 @@ def run(startup_timing=None) -> int:
     # same interpreter + argv in place.
     if _RESTART_REQUESTED:
         # Drop one-shot protocol links so no install is repeated after restart.
-        argv = strip_plugin_argv(strip_modl_argv(
-            strip_ror2mm_argv(strip_nxm_argv(list(sys.argv)))))
+        argv = strip_plugin_argv(strip_modl_argv(strip_gale_argv(
+            strip_ror2mm_argv(strip_nxm_argv(list(sys.argv))))))
         try:
             os.execv(sys.executable, [sys.executable] + argv)
         except Exception:

@@ -23,7 +23,7 @@
 - **Create Nexus Collections** - Ability to create, edit and upload Nexus collections
 - **Install Wabbajack mod lists** - Browse and install Wabbajack mod lists and manage them in the manager
 - **In app Nexus Browser** - View and install mods straight into the manager, from the manager
-- **In app Thunderstore Browser** - View and install mods for Thunderstore supported games
+- **In app Thunderstore/Hexium Browser** - View and install mods for Thunderstore/Hexium supported games
 - **Loot support** - Libloot is built into the application and optimised for fast plugin sorting
 - **Update checking** - Quickly check all mods for Nexus updates. Bg3 mods installed via mod.io can also be checked for updates
 - **Multi game support** - Bethesda, RE Engine (including pak invalidation), Bg3, CP2077 and a lot more. Designed to make adding game support easy

@@ -36,6 +36,7 @@ from Utils.profiles import export as profile_export
 
 _SOURCE_LABELS = {
     "nexus":  QT_TRANSLATE_NOOP("ExportProfileView", "Nexus"),
+    "hexium": QT_TRANSLATE_NOOP("ExportProfileView", "Hexium"),
     "thunderstore": QT_TRANSLATE_NOOP("ExportProfileView", "Thunderstore"),
     "plugin": QT_TRANSLATE_NOOP("ExportProfileView", "Mod provider"),
     "direct": QT_TRANSLATE_NOOP("ExportProfileView", "Direct"),
@@ -50,6 +51,7 @@ _SOURCE_LABELS = {
 _SOURCE_COLOR_KEYS = {
     "nexus": ("BTN_WARN_ORANGE", "BTN_WARN_ORANGE_HOV"),
     "thunderstore": ("BTN_INFO", "BTN_INFO_HOV"),
+    "hexium": ("BTN_INFO", "BTN_INFO_HOV"),
     "plugin": ("BTN_INFO", "BTN_INFO_HOV"),
     "direct": ("BTN_SUCCESS", "BTN_SUCCESS_HOV"),
     "browse": ("BTN_NEUTRAL", "BTN_NEUTRAL_HOV"),
@@ -274,6 +276,7 @@ class _SourceOverlay(_CardOverlay):
         for value, label, desc in (
             ("nexus",  self.tr("Nexus Mods"), self.tr("Download mod from Nexus")),
             ("thunderstore", self.tr("Thunderstore"), self.tr("Download package from Thunderstore")),
+            ("hexium", self.tr("Hexium"), self.tr("Download package from Hexium")),
             ("plugin", self.tr("Mod provider"), self.tr("Download the pinned archive using its installed plugin")),
             ("direct", self.tr("Direct URL"), self.tr("For off-site mods")),
             ("browse", self.tr("Browse page"), self.tr("User downloads from a web page (e.g. Patreon)")),
@@ -558,7 +561,7 @@ class ExportProfileView(QWidget):
     # of them; the Nexus-collection format has no way to represent a
     # Thunderstore package, so CreateCollectionView drops it from the list AND
     # resets any auto-detected row (see its _seed_rows).
-    _ALLOWED_SOURCES = ("nexus", "thunderstore", "plugin", "direct", "browse", "manual",
+    _ALLOWED_SOURCES = ("nexus", "thunderstore", "hexium", "plugin", "direct", "browse", "manual",
                         "bundle", "ignore")
 
     def __init__(self, window, game, api, log_fn=None):
@@ -1041,7 +1044,7 @@ class ExportProfileView(QWidget):
                 continue
             # Same for Thunderstore: a mod with no pin has nothing to download,
             # so a bulk set would produce an entry the importer cannot resolve.
-            if source == "thunderstore" and self._thunderstore_blocked_reason(row):
+            if source in {"thunderstore", "hexium"} and (self._thunderstore_blocked_reason(row) or row.get("ts_source", "thunderstore") != source):
                 ts_skipped += 1
                 continue
             if source == "plugin" and not row.get("plugin_source_uri"):
@@ -1120,7 +1123,7 @@ class ExportProfileView(QWidget):
             # but the key must stay ONE comparable type across the whole list
             # or a mixed profile raises TypeError mid-sort. Tuple: TS rows
             # group after Nexus rows, each ordered within its own space.
-            if row.get("source") == "thunderstore":
+            if row.get("source") in {"thunderstore", "hexium"}:
                 return (1, 0, row.get("ts_version") or "")
             return (0, row.get("file_id") or 0, "")
         if col == _COL_FOMOD:
@@ -1424,7 +1427,7 @@ class ExportProfileView(QWidget):
             btn._amm_src = src
         # A Thunderstore row's version is its package pin, not a Nexus
         # "fileid - version" label.
-        if src == "thunderstore":
+        if src in {"thunderstore", "hexium"}:
             w["ver"].setText(row.get("ts_version") or "-")
         else:
             w["ver"].setText(row.get("ver_label", "-"))
@@ -1496,6 +1499,11 @@ class ExportProfileView(QWidget):
             notes["thunderstore"] = ts_blocked
             disabled.add("thunderstore")
 
+        for repository in ("thunderstore", "hexium"):
+            if ts_blocked or row.get("ts_source", "thunderstore") != repository:
+                disabled.add(repository)
+                notes[repository] = self.tr("This mod has no recorded package identity for this source.")
+
         def _picked(source, url, instructions, di=data_idx):
             r = self._all_rows[di]
             r["source"] = source
@@ -1512,7 +1520,7 @@ class ExportProfileView(QWidget):
 
     def _pick_version(self, data_idx: int):
         row = self._all_rows[data_idx]
-        if row.get("source") == "thunderstore":
+        if row.get("source") in {"thunderstore", "hexium"}:
             # Thunderstore's version list is public - no API object needed.
             if not row.get("ts_versions_fetched") and row.get("ts_namespace"):
                 row["ts_versions_fetched"] = True
@@ -1536,7 +1544,7 @@ class ExportProfileView(QWidget):
 
     def _open_version_dialog(self, data_idx: int):
         row = self._all_rows[data_idx]
-        is_ts = row.get("source") == "thunderstore"
+        is_ts = row.get("source") in {"thunderstore", "hexium"}
         if is_ts:
             current = row.get("ts_version") or "-"
             options = row.get("ts_ver_options") or [
@@ -1549,7 +1557,7 @@ class ExportProfileView(QWidget):
 
         def _picked(sel, di=data_idx):
             r = self._all_rows[di]
-            if r.get("source") == "thunderstore":
+            if r.get("source") in {"thunderstore", "hexium"}:
                 # A Thunderstore pin is (namespace, name, version) - it shares
                 # nothing with the Nexus "fileid - version" label, so leave
                 # file_id/ver_label untouched.
@@ -1589,7 +1597,7 @@ class ExportProfileView(QWidget):
             from Thunderstore.thunderstore_api import fetch_versions
             ns = row.get("ts_namespace", "")
             pkg = row.get("ts_name", "")
-            for v in fetch_versions(ns, pkg) or []:
+            for v in fetch_versions(ns, pkg, source=row.get("ts_source", "thunderstore"), community=row.get("ts_community", "")) or []:
                 if not isinstance(v, dict):
                     continue
                 version = (v.get("version_number") or "").strip()
@@ -1632,7 +1640,7 @@ class ExportProfileView(QWidget):
 
     def _on_versions_ready(self, data_idx: int, options):
         row = self._all_rows[data_idx]
-        is_ts = row.get("source") == "thunderstore"
+        is_ts = row.get("source") in {"thunderstore", "hexium"}
         row["versions_fetching"] = False
         open_idx, overlay = getattr(self, "_version_overlay", None) or (None, None)
         showing = (overlay is not None and open_idx == data_idx

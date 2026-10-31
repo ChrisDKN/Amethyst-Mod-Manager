@@ -42,6 +42,10 @@ class Valheim(BepInExBase):
         return "valheim"
 
     @property
+    def hexium_community(self) -> str:
+        return "valheim"
+
+    @property
     def extra_mod_folder_strip_prefixes(self) -> set[str]:
         return {"BepInExPack_Valheim"}
 

@@ -132,8 +132,9 @@ class ThunderstoreBrowserView(QWidget):
     _version_ready = Signal(object, str)
 
     def __init__(self, community, game, install_fn=None, log_fn=None,
-                 parent=None):
+                 parent=None, source="thunderstore"):
         super().__init__(parent)
+        self._source = source
         self._community = (community or "").strip()
         self._game = game
         self._install_fn = install_fn or (lambda ns, name, ver: None)
@@ -170,19 +171,17 @@ class ThunderstoreBrowserView(QWidget):
         self._reload()
 
     # -- persisted toggles --------------------------------------------------
-    @staticmethod
-    def _load_flag(key: str) -> bool:
+    def _load_flag(self, key: str) -> bool:
         try:
             from Utils.ui.config import load_thunderstore_flag
-            return bool(load_thunderstore_flag(key))
+            return bool(load_thunderstore_flag(f"{self._source}_{key}" if self._source == "hexium" else key))
         except Exception:
             return False
 
-    @staticmethod
-    def _save_flag(key: str, value: bool) -> None:
+    def _save_flag(self, key: str, value: bool) -> None:
         try:
             from Utils.ui.config import save_thunderstore_flag
-            save_thunderstore_flag(key, bool(value))
+            save_thunderstore_flag(f"{self._source}_{key}" if self._source == "hexium" else key, bool(value))
         except Exception:
             pass
 
@@ -258,12 +257,23 @@ class ThunderstoreBrowserView(QWidget):
         self._nsfw_cb.setChecked(self._show_nsfw)
         self._nsfw_cb.toggled.connect(self._on_nsfw)
         tb.addWidget(self._nsfw_cb)
+        if self._source == "hexium":
+            from Thunderstore.repositories import include_prereleases, set_include_prereleases
+            prereleases = QCheckBox(self.tr("Include prereleases"))
+            prereleases.setChecked(include_prereleases())
+            def toggle_prereleases(enabled):
+                set_include_prereleases(enabled)
+                self._page = 0
+                self._reload()
+            prereleases.toggled.connect(toggle_prereleases)
+            tb.addWidget(prereleases)
+            self._section_sel.hide()
 
         refresh = QToolButton()
         refresh.setObjectName("ActionButton")
         refresh.setText(self.tr("Refresh"))
         refresh.setCursor(Qt.PointingHandCursor)
-        refresh.clicked.connect(self._reload)
+        refresh.clicked.connect(lambda: self._reload(force=True))
         tb.addWidget(refresh)
 
         outer.addWidget(toolbar)
@@ -393,13 +403,15 @@ class ThunderstoreBrowserView(QWidget):
         if self._filters_loaded or not self._community:
             return
         community = self._community
-        run_in_worker(lambda: (fetch_filters(community), community),
+        run_in_worker(lambda: (fetch_filters(community, source=self._source), community),
                       self._filters_ready, name="ts-filters", unpack=True,
                       error_result=(None, community))
 
     def _on_filters(self, filters, community):
         if community != self._community:
             return          # a retarget landed first
+        if filters is None:
+            return
         self._filters_loaded = True
         # Sections dropdown.
         self._sections = list(getattr(filters, "sections", []) or [])
@@ -424,6 +436,7 @@ class ThunderstoreBrowserView(QWidget):
             cb = TriStateCheckBox(cname)
             cb.setToolTip(self.tr("Click once to include, twice to exclude."))
             cb._cat_id = cid        # the API filters by id, never by slug
+            cb.set_state(1 if cid in self._included_cats else 2 if cid in self._excluded_cats else 0)
             cb.stateChanged.connect(self._on_category_changed)
             self._cat_layout.addWidget(cb)
             self._cat_boxes.append(cb)
@@ -452,10 +465,12 @@ class ThunderstoreBrowserView(QWidget):
                 [self._cat_width, max(200, total - self._cat_width)])
 
     # -- fetching -----------------------------------------------------------
-    def _reload(self):
+    def _reload(self, *, force=False):
         if not self._community:
             self._status.setText(self.tr("No Thunderstore community."))
             return
+        if force:
+            self._refresh_filters = True
         self._fetch_token += 1
         token = self._fetch_token
         self._set_loading(True)
@@ -477,7 +492,8 @@ class ThunderstoreBrowserView(QWidget):
                 rows, count = fetch_listing(
                     community, page=page, query=query, ordering=ordering,
                     included_categories=inc, excluded_categories=exc,
-                    section=section, deprecated=deprecated, nsfw=nsfw)
+                    section=section, deprecated=deprecated, nsfw=nsfw,
+                    source=self._source, force=force, strict=True)
                 entries = [_adapt(r) for r in rows]
                 if not entries:
                     status = (f"No results for '{query}'." if query
@@ -494,6 +510,13 @@ class ThunderstoreBrowserView(QWidget):
         if token != self._fetch_token:
             return              # a newer fetch superseded this one
         self._set_loading(False)
+        if status.startswith("Error:"):
+            self._status.setText(status)
+            return
+        if getattr(self, "_refresh_filters", False):
+            self._refresh_filters = False
+            self._filters_loaded = False
+            self._load_filters()
         self._entries = list(entries or [])
         self._total = int(count or 0)
         self._rebuild_cards()
@@ -539,7 +562,7 @@ class ThunderstoreBrowserView(QWidget):
                 return set()
             # scan_installed yields (folder, meta) tuples.
             return {m.package_id.lower()
-                    for _folder, m in scan_installed(Path(staging))
+                    for _folder, m in scan_installed(Path(staging)) if m.source == self._source
                     if m.package_id}
         except Exception:
             return set()
@@ -622,25 +645,33 @@ class ThunderstoreBrowserView(QWidget):
         from Utils.environment.xdg import open_url
         # Only the community-scoped form resolves; the bare /package/{ns}/{name}/
         # URL the API reports as package_url 404s in a browser.
-        open_url(package_url(entry.community or self._community,
-                             entry.namespace, entry.package_name),
+        from Thunderstore.repositories import package_url as repository_url
+        open_url(repository_url(entry.community or self._community,
+                             entry.namespace, entry.package_name, source=self._source),
                  log_fn=self._log)
 
     def _on_install(self, entry):
         """Resolve the newest version, then hand off to the ror2mm pipeline."""
         community = self._community
+        origin = (id(self._game), str(getattr(self._game, "_active_profile_dir", "")))
+        pending = (entry, origin)
         self._log(f"[thunderstore] resolving latest version of "
                   f"{entry.package_id}…")
 
         def _work():
-            return entry, fetch_latest_version(entry.namespace,
-                                               entry.package_name)
+            return pending, fetch_latest_version(entry.namespace,
+                                               entry.package_name, source=self._source, community=community)
 
         run_in_worker(_work, self._version_ready, name="ts-latest",
-                      unpack=True, error_result=(entry, ""))
+                      unpack=True, error_result=(pending, ""))
         self._pending_community = community
 
     def _on_version_ready(self, entry, version):
+        if isinstance(entry, tuple):
+            entry, origin = entry
+            if origin != (id(self._game), str(getattr(self._game, "_active_profile_dir", ""))):
+                self._log(f"[{self._source}] game or profile changed; install cancelled")
+                return
         if not version:
             self._log(f"[thunderstore] could not resolve a version for "
                       f"{entry.package_id} - install skipped")

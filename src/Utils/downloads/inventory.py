@@ -103,8 +103,8 @@ def _staging_dir(game: Any, profile_dir: Path) -> Path:
     return Path(game.get_mod_staging_path())
 
 
-def _thunderstore_identity(path: Path) -> dict | None:
-    sidecar = path.with_suffix(path.suffix + ".thunderstore.json")
+def _thunderstore_identity(path: Path, source="thunderstore") -> dict | None:
+    sidecar = path.with_suffix(path.suffix + f".{source}.json")
     try:
         if sidecar.is_symlink():
             return None
@@ -192,6 +192,7 @@ def build_inventory(game: Any, profile_dir: Path) -> dict[str, Any]:
             "hidden": archive_path_key(path) in hidden_paths,
             "nexus": identity,
             "thunderstore": _thunderstore_identity(path),
+            "hexium": _thunderstore_identity(path, "hexium"),
             "modio": _modio_identity(path),
             "provider": ({key: provider[key] for key in (
                 "plugin_id", "provider_id", "provider_label", "identity", "sha256")} if provider else None),

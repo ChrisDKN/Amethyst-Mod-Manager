@@ -773,11 +773,13 @@ def install_new_runner(
                 )
             from Utils.profiles import export as profile_export
             thunderstore = profile_export.thunderstore_entries(manifest)
+            if any(entry.get("source") == "hexium" and entry.get("community") != getattr(game, "hexium_community", "") for entry in thunderstore):
+                raise JobError("hexium_community_mismatch", "The profile contains Hexium packages for another game.")
             thunderstore_count = sum(
                 1 for mod in manifest.get("mods", [])
                 if isinstance(mod, dict)
                 and str(((mod.get("source") or {}).get("type") or ""))
-                .strip().casefold() == "thunderstore")
+                .strip().casefold() in {"thunderstore", "hexium"})
             if len(thunderstore) != thunderstore_count:
                 raise JobError(
                     "collection_manifest_invalid",
@@ -1088,6 +1090,10 @@ def install_new_runner(
                          thunderstore_failures) = install_entries(
                             thunderstore, game, profile_dir, control, callbacks,
                             ownership, log_fn=log)
+                    archive = (manifest.get("r2Import") or {}).get("archive")
+                    if archive and not control.stop.is_set():
+                        from Thunderstore.r2_archive import restore_configs
+                        restore_configs(archive, profile_dir, cancel=control.stop)
                     run_collection_install(
                         game=game, api=api, downloader=downloader, mods=mods,
                         download_link_path=download_link,
@@ -1229,12 +1235,14 @@ def import_local_runner(
             import zipfile
             bundle_path = str(source_path) if zipfile.is_zipfile(source_path) else ""
             try:
-                if source_path.suffix.casefold() in {".r2x", ".txt"}:
+                if source_path.suffix.casefold() in {".r2x", ".txt", ".r2z"}:
                     from Thunderstore.r2_profile import read_profile, prepare_import
                     if control.stop.is_set():
                         raise JobCancelled("Profile import cancelled.")
                     community = str(getattr(game, "thunderstore_community", "") or "")
-                    manifest = prepare_import(read_profile(source_path), community)
+                    manifest = prepare_import(read_profile(source_path), community,
+                                              hexium_community=getattr(game, "hexium_community", ""))
+                    bundle_path = ""
                 else:
                     manifest = profile_export.read_manifest(source_path)
             except JobCancelled:
@@ -1261,7 +1269,7 @@ def import_local_runner(
             thunderstore = profile_export.thunderstore_entries(manifest)
             thunderstore_count = sum(
                 1 for mod in all_mods
-                if getattr(mod, "source_type", "") == "thunderstore")
+                if getattr(mod, "source_type", "") in {"thunderstore", "hexium"})
             if len(thunderstore) != thunderstore_count:
                 raise JobError(
                     "collection_import_invalid",
@@ -1293,12 +1301,12 @@ def import_local_runner(
                 )
             mods = [
                 mod for mod in all_mods
-                if getattr(mod, "source_type", "") != "thunderstore"
+                if getattr(mod, "source_type", "") not in {"thunderstore", "hexium"}
                 and int(mod.file_id or 0) not in skipped_optional_file_ids
             ]
             skipped_mods = [
                 mod for mod in all_mods
-                if getattr(mod, "source_type", "") != "thunderstore"
+                if getattr(mod, "source_type", "") not in {"thunderstore", "hexium"}
                 and int(mod.file_id or 0) in skipped_optional_file_ids
             ]
             from Utils.collections.providers import entries as provider_entries
@@ -1455,6 +1463,12 @@ def import_local_runner(
                          thunderstore_failures) = install_entries(
                             thunderstore, game, profile_dir, control, callbacks,
                             ownership, log_fn=log)
+                    archive = (manifest.get("r2Import") or {}).get("archive")
+                    if archive and not control.stop.is_set():
+                        from Thunderstore.r2_archive import restore_configs
+                        restore_configs(archive, profile_dir, cancel=control.stop)
+                        from Utils.filegraph.service import FileGraphService
+                        FileGraphService.open_library(game, profile_dir).refresh(profile_dir, mod_names=["Root_Folder"])
                     run_collection_install(
                         game=game, api=api, downloader=downloader, mods=mods,
                         download_link_path="", profile_dir=profile_dir,
@@ -1873,7 +1887,7 @@ def download_runner(
                 1 for mod in manifest.get("mods", [])
                 if isinstance(mod, dict)
                 and str(((mod.get("source") or {}).get("type") or ""))
-                .strip().casefold() == "thunderstore")
+                .strip().casefold() in {"thunderstore", "hexium"})
             if len(thunderstore) != thunderstore_count:
                 raise JobError(
                     "collection_manifest_invalid",

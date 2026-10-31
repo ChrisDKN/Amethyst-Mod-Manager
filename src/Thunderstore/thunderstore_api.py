@@ -168,6 +168,11 @@ def fetch_listing(community: str, *, strict: bool = False, **kw) -> tuple[list, 
     """
     if not community:
         return [], 0
+    source = kw.pop("source", "thunderstore")
+    force = kw.pop("force", False)
+    if source == "hexium":
+        from Thunderstore.repositories import fetch_listing as hexium_listing
+        return hexium_listing(community, force=force, **kw)
     data = fetch_json(listing_url(community, **kw))
     if not isinstance(data, dict):
         if strict:
@@ -199,10 +204,13 @@ def total_pages(count: int) -> int:
     return (count + PAGE_SIZE - 1) // PAGE_SIZE
 
 
-def fetch_filters(community: str) -> ThunderstoreFilters | None:
+def fetch_filters(community: str, source="thunderstore") -> ThunderstoreFilters | None:
     """A community's category + section filters, or None on failure."""
     if not community:
         return None
+    if source == "hexium":
+        from Thunderstore.repositories import fetch_filters as hexium_filters
+        return hexium_filters(community)
     data = fetch_json(f"{BASE}/api/cyberstorm/community/{quote(community)}"
                       f"/filters/")
     if not isinstance(data, dict):
@@ -225,7 +233,7 @@ def fetch_filters(community: str) -> ThunderstoreFilters | None:
     )
 
 
-def fetch_versions(namespace: str, name: str) -> list:
+def fetch_versions(namespace: str, name: str, source="thunderstore", community="") -> list:
     """Every published version of a package, newest-first order NOT guaranteed.
 
     The single place that knows this endpoint - the version picker and anything
@@ -233,12 +241,15 @@ def fetch_versions(namespace: str, name: str) -> list:
     """
     if not (namespace and name):
         return []
+    if source == "hexium":
+        from Thunderstore.repositories import versions
+        return versions(namespace, name, community)
     data = fetch_json(f"{BASE}/api/cyberstorm/package/"
                       f"{quote(namespace)}/{quote(name)}/versions/")
     return data if isinstance(data, list) else []
 
 
-def fetch_latest_version(namespace: str, name: str) -> str:
+def fetch_latest_version(namespace: str, name: str, source="thunderstore", community="") -> str:
     """The newest published version string, or "".
 
     Uses the experimental package endpoint rather than the full version list -
@@ -247,6 +258,9 @@ def fetch_latest_version(namespace: str, name: str) -> str:
     """
     if not (namespace and name):
         return ""
+    if source == "hexium":
+        from Thunderstore.repositories import latest
+        return latest(namespace, name, community)
     data = fetch_json(f"{BASE}/api/experimental/package/"
                       f"{quote(namespace)}/{quote(name)}/")
     if not isinstance(data, dict):

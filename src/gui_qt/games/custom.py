@@ -112,6 +112,8 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("CustomGameView", "Additional Nexus Domains"),
     QT_TRANSLATE_NOOP("CustomGameView", "Comma-separated extra Nexus domain slugs whose mods are compatible with this game."),
     QT_TRANSLATE_NOOP("CustomGameView", "Thunderstore Community"),
+    QT_TRANSLATE_NOOP("CustomGameView", "Hexium Community"),
+    QT_TRANSLATE_NOOP("CustomGameView", "The game's community slug on hexium.gg. e.g. 'valheim'. Leave empty if the game has no Hexium page."),
     QT_TRANSLATE_NOOP("CustomGameView", "The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page."),
     QT_TRANSLATE_NOOP("CustomGameView", "Strip Prefixes"),
     QT_TRANSLATE_NOOP("CustomGameView", "Comma-separated top-level folder names to strip from mod files "
@@ -572,6 +574,11 @@ class CustomGameView(QWidget):
             self.tr("The game's community slug on thunderstore.io. "
                     "e.g. 'lethal-company'. Leave empty if the game has no "
                     "Thunderstore page."))
+        self._hexium_edit = self._mono_edit(self.tr("e.g. valheim"))
+        self._field_row(
+            g, self.tr("Hexium Community"), self._hexium_edit,
+            self.tr("The game's community slug on hexium.gg. "
+                    "e.g. 'valheim'. Leave empty if the game has no Hexium page."))
         self._image_edit = self._mono_edit(self.tr("https://example.com/banner.jpg"))
         self._field_row(
             g, self.tr("Banner Image URL"), self._image_edit,
@@ -1174,6 +1181,7 @@ class CustomGameView(QWidget):
         self._additional_nexus_edit.setText(
             _set_to_str(e.get("additional_nexus_domains", [])))
         self._thunderstore_edit.setText(e.get("thunderstore_community", ""))
+        self._hexium_edit.setText(e.get("hexium_community", ""))
         self._image_edit.setText(e.get("image_url", ""))
         self._dependency_picker.set_selected(
             e.get("auto_install_deps", ["vcredist"]))
@@ -1287,6 +1295,13 @@ class CustomGameView(QWidget):
             return "Executable Filename is required."
         if len(name) > 120:
             return "Game Name is too long (max 120 characters)."
+        community = self._hexium_edit.text().strip().lower()
+        if community:
+            from Thunderstore.repositories import validate_community
+            try:
+                validate_community(community)
+            except ValueError:
+                return self.tr("Hexium Community must be a community slug, for example 'valheim'.")
         return None
 
     # ---- banner image download (worker → signal) -------------------------
@@ -1344,6 +1359,7 @@ class CustomGameView(QWidget):
             # pasted "Lethal Company" would otherwise 404 silently.
             "thunderstore_community":
                 self._thunderstore_edit.text().strip().lower(),
+            "hexium_community": self._hexium_edit.text().strip().lower(),
             "image_url":         image_url,
             "auto_install_deps": self._dependency_picker.selected_tokens(),
             "mod_folder_strip_prefixes":

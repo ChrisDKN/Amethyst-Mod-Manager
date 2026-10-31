@@ -9,6 +9,9 @@ def download_entries(entries, game, control=None, callbacks=None, *, log_fn=None
     from Utils.config_paths import get_download_cache_dir_for_game
 
     log = callbacks.on_log if callbacks is not None else (log_fn or (lambda _m: None))
+    if any(entry.get("source") == "hexium" for entry in entries):
+        from Thunderstore.repositories import catalogue
+        catalogue(game.hexium_community, force=True)
     downloaded = 0
     failures = []
     total = len(entries)
@@ -21,10 +24,15 @@ def download_entries(entries, game, control=None, callbacks=None, *, log_fn=None
             callbacks.on_status(f"Thunderstore {index}/{total}: {full_name}")
             callbacks.on_progress(float(index - 1) / max(total, 1))
         try:
-            link = Ror2mmLink(
+            from Thunderstore.repositories import make_link
+            source = entry.get("source", "thunderstore")
+            community = str(entry.get("community") or "")
+            if source == "hexium" and community != game.hexium_community:
+                raise ValueError("Hexium package does not belong to the selected game")
+            link = make_link(
                 namespace=entry["namespace"], name=entry["package"],
                 version=entry["version"],
-                community=str(entry.get("community") or ""))
+                community=community, source=source)
         except (ValueError, KeyError) as exc:
             log(f"[thunderstore] skipping {full_name} - bad package id ({exc})")
             failures.append((full_name, "bad package id"))
@@ -92,6 +100,9 @@ def install_entries(entries, game, profile_dir, control=None, callbacks=None,
     from Utils.mods.install import install_collection_archive
 
     log = callbacks.on_log if callbacks is not None else (log_fn or (lambda _m: None))
+    if any(entry.get("source") == "hexium" for entry in entries):
+        from Thunderstore.repositories import catalogue
+        catalogue(game.hexium_community, force=True)
     order = []
     failures = []
     installed = 0
@@ -112,10 +123,15 @@ def install_entries(entries, game, profile_dir, control=None, callbacks=None,
             callbacks.on_status(f"Thunderstore {index}/{total}: {full_name}")
             callbacks.on_progress(float(index - 1) / max(total, 1))
         try:
-            link = Ror2mmLink(
+            from Thunderstore.repositories import make_link
+            source = entry.get("source", "thunderstore")
+            community = str(entry.get("community") or "")
+            if source == "hexium" and community != game.hexium_community:
+                raise ValueError("Hexium package does not belong to the selected game")
+            link = make_link(
                 namespace=entry["namespace"], name=entry["package"],
                 version=entry["version"],
-                community=str(entry.get("community") or ""))
+                community=community, source=source)
         except (ValueError, KeyError) as exc:
             log(f"[thunderstore] skipping {full_name} - bad package id ({exc})")
             failures.append((full_name, "bad package id"))

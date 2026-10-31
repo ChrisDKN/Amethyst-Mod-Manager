@@ -86,8 +86,12 @@ class ThunderstoreVersionView(QWidget):
 
         def _work():
             from Thunderstore.thunderstore_api import fetch_versions
-            safe_emit(self._versions_ready,
-                      fetch_versions(meta.namespace, meta.name))
+            try:
+                versions = fetch_versions(meta.namespace, meta.name, source=meta.source, community=meta.community)
+            except Exception as exc:
+                self._log(f"[{meta.source}] could not load versions: {exc}")
+                versions = []
+            safe_emit(self._versions_ready, versions)
 
         threading.Thread(target=_work, daemon=True,
                          name="ts-versions").start()
@@ -102,7 +106,7 @@ class ThunderstoreVersionView(QWidget):
 
         # Newest first. The API returns them unordered, so sort on the parsed
         # version rather than the string (1001 must beat 999).
-        from Nexus.nexus_update_checker import _parse_version
+        from Thunderstore.repositories import version_key as _parse_version
         rows = sorted(data,
                       key=lambda v: (_parse_version(v.get("version_number", ""))
                                      or ()),

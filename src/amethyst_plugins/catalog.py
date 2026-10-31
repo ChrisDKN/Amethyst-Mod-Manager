@@ -497,7 +497,7 @@ def _read_download_providers(data, root, entrypoint, check_files):
             repository, = _read_context_menu_actions({"context_menu_actions": [dict(action, entrypoint=item["repository_entrypoint"])]}, root, entrypoint, check_files)
             repository_entrypoint = repository.entrypoint
         protocols = item.get("protocols", [])
-        reserved = {"http", "https", "file", "ftp", "mailto", "nxm", "ror2mm", "modl", "steam"}
+        reserved = {"http", "https", "file", "ftp", "mailto", "nxm", "ror2mm", "gale", "modl", "steam"}
         if (not isinstance(protocols, list) or len(protocols) > 16
                 or any(not isinstance(scheme, str) or scheme not in schemes or scheme in reserved for scheme in protocols)
                 or len(protocols) != len(set(protocols))):

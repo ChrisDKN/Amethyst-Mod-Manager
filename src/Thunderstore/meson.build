@@ -1,6 +1,8 @@
 py.install_sources(
+  'repositories.py',
   '__init__.py',
   'ror2mm_handler.py',
+  'gale_handler.py',
   'r2_profile.py',
   'r2_archive.py',
   'profile_install.py',
