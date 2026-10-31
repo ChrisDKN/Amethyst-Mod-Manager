@@ -1129,7 +1129,8 @@ def run_collection_install(
                     seen.add(_xp)
         return dirs
     # Re-reading every sidecar for every mod makes large collections quadratic.
-    _automatic_scan_dirs = _scan_dirs() if not manual_mode else []
+    _automatic_scan_dirs = (_scan_dirs(include_all=manual_mode)
+                            if manual_archive_paths is None else [])
     _archive_index = ArchiveLookupIndex(_automatic_scan_dirs)
     _PIPELINE_QUEUE_SIZE = max(
         _DL_WORKERS + _INSTALL_POOL_SIZE + 8, 32, len(to_download))
@@ -1995,6 +1996,18 @@ def run_collection_install(
             if (manual_archive_paths is None
                     and getattr(pending_mod, "_policy_exact_unavailable", False)):
                 _use_prefer_fallback(pending_mod)
+        cached_results = {}
+        if manual_archive_paths is None:
+            _set_status("Checking downloaded archives…")
+            cached, _missing = _plan_cached_archives(mods_seq)
+            cached_results = {mod.file_id: result for mod, result in cached}
+            ordered = []
+            for _phase, phase_mods in _itertools.groupby(
+                    mods_seq, key=lambda m: schema_file_id_to_phase.get(m.file_id, 0)):
+                ordered.extend(sorted(phase_mods, key=lambda m:
+                    (0, *_install_priority(m, cached_results[m.file_id]))
+                    if m.file_id in cached_results else (1, 0, 0)))
+            mods_seq = ordered
         _current_phase: "int | None" = None
         for i, mod in enumerate(mods_seq):
             mod_domain = _effective_mod_domain(mod)
@@ -2013,6 +2026,10 @@ def run_collection_install(
                 _write_preliminary_plugins_txt(
                     f"phase {_current_phase} → {_this_phase}")
             _current_phase = _this_phase
+
+            if mod.file_id in cached_results:
+                _download_one(mod, ("cached", cached_results[mod.file_id]))
+                continue
 
             if manual_archive_paths is not None:
                 _supplied = manual_archive_paths[mod.file_id]
