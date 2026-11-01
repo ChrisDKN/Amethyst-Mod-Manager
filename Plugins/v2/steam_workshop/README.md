@@ -70,7 +70,9 @@ With a manager that supports `modlist_sections`, the plugin also shows
 **Steam Workshop: Subscribed mods** beneath the normal modlist. These rows are
 separate from managed installs: they have no priority and do not enter the saved
 modlist or deployment. They also appear in detached modlists. Right-click a
-subscribed mod to unsubscribe, open its Workshop page, or copy its URL.
+subscribed mod to unsubscribe, open its Workshop page, open its content on disk,
+or copy its URL. **Open on disk** opens the disabled folder when the mod is
+disabled. Tooltips show only the Steam subscription's managing account.
 Right-click the section to refresh subscriptions or sign in. Lists refresh
 after Workshop actions and once a minute while the manager is open. Switching
 games or accounts clears the previous list before loading the new one.
@@ -91,7 +93,7 @@ These file changes affect every profile and Steam account using that local
 Workshop installation. Close the game and wait for Steam downloads to finish
 before toggling. The empty folder does not guarantee Steam will leave it alone:
 updates or verification may restore content and let the mod load again. The
-tooltip reports this conflict, and enabling refuses to overwrite either copy;
+plugin refuses to overwrite either copy when enabling;
 move the new Steam content aside before restoring the disabled copy. Steam's
 subscription and Workshop manifests are left intact. Games that scan suffixed
 directories or retain their own copies may still need their in-game controls.
@@ -130,6 +132,6 @@ The resulting helper is installed in this plugin's `bin/` directory. The script
 does not modify Amethyst. SteamKit2 notices are in `SteamKit2-LICENSE.txt` and `THIRD-PARTY.txt`.
 The corresponding helper source is in `native/`.
 
-Suggested changelog: Added enable checkboxes for downloaded Workshop subscriptions without unsubscribing, with native, Flatpak and Snap Steam library detection.
+Suggested changelog: Shortened Workshop subscription tooltips and added Open on disk.
 
-Suggested commit: Toggle subscribed Workshop content without unsubscribing
+Suggested commit: Simplify Workshop tooltips and add Open on disk

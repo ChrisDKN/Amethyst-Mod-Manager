@@ -14,7 +14,7 @@ from .download import DownloadCancelled, saved_account, state_root
 from .handoff import queue_operation, result
 from .preferences import preferences
 from .support import workshop_app_id
-from .subscribed_content import content_roots, content_state, set_enabled
+from .subscribed_content import content_roots, content_state, locations, set_enabled
 
 
 class SubscribedMods(QObject):
@@ -141,24 +141,24 @@ class SubscribedMods(QObject):
         from Utils.downloads.core import fmt_size
         scope = self.scope
         game = next((g for g in _GAMES.values() if instance_id(g) == scope[5]), None)
-        roots, discovery_error = (), ''
+        roots = ()
         if self.entries:
             try:
                 roots = content_roots(scope[2], game)
             except (OSError, ValueError) as exc:
-                discovery_error = str(exc)
+                if str(exc) not in self.reported:
+                    self.reported.add(str(exc))
+                    app_log(f'[workshop] Could not locate subscribed content: {exc}')
         rows = []
         for entry in self.entries.values():
             item = entry.item
             updated = datetime.fromtimestamp(item.updated, timezone.utc).strftime('%Y-%m-%d') if item.updated else ''
             try:
-                enabled, local_info = content_state(roots, item.item_id)
-            except (OSError, ValueError) as exc:
-                enabled, local_info = None, str(exc)
+                enabled, _local_info = content_state(roots, item.item_id)
+            except (OSError, ValueError):
+                enabled = None
             row = {'id': item.item_id, 'name': item.title,
-                'tooltip': f'Steam subscription · managed by {scope[3]}\n{item.url}\n'
-                           'Shared across profiles and Steam accounts on this installation. '
-                           'Enable in-game where required.\n' + (discovery_error or local_info),
+                'tooltip': f'Steam subscription · managed by {scope[3]}',
                 'values': {'category': 'Steam Workshop', 'size': fmt_size(item.size), 'updated': updated}}
             if enabled is not None and self.context.get('modlist_checkboxes'):
                 row['enabled'] = enabled
@@ -218,6 +218,17 @@ class SubscribedMods(QObject):
                 from Utils.environment.xdg import open_url
                 for entry in entries[:10]:
                     open_url(entry.item.url)
+            elif kind == 'open_disk':
+                from Utils.environment.xdg import xdg_open
+                game = next((g for g in _GAMES.values() if instance_id(g) == self.scope[5]), None)
+                roots = content_roots(self.scope[2], game)
+                paths = dict.fromkeys(disabled if parked else active
+                    for entry in entries[:10]
+                    for active, disabled, _present, parked in locations(roots, entry.item.item_id))
+                if not paths:
+                    raise ValueError('Steam has not downloaded the selected subscriptions yet.')
+                for path in list(paths)[:10]:
+                    xdg_open(path)
             elif kind == 'copy':
                 QCoreApplication.instance().clipboard().setText('\n'.join(entry.item.url for entry in entries))
 
