@@ -168,7 +168,7 @@ def read_profile(path) -> R2Profile:
 def normalise_share_code(code: str) -> str:
     code = code.strip()
     if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", code):
-        raise ValueError("Enter a Thunderstore share code in the form xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.")
+        raise ValueError("Enter a Thunderstore or Hexium share code in the form xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.")
     return code.lower()
 
 
@@ -180,13 +180,29 @@ def download_share_profile(code: str, destination, source="thunderstore") -> R2P
     destination.mkdir(parents=True, exist_ok=True)
     if source not in {"thunderstore", "hexium"}:
         raise ValueError("Unsupported share-code repository")
-    host = "hexium.gg" if source == "hexium" else "thunderstore.io"
-    url = f"https://{host}/api/experimental/legacyprofile/get/{code}/"
+    sources = (source, "hexium" if source == "thunderstore" else "thunderstore")
     limit = 256 * 1024 ** 2
     with TemporaryDirectory(prefix=".thunderstore-profile-", dir=destination) as temporary:
         archive_path = Path(temporary) / "profile.r2z"
         try:
-            with urlopen(build_request(url), timeout=60) as response, archive_path.open("wb") as writer:
+            for repository in sources:
+                host = "hexium.gg" if repository == "hexium" else "thunderstore.io"
+                url = f"https://{host}/api/experimental/legacyprofile/get/{code}/"
+                try:
+                    response = urlopen(build_request(url), timeout=60)
+                except HTTPError as exc:
+                    status = exc.code
+                    exc.close()
+                    if status == 404:
+                        continue
+                    if status == 429:
+                        raise ValueError(f"{repository.title()} rate limited this request. Wait a moment and try again.") from exc
+                    raise
+                source = repository
+                break
+            else:
+                raise ValueError("The share code was not found on Thunderstore or Hexium. It may have expired or contain a typo.")
+            with response, archive_path.open("wb") as writer:
                 if response.readline(32).rstrip(b"\r\n") != b"#r2modman":
                     raise ValueError("The share code did not return an r2modman profile.")
                 pending = b""
@@ -211,14 +227,6 @@ def download_share_profile(code: str, destination, source="thunderstore") -> R2P
                 writer.write(decoded)
         except binascii.Error as exc:
             raise ValueError("The shared profile contains invalid Base64 data.") from exc
-        except HTTPError as exc:
-            status = exc.code
-            exc.close()
-            if status == 404:
-                raise ValueError("The Thunderstore share code was not found. It may have expired or contain a typo.") from exc
-            if status == 429:
-                raise ValueError("Thunderstore rate limited this request. Wait a moment and try again.") from exc
-            raise
         profile = read_profile(archive_path)
         final_path = destination / f"{source}-profile-{code}.r2z"
         archive_path.replace(final_path)

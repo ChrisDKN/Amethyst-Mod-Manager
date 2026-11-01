@@ -3262,8 +3262,11 @@ With `confirm:true`, unambiguous matches and explicitly selected candidates are
 saved. Existing store-owned mods are left unchanged.
 
 `hexium.profiles.share.download.start` accepts `game` and a UUID `code`. It
-retrieves the profile from Hexium and returns a local `.r2z` `path` and manifest
-preview. Pass that path to `collections.import.start` for installation into a
+retrieves the profile from Hexium, trying Thunderstore only if Hexium returns
+404, and returns a local `.r2z` `path` and manifest preview. The desktop share-code
+menus likewise try their selected server first, then the other server on 404.
+Each mod retains its declared repository source. Pass that path to
+`collections.import.start` for installation into a
 new profile. `.r2x`, `.txt`, `.r2z`, Amethyst profile archives, and Amethyst share
 manifests preserve Hexium and Thunderstore sources per entry. Missing legacy
 source fields mean Thunderstore. Imports preserve exact pins, order and enabled
