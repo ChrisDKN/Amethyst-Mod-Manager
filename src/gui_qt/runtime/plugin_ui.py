@@ -432,6 +432,7 @@ class PluginUIController(QObject):
                 lambda steps, callback, **options: self.operations.submit(instance, plugin, steps, callback, **options)),
             "set_modlist_rows": previous.get("set_modlist_rows") or (
                 lambda section, rows, **options: self.rows.publish(instance, plugin, section, rows, **options)),
+            "modlist_checkboxes": True,
             "inventory": previous.get("inventory") or (
                 lambda: self.inventory(instance)),
             "selection": previous.get("selection") or (

@@ -133,6 +133,7 @@ class PluginContext:
             "read_async": self.read_async,
             "apply_async": self.apply_async, "apply_batch_async": self.apply_batch_async,
             "set_modlist_rows": self.set_modlist_rows, "open_plugin": self.open_plugin,
+            "modlist_checkboxes": True,
         }
 
 

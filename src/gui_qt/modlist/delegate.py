@@ -712,13 +712,13 @@ class ModRowDelegate(QStyledItemDelegate):
 
     def _paint_name(self, p, r, e, index, text_color):
         from gui_qt.modlist.external import external
-        if external(e):
+        if external(e) and not e.checkable:
             p.setPen(text_color)
             p.setFont(self.f_row)
             rect = r.adjusted(12, 0, -6, 0)
             p.drawText(rect, Qt.AlignVCenter, p.fontMetrics().elidedText(e.display_name, Qt.ElideRight, rect.width()))
             return
-        leader = index.model().display_group_leader(e.name)
+        leader = None if external(e) else index.model().display_group_leader(e.name)
         x = r.left() + (24 if leader and leader != e.name else 0)
 
         # Checkbox (accent fill + white tick when enabled; hollow when not).
@@ -745,7 +745,7 @@ class ModRowDelegate(QStyledItemDelegate):
             tx += 24
 
         # Lock glyph.
-        if e.locked:
+        if e.locked and not external(e):
             p.setPen(self.c_lock)
             p.drawText(QRect(tx, r.top(), 16, r.height()),
                        Qt.AlignVCenter, "\U0001F512")
@@ -1275,6 +1275,13 @@ class ModRowDelegate(QStyledItemDelegate):
     def editorEvent(self, event, model, opt, index):
         from gui_qt.modlist.external import external
         if index.isValid() and external(model.entry(index.row())):
+            entry = model.entry(index.row())
+            if (entry.checkable and not entry.is_separator and index.column() == COL_NAME
+                    and event.type() == QEvent.MouseButtonRelease
+                    and event.button() == Qt.LeftButton
+                    and self._checkbox_hit_rect(opt.rect, index).contains(event.position().toPoint())):
+                model.toggle(index.row())
+                return True
             return False
         if event.type() != QEvent.MouseButtonRelease:
             return False

@@ -37,7 +37,7 @@ class PluginRows(QObject):
                 self.sections.pop(key)
         self.apply()
 
-    def publish(self, owner, plugin, section_id, rows, *, game_id, profile, on_action=None):
+    def publish(self, owner, plugin, section_id, rows, *, game_id, profile, on_action=None, on_toggle=None):
         if QThread.currentThread() != self.thread():
             raise RuntimeError('Publish modlist rows on the GUI thread.')
         target = (game_id, profile)
@@ -45,7 +45,8 @@ class PluginRows(QObject):
                 or target != self.target or plugin.id not in self.plugins):
             return False
         section = next((s for s in plugin.modlist_sections if s.id == section_id), None)
-        if section is None or on_action is not None and not callable(on_action):
+        if (section is None or on_action is not None and not callable(on_action)
+                or on_toggle is not None and not callable(on_toggle)):
             raise ValueError('Declare the section and provide a callable action handler.')
         key = (plugin.id, section_id)
         previous = self.sections.get(key)
@@ -60,8 +61,10 @@ class PluginRows(QObject):
                 raise ValueError('Modlist section data exceeds 8 MiB.')
             ids = set()
             for row in rows:
-                if not isinstance(row, dict) or set(row) - {'id', 'name', 'tooltip', 'values'}:
+                if not isinstance(row, dict) or set(row) - {'id', 'name', 'tooltip', 'values', 'enabled'}:
                     raise ValueError('Invalid read-only row.')
+                if 'enabled' in row and (type(row['enabled']) is not bool or not callable(on_toggle)):
+                    raise ValueError('Checkable rows require a boolean enabled state and on_toggle callback.')
                 rid, name = row.get('id'), row.get('name')
                 values = row.get('values', {})
                 tooltip = row.get('tooltip', '')
@@ -73,20 +76,21 @@ class PluginRows(QObject):
                         or any(not isinstance(v, str) or len(v) > 4000 for v in values.values())):
                     raise ValueError('Invalid read-only row ID, name, tooltip, or values.')
                 ids.add(rid)
-            self.sections[key] = (weakref.ref(owner), plugin, section, deepcopy(rows), on_action, target)
+            self.sections[key] = (weakref.ref(owner), plugin, section, deepcopy(rows), on_action, target, on_toggle)
         self.apply()
         return True
 
     def apply(self):
         entries = []
-        for (pid, sid), (_owner, plugin, section, rows, _callback, _target) in sorted(self.sections.items()):
+        for (pid, sid), (_owner, plugin, section, rows, _callback, _target, on_toggle) in sorted(self.sections.items()):
             prefix = f'@plugin:{pid}/{sid}/'
             label = f'{translate(plugin, plugin.name)}: {translate(plugin, section.label)}'
             entries.append(ExternalModEntry(prefix, True, True, True, label=label,
                 plugin_id=pid, section_id=sid, tooltip='Read-only entries managed by a plugin.'))
-            entries.extend(ExternalModEntry(prefix + row['id'], True, True,
+            entries.extend(ExternalModEntry(prefix + row['id'], row.get('enabled', True), True,
                 label=row['name'], plugin_id=pid, section_id=sid, item_id=row['id'],
-                tooltip=row.get('tooltip', ''), values=dict(row.get('values', {}))) for row in rows)
+                tooltip=row.get('tooltip', ''), values=dict(row.get('values', {})),
+                checkable='enabled' in row and callable(on_toggle)) for row in rows)
         host = self.controller.host
         if host._modlist_model.set_external_entries(entries):
             for name in ('_apply_modlist_search', '_apply_modlist_filters'):
@@ -100,7 +104,7 @@ class PluginRows(QObject):
                 self.sections.pop(key)
         self.apply()
 
-    def run(self, key, action_id, ids, target):
+    def run(self, key, action_id, ids, target, *, enabled=None):
         if (self.controller.stopped or self.controller.locked or target != self.current_target()
                 or getattr(self.controller.host, '_manager_plugin', None) is not None
                 or not self.controller.valid_target()):
@@ -108,14 +112,22 @@ class PluginRows(QObject):
         record = self.sections.get(key)
         if record is None:
             return
-        owner, _plugin, section, rows, callback, scope = record
+        owner, _plugin, section, rows, callback, scope, on_toggle = record
         known = {row['id'] for row in rows}
+        if enabled is not None:
+            known = {row['id'] for row in rows if type(row.get('enabled')) is bool
+                     and row['enabled'] != enabled}
+            callback = on_toggle
         if (owner() is None or not owner().active or scope != target or not callable(callback)
-                or not any(a[0] == action_id for a in section.actions) or not set(ids) <= known):
+                or enabled is None and not any(a[0] == action_id for a in section.actions)
+                or not set(ids) <= known):
             return
         try:
-            callback({'action_id': action_id, 'section_id': key[1], 'ids': list(ids),
-                      'game_id': target[0], 'profile': target[1]})
+            payload = {'action_id': action_id, 'section_id': key[1], 'ids': list(ids),
+                       'game_id': target[0], 'profile': target[1]}
+            if enabled is not None:
+                payload['enabled'] = enabled
+            callback(payload)
         except Exception as exc:
             self.controller._report(f'{key[0]}: section action failed: {exc}')
 
@@ -127,7 +139,7 @@ class PluginRows(QObject):
         menu = QMenu(view)
         if record is None or self.controller.locked or not view.isEnabled():
             return menu
-        _owner, plugin, section, rows, callback, target = record
+        _owner, plugin, section, rows, callback, target, _on_toggle = record
         selected = {i.row() for i in view.selectionModel().selectedRows()}
         if index.row() not in selected:
             selected = {index.row()}
@@ -149,3 +161,11 @@ class PluginRows(QObject):
 def external_menu(view, index):
     runtime = getattr(QApplication.instance(), '_amethyst_plugin_rows', None)
     return runtime.menu(view, index) if runtime is not None else QMenu(view)
+
+
+def toggle_external(entry):
+    runtime = getattr(QApplication.instance(), '_amethyst_plugin_rows', None)
+    if runtime is not None and entry.checkable and not entry.is_separator:
+        key, target = (entry.plugin_id, entry.section_id), runtime.current_target()
+        QTimer.singleShot(0, runtime, lambda: runtime.run(
+            key, 'set_enabled', (entry.item_id,), target, enabled=not entry.enabled))

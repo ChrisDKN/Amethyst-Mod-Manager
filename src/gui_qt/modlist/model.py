@@ -1057,6 +1057,10 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         from Utils.diagnostics.performance import span
         with span("model.toggle"):
             e = self._entries[row]
+            if external(e):
+                from gui_qt.runtime.plugin_rows import toggle_external
+                toggle_external(e)
+                return
             if e.is_group_header:
                 self.set_rows_enabled(self.group_rows(e.name), not e.enabled)
                 return

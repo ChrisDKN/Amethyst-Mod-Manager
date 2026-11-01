@@ -874,7 +874,7 @@ code; live code replacement is not supported. Persistent widgets use their own
 module namespace, separate from each modal `create_view` session. As with Qt
 panels, install only plugins you trust.
 
-## Read-only modlist sections
+## External modlist sections
 
 Qt services and widgets can publish display-only rows beneath their own
 separator at the bottom of the modlist, including detached presentations.
@@ -912,10 +912,20 @@ tooltips are strings up to 8000 characters. Optional `values` may contain
 `category`, `version`, `author`, `size`, `installed`, and `updated`, each a
 display string of at most 4000 characters.
 
-Rows have no checkbox or priority and cannot be moved, renamed, removed, or
+Rows have no priority and cannot be moved, renamed, removed, or
 used as archive-drop targets. They are separate from the natural mod entries:
 they are never written to `modlist.txt`, included in managed-mod inventories,
 or passed into deployment. Column sorting keeps each external section together.
+
+When `context.get("modlist_checkboxes")` is true, rows may include an `enabled`
+boolean. Pass `on_toggle=handle_toggle` to `set_modlist_rows` to show their
+checkboxes. The callback receives `action_id: "set_enabled"`, `section_id`,
+`ids`, `game_id`, `profile`, and the requested `enabled` boolean. The host
+checks the owner, target and manager lock before calling it. The plugin owns
+the operation and republishes the resulting state; the host never saves these
+toggles to `modlist.txt` or sends them through deployment. Omit `enabled` for
+rows that cannot currently be toggled. Managers without this capability still
+accept the original read-only rows and `on_action` callback.
 
 Right-click actions belong to the declaring plugin. `selection: "items"`
 (the default) operates on selected rows from that section; `"section"` also

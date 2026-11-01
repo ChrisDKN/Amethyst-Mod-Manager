@@ -11,6 +11,7 @@ class ExternalModEntry(ModEntry):
     item_id: str = ""
     tooltip: str = ""
     values: dict = field(default_factory=dict)
+    checkable: bool = False
 
     @property
     def is_external(self):
