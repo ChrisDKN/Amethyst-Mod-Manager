@@ -4,6 +4,7 @@
 - Added a Hexium browser and mod handling
 - Added an option in the game configure menu to duplicate an instance
 - Fixed ReShade wizard output paths for games with nested executables
+- Fixed Wabbajack installations failing with “Missing or ambiguous source” for legacy-encoded BA2 filenames
 
 - v2.6.0
 ### Game Support
