@@ -106,7 +106,7 @@ def mod_strip_args(
     root_folder_mods=None,
 ) -> tuple[frozenset[str], list[str]]:
     if root_folder_mods and mod_name in root_folder_mods:
-        return frozenset(), []
+        strip_prefixes = ()
     base = frozenset(str(value).lower() for value in (strip_prefixes or ()))
     configured = (per_mod_strip_prefixes or {}).get(mod_name) or ()
     segments = frozenset(

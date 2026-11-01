@@ -24,6 +24,7 @@ from Utils.deployment.vortex import (
 from Utils.filegraph.models import FileGraphCancelled, RefreshProgress
 from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 from Utils.filegraph.link_changes import ctime_ns, load_changes
+from Utils.filegraph.paths import mod_strip_args
 from Utils.filegraph.archives import (
     ArchiveFile, owning_plugin, pak_name_rank, scan_mod_archives,
 )
@@ -579,16 +580,15 @@ class GameCandidateAdapter:
         return result
 
     def _strip(self, mod_name: str, relative: str) -> str:
-        if (mod_name == ROOT_FOLDER_NAME or mod_name in self._root_mods
-                or mod_name in self._raw_route_mods):
+        if mod_name == ROOT_FOLDER_NAME or mod_name in self._raw_route_mods:
             return relative
         path = relative.replace("\\", "/")
         if mod_name not in self._strip_rules:
-            configured = self._per_mod_strips.get(mod_name, ())
-            full_paths = sorted(
-                (item for item in configured if "/" in item), key=len, reverse=True)
-            segments = {str(item).lower() for item in configured if "/" not in item}
-            self._strip_rules[mod_name] = full_paths, segments | self._strip_prefixes
+            segments, configured = mod_strip_args(
+                mod_name, self._strip_prefixes, self._per_mod_strips,
+                self._root_mods)
+            full_paths = sorted(configured, key=len, reverse=True)
+            self._strip_rules[mod_name] = full_paths, segments
         full_paths, segments = self._strip_rules[mod_name]
         lower = path.lower()
         for prefix in full_paths:
