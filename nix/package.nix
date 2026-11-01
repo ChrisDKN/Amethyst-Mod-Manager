@@ -33,6 +33,8 @@ let
     ps.keyring
     ps.msgpack
     ps.bsdiff4
+    ps.xxhash
+    ps.pyyaml
     libloot
   ]);
 in

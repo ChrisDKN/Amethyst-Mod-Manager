@@ -181,4 +181,7 @@ EOF
 
 echo "Desktop entry created at $DESKTOP_FILE."
 echo ""
+update-desktop-database $APPLICATIONS_DESKTOP_DIR
+echo "Updated desktop dir."
+echo ""
 echo "Installation complete. You can launch Amethyst Mod Manager from your application menu."
