@@ -182,7 +182,8 @@ def _extract(
     return len(written), written
 
 
-def _parse_records(f, names_override=None, *, mip_size_members=None) -> tuple[list[dict], list[str]]:
+def _parse_records(f, names_override=None, *, mip_size_members=None,
+                   name_aliases=None) -> tuple[list[dict], list[str]]:
     """Walk the header, file records and name table; read no file data."""
     magic = f.read(4)
     if magic != b"BTDX":
@@ -220,7 +221,11 @@ def _parse_records(f, names_override=None, *, mip_size_members=None) -> tuple[li
     invalid_mip_sizes: set[int] = set()
 
     def check_selected_mip_sizes(names):
-        if any(names[index].replace("\\", "/").casefold() in mip_size_members
+        selected = mip_size_members
+        if name_aliases and selected is not None:
+            selected = selected | {name.casefold() for alias in selected
+                                   for name in name_aliases.get(alias, ())}
+        if any(names[index].replace("\\", "/").casefold() in selected
                for index in invalid_mip_sizes):
             raise Ba2ExtractError("DX10 chunk size differs from its mip range")
 
@@ -327,7 +332,13 @@ def _parse_records(f, names_override=None, *, mip_size_members=None) -> tuple[li
             name = nb.decode("utf-8")
         except UnicodeError:
             name = nb.decode("cp1252")
-        names.append(name.replace("\\", "/").lower())
+        name = name.replace("\\", "/").lower()
+        names.append(name)
+        if name_aliases is not None:
+            # Wabbajack decodes legacy name bytes as UTF-8 with replacement.
+            alias = nb.decode("utf-8", "replace").replace("\\", "/").lower()
+            if alias.casefold() != name.casefold():
+                name_aliases.setdefault(alias.casefold(), []).append(name)
 
     name_table_end = f.tell()
     if name_table_offset < record_end:

@@ -38,7 +38,7 @@ def _read(stream, size):
 
 
 def records(path, file_states=None, *, mpi_paths=False, allow_case_variants=False,
-            allow_hash_only=False, mip_size_members=None):
+            allow_hash_only=False, mip_size_members=None, aliases=None):
     """Optional hash-only IDs support validation of archives without stored paths."""
     with Path(path).open("rb") as stream:
         size = stream.seek(0, 2)
@@ -49,7 +49,7 @@ def records(path, file_states=None, *, mpi_paths=False, allow_case_variants=Fals
         if magic == b"BTDX":
             from Utils.ba2.extract import _parse_records, _make_dds_header
             rows, names = _parse_records(stream, [f["Path"] for f in file_states] if file_states is not None else None,
-                                         mip_size_members=mip_size_members)
+                                         mip_size_members=mip_size_members, name_aliases=aliases)
             for name, row in zip(names, rows):
                 header = b""
                 if row["type"] == "DX10":
@@ -209,7 +209,15 @@ def read_member(stream, record, write, stop=None):
 
 
 def select_bethesda(source, members=None, aliases=None):
-    rows = records(source, allow_case_variants=True, mip_size_members=members)
+    ba2_aliases = {}
+    rows = records(source, allow_case_variants=True, mip_size_members=members,
+                   aliases=ba2_aliases)
+    if aliases is not None:
+        for alias, names in ba2_aliases.items():
+            aliases.setdefault(alias, []).extend(names)
+    if members is not None:
+        members = members | {name.casefold() for alias in members
+                             for name in ba2_aliases.get(alias, ())}
     with Path(source).open("rb") as stream:
         legacy_names = ((members is not None or aliases is not None)
                         and stream.read(8) == b"BSA\0\x67\0\0\0")
