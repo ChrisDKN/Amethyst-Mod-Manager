@@ -53,7 +53,7 @@ confirmation; the progress panel closes automatically on success.
 Subscriptions use the saved Workshop login and notify the Steam client; use the
 same account in Steam so it can download and update the content. Enable mods
 in-game where required. This path does not create Amethyst downloads, staged
-mods, or modlist entries and ignores the manager's Download only setting.
+mods, or managed modlist entries and ignores the manager's Download only setting.
 Subscriptions belong to the Steam account and apply across Amethyst profiles.
 Manage them here or through Steam. Existing Amethyst installs are preserved.
 If an action fails or is cancelled, completed subscriptions are retained; check
@@ -68,13 +68,33 @@ Clear advanced filters to return to public browsing.
 
 With a manager that supports `modlist_sections`, the plugin also shows
 **Steam Workshop: Subscribed mods** beneath the normal modlist. These rows are
-read only: they have no enable checkbox or priority and do not enter the saved
+separate from managed installs: they have no priority and do not enter the saved
 modlist or deployment. They also appear in detached modlists. Right-click a
 subscribed mod to unsubscribe, open its Workshop page, or copy its URL.
 Right-click the section to refresh subscriptions or sign in. Lists refresh
 after Workshop actions and once a minute while the manager is open. Switching
 games or accounts clears the previous list before loading the new one.
 The existing Workshop browser remains available on managers without this API.
+
+On managers with `modlist_checkboxes` support, downloaded subscriptions have an
+enable checkbox. Unchecking moves the item's directory to a sibling named
+`<item ID> (Disabled)` and leaves an empty directory at the original numeric
+path. Checking restores the saved directory. The disabled directory itself
+tracks the state across restarts; it is not disposable temporary content.
+Native, Flatpak and Snap Steam roots, configured Steam libraries and the game's
+own library are searched, including libraries on other drives. All discovered
+copies are toggled together. Missing downloads and inaccessible or symlinked
+item directories have no checkbox. Local state refreshes every five seconds.
+Older managers continue to show read-only subscription rows.
+
+These file changes affect every profile and Steam account using that local
+Workshop installation. Close the game and wait for Steam downloads to finish
+before toggling. The empty folder does not guarantee Steam will leave it alone:
+updates or verification may restore content and let the mod load again. The
+tooltip reports this conflict, and enabling refuses to overwrite either copy;
+move the new Steam content aside before restoring the disabled copy. Steam's
+subscription and Workshop manifests are left intact. Games that scan suffixed
+directories or retain their own copies may still need their in-game controls.
 
 Existing mods are preserved by default. If an installation encounters an
 existing mod, the manager's normal existing-mod prompt offers Replace, Rename,
@@ -110,6 +130,6 @@ The resulting helper is installed in this plugin's `bin/` directory. The script
 does not modify Amethyst. SteamKit2 notices are in `SteamKit2-LICENSE.txt` and `THIRD-PARTY.txt`.
 The corresponding helper source is in `native/`.
 
-Suggested changelog: Showed Workshop subscriptions as read-only modlist entries with subscription context actions.
+Suggested changelog: Added enable checkboxes for downloaded Workshop subscriptions without unsubscribing, with native, Flatpak and Snap Steam library detection.
 
-Suggested commit: Show Workshop subscriptions in read-only modlist sections
+Suggested commit: Toggle subscribed Workshop content without unsubscribing

@@ -6,6 +6,7 @@ from PySide6.QtCore import QCoreApplication, QObject, QTimer, Signal
 
 from Utils.app_log import app_log
 from Utils.games.registry import _GAMES
+from Utils.games.instances import instance_id
 from gui_qt.runtime.safe_emit import safe_emit
 
 from .client import WorkshopClient
@@ -13,6 +14,7 @@ from .download import DownloadCancelled, saved_account, state_root
 from .handoff import queue_operation, result
 from .preferences import preferences
 from .support import workshop_app_id
+from .subscribed_content import content_roots, content_state, set_enabled
 
 
 class SubscribedMods(QObject):
@@ -29,6 +31,8 @@ class SubscribedMods(QObject):
         self.checked = 0
         self.result_token = None
         self.reported = set()
+        self.local_checked = 0
+        self.local_rows = None
         self.ready.connect(self._received)
         self.timer = QTimer(self)
         self.timer.setInterval(1000)
@@ -44,8 +48,9 @@ class SubscribedMods(QObject):
     def _publish(self, rows):
         publish = self.context.get('set_modlist_rows')
         if publish:
-            publish('subscribed', rows, game_id=self.context.get('game_id', ''),
-                    profile=self.context.get('profile', ''), on_action=self._action)
+            options = {'on_toggle': self._toggle} if self.context.get('modlist_checkboxes') else {}
+            publish('subscribed', rows, game_id=self.context.get('instance_id') or self.context.get('game_id', ''),
+                    profile=self.context.get('profile', ''), on_action=self._action, **options)
 
     def _stop(self):
         self.cancel.set()
@@ -57,13 +62,15 @@ class SubscribedMods(QObject):
         if self.closed or not self.context.get('set_modlist_rows'):
             return
         game_id, profile = self.context.get('game_id', ''), self.context.get('profile', '')
-        game = next((g for g in _GAMES.values() if g.game_id == game_id), None)
+        target_id = self.context.get('instance_id') or game_id
+        game = next((g for g in _GAMES.values() if instance_id(g) == target_id), None)
         app_id = workshop_app_id(game)
         supported = preferences().get('workshop_support', {}).get(game_id) is True
         if not app_id or not supported or not profile:
             self._stop()
             self.entries.clear()
             self.scope = None
+            self.local_rows = None
             self._publish(None)
             return
         account = saved_account()
@@ -72,13 +79,17 @@ class SubscribedMods(QObject):
                 for p in (state_root() / 'account').rglob('account.config') if p.is_file()))
         except OSError:
             configs = ()
-        scope = (game_id, profile, app_id, account, configs)
+        scope = (game_id, profile, app_id, account, configs, target_id)
         if scope != self.scope:
             self._stop()
             self.scope = scope
             self.checked = 0
             self.entries.clear()
+            self.local_checked = 0
+            self.local_rows = None
             self._publish([])
+        if time.monotonic() - self.local_checked >= 5:
+            self._refresh_rows()
         record = result()
         token = (record.get('id'), record.get('updated'))
         if token != self.result_token and (record.get('game_id'), record.get('profile')) == scope[:2]:
@@ -116,28 +127,76 @@ class SubscribedMods(QObject):
             return
         self.client = None
         if error:
-            self.entries.clear()
-            self._publish([])
             if error not in self.reported:
                 self.reported.add(error)
                 app_log(f'[workshop] Subscription list: {error}')
             return
         self.entries = entries
+        self._refresh_rows()
+
+    def _refresh_rows(self):
+        if self.scope is None:
+            return
+        self.local_checked = time.monotonic()
         from Utils.downloads.core import fmt_size
+        scope = self.scope
+        game = next((g for g in _GAMES.values() if instance_id(g) == scope[5]), None)
+        roots, discovery_error = (), ''
+        if self.entries:
+            try:
+                roots = content_roots(scope[2], game)
+            except (OSError, ValueError) as exc:
+                discovery_error = str(exc)
         rows = []
-        for entry in entries.values():
+        for entry in self.entries.values():
             item = entry.item
             updated = datetime.fromtimestamp(item.updated, timezone.utc).strftime('%Y-%m-%d') if item.updated else ''
-            rows.append({'id': item.item_id, 'name': item.title,
+            try:
+                enabled, local_info = content_state(roots, item.item_id)
+            except (OSError, ValueError) as exc:
+                enabled, local_info = None, str(exc)
+            row = {'id': item.item_id, 'name': item.title,
                 'tooltip': f'Steam subscription · managed by {scope[3]}\n{item.url}\n'
-                           'Read only in Amethyst; shared across profiles. Enable in-game where required.',
-                'values': {'category': 'Steam Workshop', 'size': fmt_size(item.size), 'updated': updated}})
-        self._publish(rows)
+                           'Shared across profiles and Steam accounts on this installation. '
+                           'Enable in-game where required.\n' + (discovery_error or local_info),
+                'values': {'category': 'Steam Workshop', 'size': fmt_size(item.size), 'updated': updated}}
+            if enabled is not None and self.context.get('modlist_checkboxes'):
+                row['enabled'] = enabled
+            rows.append(row)
+        if rows != self.local_rows:
+            self.local_rows = rows
+            self._publish(rows)
+
+    def _current_action(self, action):
+        return (not self.closed and self.scope is not None
+                and (action['game_id'], action['profile']) == (
+                    self.context.get('instance_id') or self.context.get('game_id'), self.context.get('profile'))
+                and saved_account() == self.scope[3])
+
+    def _toggle(self, action):
+        if not self._current_action(action):
+            self._ensure()
+            return
+        game = next((g for g in _GAMES.values() if instance_id(g) == self.scope[5]), None)
+        try:
+            if game is None:
+                raise ValueError('The selected game is no longer available.')
+            roots = content_roots(self.scope[2], game)
+            for item_id in action['ids']:
+                if item_id in self.entries:
+                    set_enabled(roots, self.scope[2], item_id, action['enabled'])
+        except Exception as exc:
+            message = str(exc)
+            app_log(f'[workshop] Could not toggle subscribed content: {message}')
+            notify = self.context.get('notify')
+            if notify:
+                notify({'id': 'workshop-toggle-failed', 'title': 'Could not change Workshop mod',
+                        'message': message[:4000], 'severity': 'error'})
+        finally:
+            self._refresh_rows()
 
     def _action(self, action):
-        if self.closed or (action['game_id'], action['profile']) != (self.context.get('game_id'), self.context.get('profile')):
-            return
-        if self.scope is None or saved_account() != self.scope[3]:
+        if not self._current_action(action):
             self._ensure()
             return
         kind = action['action_id']
