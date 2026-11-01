@@ -1,3 +1,10 @@
+- v2.6.2
+- Added Nexus v3 api update groups as part of mod update detection
+- Added a wizard to Install Fallout: New california
+- Added a Hexium browser and mod handling
+- Added an option in the game configure menu to duplicate an instance
+- Fixed ReShade wizard output paths for games with nested executables
+
 - v2.6.0
 ### Game Support
 - Added Nivalis Nights
