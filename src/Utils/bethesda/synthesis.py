@@ -483,7 +483,7 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
 
     env = _base_env(pfx, wine)
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".reg", delete=False, encoding="utf-8",
+        mode="w", suffix=".reg", delete=False, encoding="utf-8", dir=pfx,
     ) as tf:
         tf.write(reg_content)
         reg_file = tf.name
@@ -694,7 +694,7 @@ def _step_regedit(pfx: Path, wine: Path, log: LogFn) -> bool:
         return True
     log("Applying registry patches (xEdit compat, DLL overrides, X11 focus) …")
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".reg", delete=False, encoding="utf-8",
+        mode="w", suffix=".reg", delete=False, encoding="utf-8", dir=pfx,
     ) as tf:
         tf.write(_build_reg_blob())
         reg_path = tf.name

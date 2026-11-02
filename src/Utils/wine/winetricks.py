@@ -228,7 +228,7 @@ def build_winetricks_command(prefix_path: Path, *args: str, game=None,
             command = ["/bin/sh", "-c", setup, "amethyst-winetricks", str(target)]
             if runtime:
                 command = [str(_host_path(runtime)), "--verb=run", "--", *command]
-            if not host and not steam_flatpak:
+            if not steam_flatpak:
                 from Utils.launchers.nixos import wrap_nixos_command
                 command = wrap_nixos_command(command, env=env)
             launch = shlex.join(command) + ' "$@"'

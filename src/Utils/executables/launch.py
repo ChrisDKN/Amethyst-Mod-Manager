@@ -2727,15 +2727,17 @@ def shutdown_prefix_wineserver(proton_script: Path, compat_data: Path,
         env = strip_appimage_env(os.environ.copy())
         pfx = Path(compat_data) / "pfx"
         env["WINEPREFIX"] = str(pfx if pfx.exists() else Path(compat_data))
-        env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
-        subprocess.run(
-            [str(bin_dir / "wineserver"), "-k"],
-            env=env, timeout=15,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        if wait:
+        from Utils.launchers.nixos import wrap_nixos_command
+        commands = [
+            wrap_nixos_command([str(bin_dir / "wineserver"), option],
+                               env=env, forward_host=True, cwd=compat_data)
+            for option in (("-k", "-w") if wait else ("-k",))
+        ]
+        if commands[0][0] != "flatpak-spawn":
+            env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+        for command in commands:
             subprocess.run(
-                [str(bin_dir / "wineserver"), "-w"],
+                command,
                 env=env, timeout=15,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
@@ -3185,7 +3187,6 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     pfx = Path(compat_data) / "pfx"
     env = strip_appimage_env(os.environ.copy())
     env["WINEPREFIX"] = str(pfx if pfx.is_dir() else Path(compat_data))
-    env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
     # Same Xalia suppression as the Proton path - set before the saved/extra
     # overrides so a caller can still turn it back on.
     env["PROTON_DISABLE_XALIA"] = "1"
@@ -3209,7 +3210,15 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
         from Utils.launchers.bottles_runtime import bottles_tool_command
         cmd = bottles_tool_command(env["WINEPREFIX"], cmd[1:], env,
                                    cwd=cwd or exe.parent)
-    cmd = wrap_tool_command(game, cmd, env, log_fn=log_fn, label=label)
+    else:
+        from Utils.launchers.nixos import wrap_nixos_command
+        cmd = wrap_nixos_command(cmd, env=env, forward_host=True,
+                                 cwd=cwd or exe.parent)
+    if (cmd[0] != "flatpak-spawn"
+            and "PATH" not in saved and "PATH" not in (extra_env or {})):
+        env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+    cmd = wrap_tool_command(game, cmd, env, log_fn=log_fn, label=label,
+                            cwd=cwd or exe.parent)
     log_fn(f"{label}: launching with plain Wine (winetricks-style): "
            f"{' '.join(cmd)}")
     cmd, env = game_process.prepare_spawn(cmd, env)

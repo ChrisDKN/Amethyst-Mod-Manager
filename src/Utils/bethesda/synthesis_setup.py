@@ -79,10 +79,12 @@ def run_command(command, **options):
     from Utils.launchers.nixos import wrap_nixos_command
 
     check()
-    command = wrap_nixos_command(command, env=options["env"])
     context = _execution.get()
+    cwd = options.get("cwd", context["prefix"].parent if context else Path.cwd())
+    command = wrap_nixos_command(command, env=options["env"],
+                                 forward_host=True, cwd=cwd)
     code, output = run_prefix_installer(
-        command, options["env"], options.get("cwd", context["prefix"].parent if context else Path.cwd()),
+        command, options["env"], cwd,
         label="Synthesis setup", timeout=options["timeout"],
         cancel=context["cancel"] if context else None,
         log_fn=context["log"] if context else None)
@@ -103,7 +105,10 @@ def flush_prefix(prefix, wine, log):
         context = _execution.get()
         if context is not None:
             context["cleanup_check"]()
-        code, output = run_prefix_installer(wrap_nixos_command([str(wine.parent / "wineserver"), option]), _base_env(prefix, wine),
+        env = _base_env(prefix, wine)
+        command = wrap_nixos_command([str(wine.parent / "wineserver"), option],
+                                     env=env, forward_host=True, cwd=prefix.parent)
+        code, output = run_prefix_installer(command, env,
                                             prefix.parent, label="Synthesis prefix cleanup", timeout=30, log_fn=log)
         if code != 0:
             raise SynthesisSetupError("synthesis_prefix_cleanup_failed", "Could not finish Synthesis prefix cleanup.",

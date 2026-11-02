@@ -165,8 +165,11 @@ def active_env_overrides() -> str:
 
 def distribution() -> str:
     """Pretty distro name from /etc/os-release (SteamOS, Arch Linux, …)."""
-    for path in ("/etc/os-release", "/usr/lib/os-release"):
+    paths = (("/run/host/os-release",) if Path("/.flatpak-info").exists()
+             else ("/etc/os-release", "/usr/lib/os-release"))
+    for path in paths:
         try:
+            fallback = ""
             for line in Path(path).read_text(encoding="utf-8",
                                              errors="replace").splitlines():
                 key, _, val = line.partition("=")
@@ -174,6 +177,10 @@ def distribution() -> str:
                     name = val.strip().strip('"').strip("'")
                     if name and key == "PRETTY_NAME":
                         return name
+                    if name:
+                        fallback = name
+            if fallback:
+                return fallback
         except Exception:
             continue
     return _UNKNOWN

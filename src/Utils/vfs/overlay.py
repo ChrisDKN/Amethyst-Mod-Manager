@@ -378,7 +378,8 @@ def _bubblewrap_namespace_status() -> tuple[bool, str]:
     invocation = _bubblewrap_invocation()
     if not invocation:
         return False, "bubblewrap or Flatpak host spawning is unavailable"
-    args = ["--die-with-parent", "--dev-bind", "/", "/", "--", "/bin/true"]
+    args = ["--die-with-parent", "--dev-bind", "/", "/", "--",
+            "/bin/sh", "-c", "exit 0"]
     location = "Flatpak host" if _inside_flatpak() else "native/AppImage host"
     try:
         probe = subprocess.run(
@@ -1912,7 +1913,7 @@ def build_layers(
     def _probe_bind_launch() -> tuple[bool, str]:
         try:
             probe = subprocess.run(
-                wrap_command(game, ["/bin/true"]),
+                wrap_command(game, ["/bin/sh", "-c", "exit 0"]),
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
