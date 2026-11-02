@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 import re
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from .jobs import JobCancelled, JobError
@@ -17,25 +19,73 @@ def _map_error(exc):
     return JobError(exc.name.replace("xedit_", "lod_"), str(exc), exc.details)
 
 
-def _source_tree(root, cancel, *, family="lod", label="LOD"):
+def _input_error(name, exc):
+    details = {"reason": str(exc), "exception_type": type(exc).__name__}
+    for key in ("errno", "filename", "filename2"):
+        value = getattr(exc, key, None)
+        if value is not None:
+            details[key] = value
+    if notes := getattr(exc, "__notes__", None):
+        details["notes"] = list(notes)
+    return JobError(name, "Could not read the LOD run inputs.", details)
+
+
+@contextmanager
+def _planning_step(log, stage):
+    started = time.monotonic()
+    log(f"{stage}: started")
+    try:
+        yield
+    except Exception as exc:
+        exc.add_note(stage)
+        log(f"{stage}: failed after {time.monotonic() - started:.1f}s: {type(exc).__name__}: {exc}")
+        raise
+    else:
+        log(f"{stage}: finished in {time.monotonic() - started:.1f}s")
+
+
+def _source_tree(root, cancel, *, family="lod", label="LOD", log_fn=lambda _m: None):
     records, visited = {}, set()
-    before = _identity(root)
-    for current, directories, files in os.walk(root, followlinks=True):
-        if cancel.is_set():
-            raise JobCancelled(f"{label} planning cancelled.")
-        parent = Path(current)
-        value = parent.stat()
-        key = value.st_dev, value.st_ino
-        if key in visited:
-            directories[:] = []
-            continue
-        visited.add(key)
-        for path in (parent, *(parent / name for name in directories + files)):
-            if cancel.is_set():
-                raise JobCancelled(f"{label} planning cancelled.")
-            records[str(path.relative_to(root))] = _identity(path)
-    if _identity(root) != before:
-        raise JobError(f"stale_{family}_run", f"{label} sources changed during planning.")
+    path = root
+    started = time.monotonic()
+    next_report = started + 5
+
+    def walk_error(exc):
+        log_fn(f"{label} source scan: could not enumerate {exc.filename}: {type(exc).__name__}: {exc}")
+
+    with _planning_step(log_fn, f"{label} source scan {root}"):
+        try:
+            before = _identity(root)
+            for current, directories, files in os.walk(root, followlinks=True, onerror=walk_error):
+                path = parent = Path(current)
+                if cancel.is_set():
+                    raise JobCancelled(f"{label} planning cancelled.")
+                value = parent.stat()
+                key = value.st_dev, value.st_ino
+                if key in visited:
+                    directories[:] = []
+                    continue
+                visited.add(key)
+                for path in (parent, *(parent / name for name in directories + files)):
+                    if cancel.is_set():
+                        raise JobCancelled(f"{label} planning cancelled.")
+                    records[str(path.relative_to(root))] = _identity(path)
+                now = time.monotonic()
+                if now >= next_report:
+                    log_fn(f"{label} source scan: {len(records)} entries in {now - started:.1f}s; directory {parent}")
+                    next_report = now + 5
+            path = root
+            if _identity(root) != before:
+                raise JobError(f"stale_{family}_run", f"{label} sources changed during planning.")
+        except OSError as exc:
+            exc.add_note(f"Source root: {root}; inspected path: {path}; entries recorded: {len(records)}")
+            try:
+                if path.is_symlink():
+                    exc.add_note(f"Symlink target: {os.readlink(path)}")
+            except OSError:
+                pass
+            raise
+        log_fn(f"{label} source scan: recorded {len(records)} entries in {len(visited)} directories")
     return before, hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest(), len(records)
 
 
@@ -80,14 +130,14 @@ def _mod_target(game, profile, choice, request, cancel):
     return name, staging / name
 
 
-def _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel):
+def _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel, *, log_fn=lambda _m: None):
     from Utils.profiles.state import read_only_profile_state
 
-    with read_only_profile_state():
-        return _build_plan(game, profile, tool_id, catalogue_revision, choice, request, cancel)
+    with read_only_profile_state(), _planning_step(log_fn, f"{choice['label']} planning profile {profile}"):
+        return _build_plan(game, profile, tool_id, catalogue_revision, choice, request, cancel, log_fn=log_fn)
 
 
-def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, cancel):
+def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, cancel, *, log_fn=lambda _m: None):
     from Utils.bethesda.lod_run import arguments, executable, saved_options, validate_output_path
     from Utils.bethesda.xedit_run import preview_prefix, _check_prefix
     from Utils.profiles.groups import is_group
@@ -98,6 +148,8 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
             raise JobCancelled("LOD planning cancelled.")
 
     check()
+    label = choice["label"]
+    log_fn(f"{label}: checking profile configuration and tool catalogue")
     selected = _selected_game(game, profile)
     if not selected.is_configured():
         raise JobError("game_not_configured", "Configure the selected game before generating LOD.")
@@ -105,11 +157,14 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
         raise JobError("profile_group_unsupported", "Generate LOD from a concrete profile so its output has an owner.")
     if catalogue(game, profile)["revision"] != catalogue_revision:
         raise JobError("stale_tool_catalogue", "Refresh the selected profile's tools.list catalogue.")
+    log_fn(f"{label}: checking executable and Proton prefix")
     settings = saved_options(selected, choice, tool_id)
     settings.update({key: value for key, value in request.items() if key in settings})
     exe = executable(selected, choice)
     prefix = preview_prefix(selected, exe, settings["proton_name"], settings["prefix_mode"])
+    log_fn(f"{label}: executable {exe}; runner {prefix['script']}; prefix {prefix['prefix_path']} ({settings['prefix_mode']})")
     _check_prefix(prefix, settings["launch_env"])
+    log_fn(f"{label}: checking output destination and deployment ownership")
     output = Path(request["output_path"]).expanduser().absolute()
     validate_output_path(selected, choice, output, prefix)
     name, target = _mod_target(selected, profile, choice, request, cancel)
@@ -126,11 +181,13 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
             raise JobError("lod_restore_target_mismatch", "Restore the deployed profile's different game/prefix first.")
         if not deploy and last != profile.name:
             raise JobError("lod_deployed_profile_mismatch", "Deploy this profile or select the currently deployed profile.")
+    log_fn(f"{label}: recording profile input identities")
     inputs = _inputs(selected, profile, exe)
     inputs[str(profile / "loadorder.txt")] = _identity(profile / "loadorder.txt")
-    sources = {str(root): _source_tree(root, cancel) for root in
+    sources = {str(root): _source_tree(root, cancel, label=label, log_fn=log_fn) for root in
                (Path(selected.get_effective_mod_staging_path()), selected.get_game_path() / "Data",
                 selected.get_game_path() / "Data_Core")}
+    log_fn(f"{label}: recording output, prefix and application identities")
     parent_identity = _identity(output.parent)
     snapshot = {"game": str(instance_id(game)), "profile": str(profile), "tool_id": tool_id,
                 "catalogue_revision": catalogue_revision, "choice": choice, "request": request,
@@ -142,6 +199,7 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
                 "output_parent": [token[:3] for token in parent_identity] if parent_identity else None}
     if inputs != {path: _identity(Path(path)) for path in inputs}:
         raise JobError("stale_lod_run", "Profile or launch settings changed while planning.")
+    log_fn(f"{label}: preparing launch arguments")
     return {"revision": hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest(),
             "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
             "settings": settings, "exe_path": str(exe), "prefix": prefix,
@@ -160,11 +218,11 @@ def plan_runner(game, profile, tool_id, catalogue_revision, choice, request, can
 
         progress(0, 1, "plan_lod_run")
         try:
-            result = _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel)
+            result = _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel, log_fn=log)
         except (ToolRunError, PayloadInstallError) as exc:
             raise _map_error(exc) from exc
         except OSError as exc:
-            raise JobError("lod_plan_unavailable", "Could not read the LOD run inputs.", {"reason": str(exc)}) from exc
+            raise _input_error("lod_plan_unavailable", exc) from exc
         progress(1, 1, "plan_lod_run")
         return result
     return run
@@ -180,7 +238,7 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
         from Utils.wizards.payload import PayloadInstallError
 
         try:
-            initial = _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel)
+            initial = _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel, log_fn=log)
             if initial["revision"] != revision:
                 raise JobError("stale_lod_run", "LOD inputs changed; plan the run again.")
             selected = _selected_game(game, profile)
@@ -210,7 +268,7 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
                 inputs = {p: _identity(Path(p)) for p in inputs}
 
             def verify():
-                if _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel)["revision"] != revision:
+                if _plan(game, profile, tool_id, catalogue_revision, choice, request, cancel, log_fn=log)["revision"] != revision:
                     raise JobError("stale_lod_run", "LOD inputs changed; plan the run again.")
 
             def before_restore():
@@ -264,6 +322,6 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
         except OperationCancelled as exc:
             raise JobCancelled("LOD run cancelled.") from exc
         except OSError as exc:
-            raise JobError("lod_run_unavailable", "Could not read the LOD run inputs.", {"reason": str(exc)}) from exc
+            raise _input_error("lod_run_unavailable", exc) from exc
         return {**result, "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id, "exe_path": str(exe)}
     return run

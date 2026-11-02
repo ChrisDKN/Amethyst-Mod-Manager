@@ -2416,6 +2416,12 @@ leases remain held through preparation, the complete tool process, deployment
 recovery and output registration. Cancellation stops the managed tool and
 performs recovery before reporting a terminal job state.
 
+Planning logs identify each source root, scan counts, elapsed time and the
+current directory during long scans. Filesystem failures include `reason`,
+`exception_type`, `errno`, `filename` and inspection `notes` when available.
+The desktop wizard also logs the chained traceback and displays the underlying
+reason alongside the launch error.
+
 A zero exit code and nonempty validated output are required for import. Links,
 special files and case collisions are rejected. Import creates a new output
 mod, registers it at highest priority as an enabled data mod,

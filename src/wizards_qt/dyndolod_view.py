@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -532,7 +533,15 @@ class DynDOLODView(QWidget):
                 if details.get("output_retained"):
                     self._log(f"{name}: generated output retained at {details['output_path']}")
                 self._log(f"{name} Wizard: launch error: {exc}")
-                safe_emit(self._run_status_sig, self.tr("Launch error: {0}").format(exc), err_text())
+                self._log(f"{name} Wizard: error type: {type(exc).__name__}; code: {getattr(exc, 'name', 'unavailable')}")
+                for key in ("reason", "exception_type", "errno", "filename", "filename2", "notes"):
+                    if key in details:
+                        self._log(f"{name} Wizard: {key}: {details[key]}")
+                self._log(f"{name} Wizard: traceback:\n{traceback.format_exc()}")
+                message = self.tr("Launch error: {0}").format(exc)
+                if reason := details.get("reason"):
+                    message += f"\n{reason}"
+                safe_emit(self._run_status_sig, message, err_text())
                 safe_emit(self._run_failed_sig)
 
         threading.Thread(target=worker, daemon=True, name="dyndolod-run").start()
