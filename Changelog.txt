@@ -22,6 +22,7 @@
 - Fixed an issue in the Nexus browser when searching in the Tracked/Endored windows where it would search within the Browse window instead
 - Fixed an issue where manually adding a folder/mod to a wabbajack list would not appear even when refreshing the modlist
 - Fixed an issue where the game folder's text files were not showing in the text files tab
+- Fixed No Man's Sky mods whose archive stores the game's asset tree at its root (no mod folder inside) deploying into GAMEDATA/MODS/ instead of GAMEDATA/MODS/<ModName>/
 
 ---
 

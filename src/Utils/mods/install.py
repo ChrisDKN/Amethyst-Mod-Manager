@@ -1884,17 +1884,20 @@ def _run_additional_install_logic_inner(game, dest_root: Path, mod_name: str,
 
 def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
                       signal_exts: "set[str]", structured_markers: "set[str]",
-                      subdir_name_fn=None) -> bool:
+                      subdir_name_fn=None, *,
+                      signal_dirs: "set[str] | None" = None) -> bool:
     from Utils.deployment.vortex import preserve_sources
     with preserve_sources(mod_dir):
         return _wrap_flat_mod_dir(mod_dir, signal_names, signal_exts,
-                                  structured_markers, subdir_name_fn)
+                                  structured_markers, subdir_name_fn,
+                                  signal_dirs=signal_dirs)
 
 
 def _wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
                       signal_exts: "set[str]",
                       structured_markers: "set[str]",
-                      subdir_name_fn=None) -> bool:
+                      subdir_name_fn=None, *,
+                      signal_dirs: "set[str] | None" = None) -> bool:
     """Wrap a flat mod folder's files one level deeper; True if restructured.
 
     Some games (e.g. Stardew/SMAPI ``Mods/<Name>/manifest.json``, JA3
@@ -1906,6 +1909,12 @@ def _wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     *structured_markers* inside any immediate subdirectory means the mod is
     already correctly structured and must not be touched (a loose root file
     alongside it is part of a multi-destination mod).
+
+    *signal_dirs* (lowercase, optional) extends the flat signal to directory
+    names: games whose mods are the game's own asset tree (No Man's Sky:
+    ``METADATA/``, ``TEXTURES/``, ``UI/`` ...) ship archives with that tree at
+    the archive root, which must be deployed as ``<ModName>/<tree>`` rather
+    than spread across the data dir's own top level.
     """
     from Utils.filegraph.paths import EXCLUDE_NAMES
     if not mod_dir.is_dir():
@@ -1931,10 +1940,16 @@ def _wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
         for sub in children
     ):
         return False
-    has_signal = any(has_marker(mod_dir, marker) for marker in signal_names) or any(
-        c.is_file()
-        and (c.name.lower() in signal_names or c.suffix.lower() in signal_exts)
-        for c in children
+    signal_dir_names = {d.lower() for d in (signal_dirs or set())}
+    has_signal = (
+        any(has_marker(mod_dir, marker) for marker in signal_names)
+        or any(c.is_dir() and c.name.lower() in signal_dir_names
+               for c in children)
+        or any(
+            c.is_file()
+            and (c.name.lower() in signal_names or c.suffix.lower() in signal_exts)
+            for c in children
+        )
     )
     if not has_signal:
         return False
@@ -1958,13 +1973,15 @@ def _wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     return True
 
 
-def _game_wrap_signals(game) -> "tuple[set[str], set[str], set[str]]":
-    """Lowercased (names, extensions, structured-markers) wrap signals."""
+def _game_wrap_signals(game) -> "tuple[set[str], set[str], set[str], set[str]]":
+    """Lowercased (names, extensions, directory names, structured markers)."""
     names, exts = getattr(game, "mod_staging_wrap_signals",
                           ({"manifest.json"}, set()))
+    dir_names = getattr(game, "mod_staging_wrap_dir_names", set())
     guard = getattr(game, "mod_staging_already_structured_markers", set())
     return ({n.lower() for n in (names or {"manifest.json"})},
             {e.lower() for e in (exts or set())},
+            {d.lower() for d in (dir_names or set())},
             {g.lower() for g in (guard or set())})
 
 
@@ -1973,11 +1990,12 @@ def _wrap_flat_if_needed(game, dest_root: Path, log_fn: LogFn) -> None:
     if not getattr(game, "mod_staging_requires_subdir", False):
         return
     try:
-        names, exts, guard = _game_wrap_signals(game)
+        names, exts, dir_names, guard = _game_wrap_signals(game)
         name_fn = getattr(game, "mod_staging_wrap_subdir_name", None)
         wrapped_name = name_fn(dest_root) if callable(name_fn) else dest_root.name
         fixed_name = (lambda _mod_dir: wrapped_name) if callable(name_fn) else None
-        if wrap_flat_mod_dir(dest_root, names, exts, guard, fixed_name):
+        if wrap_flat_mod_dir(dest_root, names, exts, guard, fixed_name,
+                             signal_dirs=dir_names):
             log_fn(f"Auto-fixed flat staging structure: wrapped files into "
                    f"'{dest_root.name}/{wrapped_name}/'.")
     except OSError as exc:
@@ -1990,6 +2008,8 @@ def fix_flat_staging_folders(
     signal_extensions: "set[str] | None" = None,
     already_structured_markers: "set[str] | None" = None,
     subdir_name_fn=None,
+    *,
+    signal_dirs: "set[str] | None" = None,
 ) -> list[str]:
     """Wrap every flat mod staging folder; returns the names restructured.
 
@@ -2001,6 +2021,7 @@ def fix_flat_staging_folders(
     names = {n.lower() for n in (signal_filenames or {"manifest.json"})}
     exts = {e.lower() for e in (signal_extensions or set())}
     guard = {n.lower() for n in (already_structured_markers or set())}
+    dirs = {d.lower() for d in (signal_dirs or set())}
     fixed: list[str] = []
     if not staging_root.is_dir():
         return fixed
@@ -2011,7 +2032,8 @@ def fix_flat_staging_folders(
             continue
         if (mod_dir.is_dir()
                 and wrap_flat_mod_dir(
-                    mod_dir, names, exts, guard, subdir_name_fn)):
+                    mod_dir, names, exts, guard, subdir_name_fn,
+                    signal_dirs=dirs)):
             fixed.append(mod_dir.name)
     return fixed
 
