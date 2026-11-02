@@ -13752,6 +13752,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         from Utils.executables import launch as exe_launch
         label = self._play_exe_selector.current()
         exe_path = self._play_exe_paths.get(label)
+        log_executable = exe_path
         from Utils.bethesda import skyrim_together
         if exe_path is None and together_choice is not False:
             together_exe = skyrim_together.find_launcher(game)
@@ -13855,16 +13856,19 @@ class MainWindow(QMainWindow, PluginPanelControls):
                         self._play_failed(detail, entry=label)
 
                     from Utils.processes import game as game_process
-                    with game_process.bind(session):
+                    from Utils.executables.logs import capture
+                    with game_process.bind(session), capture(
+                            game, log_executable, label=label,
+                            log_fn=self._play_log) as log:
                         with launch_report.report(_failed) as rep:
                             try:
                                 if together_choice:
-                                    target(run_path, game, log_fn=self._play_log,
+                                    target(run_path, game, log_fn=log,
                                            launch_settings_key=exe_launch.game_exe_key(game))
                                 else:
-                                    target(run_path, game, log_fn=self._play_log)
+                                    target(run_path, game, log_fn=log)
                             except Exception as exc:
-                                self._append_log(f"Run EXE error: {exc!r}")
+                                log(f"Run EXE error: {exc!r}")
                                 rep.mark_failed(f"{exc!r}")
                             else:
                                 rep.finish()
@@ -13925,12 +13929,14 @@ class MainWindow(QMainWindow, PluginPanelControls):
                     self._play_failed(detail)
 
                 from Utils.processes import game as game_process
-                with game_process.bind(session):
+                from Utils.executables.logs import capture
+                with game_process.bind(session), capture(
+                        game, label=game.name, log_fn=self._play_log) as log:
                     with launch_report.report(_failed) as rep:
                         try:
-                            exe_launch.launch_game(game, log_fn=self._play_log)
+                            exe_launch.launch_game(game, log_fn=log)
                         except Exception as exc:
-                            self._append_log(f"Play error: {exc!r}")
+                            log(f"Play error: {exc!r}")
                             rep.mark_failed(f"{exc!r}")
                         else:
                             rep.finish()
@@ -13977,6 +13983,19 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 self._open_launcher_settings(game)
             else:
                 self._open_exe_settings_tab(exe_path)
+        elif which == "logs":
+            from Utils.executables.logs import log_directory
+            from gui_qt.launchers.logs import LaunchLogEditor
+            label = self._play_exe_selector.current()
+            directory = log_directory(game, self._play_exe_paths.get(label))
+            for kind in ("umu", "proton"):
+                key = f"launch_log:{directory}:{kind}"
+                if self._tabs.has_key(key):
+                    self._tabs.focus_key(key)
+                    continue
+                editor = LaunchLogEditor(directory, kind, label)
+                self._tabs.open_scoped_tab(
+                    editor, editor.name, self._modlist_panel_stack, key=key)
 
     def _refresh_exe_settings_actions(self):
         btn = getattr(self, "_exe_settings_btn", None)
@@ -13992,6 +14011,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
              {"enabled": not running}),
             (self.tr("LSFG / MAKO controls"), self._open_lsfg_controls),
             (self.tr("MangoHud controls"), self._open_mangohud_controls),
+            (self.tr("Logs"), lambda: self._on_play_action("logs")),
         ]
         actions.append((
             self.tr("Open application folder"),

@@ -44,6 +44,7 @@ from Utils.config_paths import (
 )
 from Utils.processes import game as game_process
 from Utils.processes import report as launch_report
+from Utils.executables import logs as launch_logs
 from Utils.wine.protontricks import strip_appimage_env
 from Utils.processes.sleep import inhibit_sleep
 from Utils.environment.xdg import spawn_watched
@@ -1630,7 +1631,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     umu error) indistinguishable from a successful launch - the log ended at
     "launching …" and the Play button looked like it did nothing.
 
-    stderr goes to a temp *file* (not a pipe: a pipe would EPIPE the game if
+    stderr goes to a *file* (not a pipe: a pipe would EPIPE the game if
     our app exits first, and a full pipe buffer could block it); a daemon
     thread waits for the exit and logs the code plus a stderr tail. The exit
     line also fires on a normal quit hours later - that's fine, it confirms
@@ -1640,7 +1641,7 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     desktop-started Flatpak can inherit an anonymous stdin from its launcher;
     after ``flatpak-spawn --host`` GE-Proton10-33's Wine cold boot crashes in
     ``NtQueryInformationFile/get_std_handle`` (exit 245) before the game
-    starts. Use /dev/null for stdin/stdout and a NAMED temp file for stderr.
+    starts. Use /dev/null for stdin and named files for captured output.
     ``tempfile.TemporaryFile`` is an anonymous O_TMPFILE fd and triggers the
     same Wine bug. Verified against the GE-Proton10-33 coredumps.
     """
@@ -1649,6 +1650,10 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
     import time
 
     errfile = None
+    try:
+        errfile = launch_logs.open_output()
+    except OSError as exc:
+        log_fn(f"{label}: could not capture launch output: {exc}")
     try:
         # Flatpak gives the app a private /tmp. A named file created there is
         # still effectively anonymous after flatpak-spawn hands its descriptor
@@ -1661,8 +1666,9 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
             os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
         capture_dir = cache_base / "AmethystModManager"
         capture_dir.mkdir(parents=True, exist_ok=True)
-        errfile = tempfile.NamedTemporaryFile(
-            prefix="amm-launch-stderr-", dir=capture_dir)
+        if errfile is None:
+            errfile = tempfile.NamedTemporaryFile(
+                prefix="amm-launch-stderr-", dir=capture_dir)
     except Exception:
         # /dev/null remains a concrete standard handle. Do not fall back to
         # tempfile's private /tmp, which recreates the Wine crash above.
@@ -1678,7 +1684,8 @@ def spawn_process_watched(cmd: list, *, env: "dict | None" = None,
             env=env,
             cwd=str(cwd) if cwd is not None else None,
             stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
+            stdout=(errfile if launch_logs.active() and errfile is not None
+                    else subprocess.DEVNULL),
             stderr=errfile if errfile is not None else subprocess.DEVNULL,
             start_new_session=True,
         )
@@ -3526,6 +3533,10 @@ def launch_game(game, log_fn=_noop_log) -> None:
         effective_mode = "none"
         log_fn("Play: MangoHud is enabled - launching the game directly so "
                "its overlay environment reaches the game process.")
+    elif launch_logs.active() and mode != "none":
+        effective_mode = "none"
+        log_fn("Play: launching directly with the configured runner and prefix "
+               "to capture UMU and Proton logs.")
     elif launch_with_wayland and mode != "none":
         log_fn("Play: Launch with Wayland is enabled, but launcher routing "
                "takes precedence. Configure Wayland in the selected launcher "
@@ -4030,6 +4041,7 @@ def launch_exe_via_proton(
     if protected_game_launch and not _require_direct_steam_client(game, log_fn):
         return
     if (framework_launch
+            and not launch_logs.active()
             and not getattr(game, "vfs_launch_enabled", False)
             and not uses_stock_game(game)
             and launch_swapped_framework_via_steam(

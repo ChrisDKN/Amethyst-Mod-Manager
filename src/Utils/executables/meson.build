@@ -3,6 +3,7 @@ py.install_sources(
   'arguments.py',
   'icon.py',
   'launch.py',
+  'logs.py',
   'lsfg.py',
   'mako.py',
   subdir: 'Utils/executables',

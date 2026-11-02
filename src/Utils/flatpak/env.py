@@ -35,6 +35,7 @@ _ALWAYS_FORWARD_EXACT = frozenset({
     "DISABLE_VK_LAYER_VALVE_steam_overlay_1",
     "GAMEID",
     "PROTONPATH",
+    "UMU_LOG",
     "WINEPREFIX",
     "WINEDLLOVERRIDES",
     "WINEDEBUG",

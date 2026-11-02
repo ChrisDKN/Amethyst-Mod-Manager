@@ -815,6 +815,8 @@ def umu_run_command(umu_bin: Path, *args: str,
     executable directory: changing Popen's cwd only affects the sandbox-side
     helper and does not reliably set the host command's cwd.
     """
+    from Utils.executables.logs import apply_environment
+    apply_environment(env)
     cmd = [str(umu_bin), *map(str, args)]
     if Path("/.flatpak-info").exists() and shutil.which("flatpak-spawn"):
         from Utils.flatpak.env import flatpak_forward_env_args

@@ -5,6 +5,7 @@ py.install_sources(
   'exe_settings.py',
   'handoff.py',
   'lsfg.py',
+  'logs.py',
   'mangohud.py',
   'settings.py',
   'provider_settings.py',
