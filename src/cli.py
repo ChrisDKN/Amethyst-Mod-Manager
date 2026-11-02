@@ -4,6 +4,7 @@ cli.py
 Command-line interface for Amethyst Mod Manager.
 
 Usage:
+    python cli.py --version
     python cli.py list-games
     python cli.py list-profiles <game>
     python cli.py deploy <game> <profile_name>
@@ -22,6 +23,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+
+from version import __version__
 
 
 def _setup_path():
@@ -438,7 +441,9 @@ def main():
         prog="amethyst",
         description="Amethyst Mod Manager - CLI",
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}")
+    subparsers =parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list-games", help="List all discovered games and whether they are configured")
 
