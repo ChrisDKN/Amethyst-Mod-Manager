@@ -664,6 +664,56 @@ def test_builtin_handler_is_not_a_custom_game() -> None:
         assert game.is_custom is False
 
 
+def test_flat_game_tree_is_wrapped_into_the_mod_folder() -> None:
+    """A 5.50 archive with the asset tree at its root must deploy as
+    GAMEDATA/MODS/<ModName>/<tree>, not GAMEDATA/MODS/<tree>."""
+    from Utils.mods.install import _wrap_flat_if_needed
+
+    nms = _load_handler()
+    game = nms.NoMansSky()
+    assert game.mod_staging_requires_subdir is True
+    assert {"metadata", "textures", "ui"} <= game.mod_staging_wrap_dir_names
+    with tempfile.TemporaryDirectory() as tmp:
+        mod_dir = Path(tmp) / "Cool HUD"
+        (mod_dir / "METADATA" / "UI").mkdir(parents=True)
+        (mod_dir / "METADATA" / "UI" / "HUD.MBIN").write_bytes(b"mbin")
+        (mod_dir / "TEXTURES" / "UI").mkdir(parents=True)
+        (mod_dir / "meta.ini").write_text("[General]\n", encoding="utf-8")
+        _wrap_flat_if_needed(game, mod_dir, lambda _m: None)
+        assert (mod_dir / "Cool HUD" / "METADATA" / "UI" / "HUD.MBIN").is_file()
+        assert (mod_dir / "Cool HUD" / "TEXTURES" / "UI").is_dir()
+        assert (mod_dir / "meta.ini").is_file()
+        assert not (mod_dir / "METADATA").exists()
+
+
+def test_archive_with_mod_folder_is_not_wrapped_twice() -> None:
+    from Utils.mods.install import _wrap_flat_if_needed
+
+    nms = _load_handler()
+    game = nms.NoMansSky()
+    with tempfile.TemporaryDirectory() as tmp:
+        mod_dir = Path(tmp) / "CoolHUD"
+        (mod_dir / "CoolHUD" / "METADATA").mkdir(parents=True)
+        (mod_dir / "CoolHUD" / "METADATA" / "HUD.MBIN").write_bytes(b"mbin")
+        _wrap_flat_if_needed(game, mod_dir, lambda _m: None)
+        assert (mod_dir / "CoolHUD" / "METADATA" / "HUD.MBIN").is_file()
+        assert not (mod_dir / "CoolHUD" / "CoolHUD").exists()
+
+
+def test_legacy_loose_pak_is_not_wrapped() -> None:
+    from Utils.mods.install import _wrap_flat_if_needed
+
+    nms = _load_handler()
+    game = nms.NoMansSky()
+    with tempfile.TemporaryDirectory() as tmp:
+        mod_dir = Path(tmp) / "CoolHUD"
+        mod_dir.mkdir()
+        (mod_dir / "CoolHUD.pak").write_bytes(b"HGPAK")
+        _wrap_flat_if_needed(game, mod_dir, lambda _m: None)
+        assert (mod_dir / "CoolHUD.pak").is_file()
+        assert not (mod_dir / "CoolHUD").exists()
+
+
 def test_priority_log_line_states_which_end_wins() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
@@ -705,6 +755,9 @@ def main() -> None:
     test_unmanaged_folders_come_from_core_backup_when_present()
     test_unmanaged_folders_fall_back_to_mods_dir_without_core()
     test_handler_identity_matches_the_custom_definition()
+    test_flat_game_tree_is_wrapped_into_the_mod_folder()
+    test_archive_with_mod_folder_is_not_wrapped_twice()
+    test_legacy_loose_pak_is_not_wrapped()
     for check in (
         test_physical_deploy_writes_settings_then_restore_puts_original_back,
         test_settings_write_failure_becomes_deploy_warning,

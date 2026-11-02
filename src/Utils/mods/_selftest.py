@@ -32,6 +32,19 @@ class _Prepared:
         self.version_change = None
         self.on_need_prefix = None
         self.cleanup_called = False
+        # Interactive-installer plugin hooks (d85e90b): a plain archive has no
+        # plugin installer, so no session and no plugin-side validation.
+        self.plugin_session = None
+        self.plugin_install = None
+        self.plugin_source = None
+        self.installer_kind = "plain"
+        # Replacement bookkeeping set by finish_install itself.
+        self._preserve_position = False
+        self._preserved_endorsed = False
+        self._preserved_ignored_reqs = ""
+
+    def has_interactive_installer(self) -> bool:
+        return False
 
     def is_multi_mod(self) -> bool:
         return False
@@ -159,6 +172,85 @@ def test_finish_install_preserves_hook_cancellation() -> None:
         assert not (staging / "Fixture Mod").exists()
 
 
+def _tree(root: Path) -> list[str]:
+    return sorted(p.relative_to(root).as_posix()
+                  for p in root.rglob("*") if p.is_file())
+
+
+def test_wrap_dir_name_signal_wraps_a_bare_game_tree() -> None:
+    from Utils.mods.install import wrap_flat_mod_dir
+
+    with tempfile.TemporaryDirectory() as tmp:
+        mod_dir = Path(tmp) / "Cool HUD"
+        (mod_dir / "METADATA" / "UI").mkdir(parents=True)
+        (mod_dir / "METADATA" / "UI" / "HUD.MBIN").write_bytes(b"mbin")
+        (mod_dir / "TEXTURES").mkdir()
+        (mod_dir / "readme.txt").write_text("readme", encoding="utf-8")
+        (mod_dir / "meta.ini").write_text("[General]\n", encoding="utf-8")
+        wrapped = wrap_flat_mod_dir(
+            mod_dir, set(), set(), set(), signal_dirs={"metadata", "textures"})
+        assert wrapped is True
+        assert _tree(mod_dir) == [
+            "Cool HUD/METADATA/UI/HUD.MBIN",
+            "Cool HUD/readme.txt",
+            "meta.ini",
+        ]
+        # The manager's own metadata stays at the staging root.
+        assert not (mod_dir / "METADATA").exists()
+
+
+def test_wrap_dir_name_signal_leaves_wrapped_mods_alone() -> None:
+    from Utils.mods.install import wrap_flat_mod_dir
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # An archive that already has <ModName>/<tree>: staging is
+        # <staging>/<ModName>/<archive ModName>/<tree>, which must stay put.
+        mod_dir = Path(tmp) / "CoolHUD"
+        (mod_dir / "CoolHUD" / "METADATA").mkdir(parents=True)
+        (mod_dir / "CoolHUD" / "METADATA" / "HUD.MBIN").write_bytes(b"mbin")
+        assert wrap_flat_mod_dir(
+            mod_dir, set(), set(), set(),
+            signal_dirs={"metadata", "textures"}) is False
+        assert _tree(mod_dir) == ["CoolHUD/METADATA/HUD.MBIN"]
+
+
+class _DirSignalGame:
+    """Minimal game stub: subfolder staging + one directory wrap signal."""
+
+    mod_staging_requires_subdir = True
+    mod_staging_wrap_dir_names = {"metadata"}
+
+
+def test_wrap_flat_if_needed_reads_game_dir_signals() -> None:
+    from Utils.mods.install import _wrap_flat_if_needed
+
+    with tempfile.TemporaryDirectory() as tmp:
+        mod_dir = Path(tmp) / "CoolHUD"
+        (mod_dir / "METADATA").mkdir(parents=True)
+        (mod_dir / "METADATA" / "HUD.MBIN").write_bytes(b"mbin")
+        logs: list[str] = []
+        _wrap_flat_if_needed(_DirSignalGame(), mod_dir, logs.append)
+        assert (mod_dir / "CoolHUD" / "METADATA" / "HUD.MBIN").is_file()
+        assert logs and "wrapped" in logs[0]
+
+
+def test_fix_flat_staging_folders_accepts_dir_signals() -> None:
+    from Utils.mods.install import fix_flat_staging_folders
+
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp) / "staging"
+        flat = staging / "Flat"
+        (flat / "TEXTURES").mkdir(parents=True)
+        fine = staging / "Fine"
+        (fine / "Fine" / "TEXTURES").mkdir(parents=True)
+        fixed = fix_flat_staging_folders(
+            staging, None, None, None, None, signal_dirs={"textures"})
+        assert fixed == ["Flat"]
+        assert (flat / "Flat" / "TEXTURES").is_dir()
+        assert (fine / "Fine" / "TEXTURES").is_dir()
+        assert not (fine / "Fine" / "Fine").exists()
+
+
 def test_collection_install_aborts_when_hook_fails() -> None:
     hook_calls: list[Path] = []
     error = RuntimeError("collection hook failed")
@@ -196,3 +288,11 @@ if __name__ == "__main__":
     print("✓ hook cancellation remains a clean cancellation")
     test_collection_install_aborts_when_hook_fails()
     print("✓ collection hook failure aborts before install commit")
+    test_wrap_dir_name_signal_wraps_a_bare_game_tree()
+    print("✓ directory-name wrap signal wraps a bare game tree")
+    test_wrap_dir_name_signal_leaves_wrapped_mods_alone()
+    print("✓ already wrapped mod folders are left alone")
+    test_wrap_flat_if_needed_reads_game_dir_signals()
+    print("✓ game directory wrap signals reach the install wrap")
+    test_fix_flat_staging_folders_accepts_dir_signals()
+    print("✓ refresh heal honours directory wrap signals")

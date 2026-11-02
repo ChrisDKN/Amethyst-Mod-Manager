@@ -311,12 +311,14 @@ class GameState:
                 from Utils.mods.install import fix_flat_staging_folders
                 names, exts = getattr(g, "mod_staging_wrap_signals",
                                       ({"manifest.json"}, set()))
+                dir_names = getattr(g, "mod_staging_wrap_dir_names", set())
                 guard = getattr(g, "mod_staging_already_structured_markers",
                                 set())
                 name_fn = getattr(g, "mod_staging_wrap_subdir_name", None)
                 staging = self.staging_dir()
                 fixed = (fix_flat_staging_folders(
-                             staging, names, exts, guard, name_fn)
+                             staging, names, exts, guard, name_fn,
+                             signal_dirs=dir_names)
                          if staging is not None else [])
                 if fixed:
                     rescan_index = True
