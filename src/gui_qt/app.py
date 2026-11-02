@@ -9635,7 +9635,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         _post_aggregate(force=True)
 
         def _download_all():
-            import concurrent.futures as _cf
+            from concurrent.futures import ThreadPoolExecutor
             from Nexus.nexus_download import NexusDownloader
             from Nexus.nexus_meta import (build_meta_from_download,
                                           merge_reinstall_metadata)
@@ -9697,7 +9697,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                     with lock:
                         failed.append((mod_name, f"download error ({exc})"))
 
-            with _cf.ThreadPoolExecutor(max_workers=dl_workers) as pool:
+            with ThreadPoolExecutor(max_workers=dl_workers) as pool:
                 list(pool.map(_one, items))
             self._reinstall_downloaded.emit(dl_items, failed, fomod_request, cancel)
 
@@ -10084,7 +10084,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         import threading
 
         def _resolve_worker():
-            import concurrent.futures as _cf
+            from concurrent.futures import ThreadPoolExecutor
             from Nexus.nexus_meta import normalise_game_domain, read_meta
             from Nexus.nexus_updates import NexusUpdateResolver
             from Utils.mods.quick_update import resolve_quick_update_target
@@ -10106,7 +10106,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 except Exception as exc:
                     return None, str(exc)
 
-            with _cf.ThreadPoolExecutor(max_workers=4) as pool:
+            with ThreadPoolExecutor(max_workers=4) as pool:
                 prepared = list(zip(targets, pool.map(_prepare, targets)))
             domains = {}
             for _nm, (item, _error) in prepared:
@@ -10198,7 +10198,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         _post_aggregate(force=True)       # show the card before downloads start
 
         def _download_all():
-            import concurrent.futures as _cf
+            from concurrent.futures import ThreadPoolExecutor
             from Nexus.nexus_download import NexusDownloader
             from Nexus.nexus_meta import build_meta_from_download
             from Utils.config_paths import get_download_cache_dir_for_game
@@ -10268,7 +10268,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                     with lock:
                         failed.append((mod_name, f"download error ({exc})"))
 
-            with _cf.ThreadPoolExecutor(max_workers=dl_workers) as pool:
+            with ThreadPoolExecutor(max_workers=dl_workers) as pool:
                 list(pool.map(_one, queue))
             self._qu_skipped = skipped   # carried to _qu_finish via the installer
             self._qu_downloaded.emit(dl_items, failed)

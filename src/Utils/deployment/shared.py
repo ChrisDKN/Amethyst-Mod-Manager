@@ -8,13 +8,13 @@ changes; the package façade re-exports everything here via `from ... import *`.
 
 from __future__ import annotations
 
-import concurrent.futures
 import errno
 import fnmatch as _fnmatch
 import os
 import shutil
 import threading
 import time as _time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager as _contextmanager
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -111,7 +111,7 @@ def _map_batched(fn, items: list, chunk: int = 2048) -> list:
     def _run(sl: list) -> list:
         return [fn(x) for x in sl]
 
-    with concurrent.futures.ThreadPoolExecutor(
+    with ThreadPoolExecutor(
             max_workers=min(workers, len(slices))) as pool:
         for part in pool.map(_run, slices):
             out.extend(part)
@@ -151,7 +151,7 @@ def _iter_map_batched(fn, items: list, chunk: int = 256, stop_on=None):
                 break
         return results
 
-    pool = concurrent.futures.ThreadPoolExecutor(
+    pool = ThreadPoolExecutor(
         max_workers=min(workers, len(slices))
     )
     try:
@@ -1420,7 +1420,7 @@ def _restore_from_log(
         return 0
 
     if safe_targets:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
+        with ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
             for n in pool.map(_unlink_one, safe_targets):
                 removed += n
 

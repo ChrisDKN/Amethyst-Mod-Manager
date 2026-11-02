@@ -1800,7 +1800,7 @@ def _scan_drives(file_names: list[str],
     Pass *stop_event* to allow an external caller (e.g. a closing dialog) to
     abort the walk early.
     """
-    import concurrent.futures
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     # Map bare filename → declared parent sub-paths (lowercased), so a match
     # can be walked back up to the game root: a handler exe of
@@ -1991,9 +1991,9 @@ def _scan_drives(file_names: list[str],
     units.sort(key=_priority)
 
     found: Path | None = None
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
+    with ThreadPoolExecutor(max_workers=16) as pool:
         futures = {pool.submit(_scan_subtree, u): u for u in units}
-        for future in concurrent.futures.as_completed(futures):
+        for future in as_completed(futures):
             result = future.result()
             if result is not None:
                 found = result

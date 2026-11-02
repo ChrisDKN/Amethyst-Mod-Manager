@@ -8,12 +8,12 @@ behaviour preserved at the time of extraction.
 
 from __future__ import annotations
 
-import concurrent.futures
 import json
 import os
 import shutil
 import stat as _stat
 import time as _time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
@@ -631,7 +631,7 @@ def restore_root_folder(
         return 0
 
     if safe_targets:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
+        with ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
             for n in pool.map(_unlink_one, safe_targets):
                 removed += n
 

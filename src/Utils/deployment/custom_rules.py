@@ -8,7 +8,6 @@ behaviour preserved at the time of extraction.
 
 from __future__ import annotations
 
-import concurrent.futures
 import errno
 import fnmatch
 import json
@@ -16,6 +15,7 @@ import os
 import re
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path, PureWindowsPath
 
@@ -1490,7 +1490,7 @@ def restore_custom_rules(
 
     failed_targets: list[tuple[str, Path, OSError]] = []
     if safe_targets:
-        with concurrent.futures.ThreadPoolExecutor(
+        with ThreadPoolExecutor(
             max_workers=_deploy_workers()
         ) as pool:
             for abs_str, p, cleared, n, exc in pool.map(
