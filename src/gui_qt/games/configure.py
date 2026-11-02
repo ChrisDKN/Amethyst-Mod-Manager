@@ -2715,10 +2715,8 @@ class ConfigureGameView(QWidget):
         except Exception as exc:
             print(f"[gui_qt] profile structure create failed: {exc}", flush=True)
 
-        # Silently install this game's declared prefix dependencies.
-        self._install_prefix_deps()
-
-        self._on_done(True, False)
+        if not self._install_prefix_deps():
+            self._on_done(True, False)
 
     # ---- staging migration --------------------------------------------------
     def _start_staging_scan(self, old_root: Path, new_root: Path):
@@ -2795,30 +2793,19 @@ class ConfigureGameView(QWidget):
             self.staging_migrated = True
         self._finalize_save()
 
-    def _install_prefix_deps(self) -> None:
-        """Silently install this game's prefix dependencies in the background.
-
-        Two mechanisms, both skipped when no Proton prefix is available:
-          * ``auto_install_deps`` - curated native / winetricks / .NET
-            installers shared with the Proton Tools menu (see base_game).
-          * ``winetricks_components`` - legacy winetricks verbs.
-
-        Progress is reported via ``Utils.app_log.app_log`` (thread-safe; wired
-        into the Qt log panel by gui_qt.glue), so this worker touches no widgets.
-        """
+    def _install_prefix_deps(self) -> bool:
         game = self._game
         prefix = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
         if not (prefix and Path(prefix).is_dir()):
-            return
+            return False
         prefix = Path(prefix)
 
         deps = list(getattr(game, "auto_install_deps", []))
         components = list(getattr(game, "winetricks_components", []))
         if not deps and not components:
-            return
+            return False
 
-        def _worker():
-            from Utils.app_log import app_log
+        def _worker(app_log, progress):
             from Utils.wine.protontricks import (
                 D3D_DEP_KEY,
                 VCREDIST_DEP_KEY,
@@ -2851,7 +2838,8 @@ class ConfigureGameView(QWidget):
 
             app_log(f"{game.name}: checking prefix dependencies …")
 
-            for dep in deps:
+            for index, dep in enumerate(deps):
+                progress(index, dep)
                 if dep == "vcredist":
                     if is_dep_installed(prefix, VCREDIST_DEP_KEY):
                         app_log(f"{game.name}: VC++ Redistributable already installed - skipping.")
@@ -2919,7 +2907,8 @@ class ConfigureGameView(QWidget):
                     app_log(f"{game.name}: unknown auto_install dep '{dep}' - skipping.")
                     skipped.append(dep)
 
-            for comp in components:
+            for index, comp in enumerate(components, start=len(deps)):
+                progress(index, comp)
                 app_log(f"{game.name}: installing {comp} via winetricks …")
                 if _install_via_winetricks(prefix, comp, app_log, game=game):
                     installed.append(comp)
@@ -2938,9 +2927,13 @@ class ConfigureGameView(QWidget):
                 f"{game.name}: prefix dependency setup done"
                 + (f" - {'; '.join(summary)}." if summary else ".")
             )
+            return {"installed": installed, "skipped": skipped, "failed": failed}
 
-        threading.Thread(target=_worker, daemon=True,
-                         name="install-prefix-deps").start()
+        from gui_qt.wine.dependency_install import DependencyInstallOverlay
+        self._dependency_overlay = DependencyInstallOverlay(
+            self.window(), game.name, prefix, deps + components, _worker,
+            on_done=lambda _: self._on_done(True, False))
+        return True
 
     # ---- destructive actions ----------------------------------------------
     def _on_restore(self):

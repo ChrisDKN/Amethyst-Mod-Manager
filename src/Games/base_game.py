@@ -1617,7 +1617,7 @@ class BaseGame(ABC):
         versions offered by Proton Tools), ``"lavfilters"``, and the curated
         legacy DirectX winetricks verbs in ``protontricks.WINETRICKS_VERB_DEPS``.
 
-        These run silently in the background and are skipped per-dep when the
+        Setup shows a progress modal and skips each dependency when the
         prefix's amethyst_deps.json already records them, or when no Proton
         prefix is available. Prefer this over ``winetricks_components`` - many
         users lack a working winetricks/cabextract setup, and the winetricks

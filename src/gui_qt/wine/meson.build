@@ -1,6 +1,7 @@
 py.install_sources(
   '__init__.py',
   'components.py',
+  'dependency_install.py',
   'prefix_health.py',
   'prefix_manager.py',
   'set_prefix.py',
