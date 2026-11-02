@@ -975,16 +975,7 @@ class BaseGame(ABC):
 
     @property
     def mod_staging_wrap_dir_names(self) -> "set[str]":
-        """Top-level directory names that flag a flat mod as needing wrapping.
-
-        Only consulted when ``mod_staging_requires_subdir`` is True.  Extends
-        ``mod_staging_wrap_signals`` from files to directories: when the mods
-        of a game are the game's own asset tree (No Man's Sky deployments are
-        ``GAMEDATA/MODS/<ModName>/METADATA/``, ``.../TEXTURES/``, ...), an
-        archive that stores that tree at its root is the flat case and must be
-        deployed as ``<ModName>/<tree>`` instead of spreading the tree over the
-        data directory's own top level.  Lowercase names; empty by default.
-        """
+        """Lowercase directory signals for games requiring subfolder staging."""
         return set()
 
     @property

@@ -307,13 +307,6 @@ class NoMansSky(StandardCustomGame):
         # "Edit custom game" or "Force update handler" actions.
         return False
 
-    # Since 5.50 a mod is loaded from ``GAMEDATA/MODS/<ModName>/<tree>`` where
-    # <tree> is the game's own asset tree (METADATA/, TEXTURES/, UI/, ...) - a
-    # mod folder is NOT a flat list of files.  Archives that store the tree at
-    # their root (no <ModName>/ wrapper) are common; without wrapping they
-    # deploy to GAMEDATA/MODS/METADATA/... , which NMS ignores because it reads
-    # the folder directly below MODS/ as the mod and GCMODSETTINGS.MXML gets a
-    # bogus "METADATA" entry.
     _MOD_TREE_DIRS = frozenset({
         "audio", "fonts", "globals", "input", "language", "materials",
         "metadata", "models", "music", "pipelines", "scenes", "shaders",
@@ -323,6 +316,10 @@ class NoMansSky(StandardCustomGame):
     @property
     def mod_staging_requires_subdir(self) -> bool:
         return True
+
+    @property
+    def mod_staging_wrap_signals(self) -> tuple[set[str], set[str]]:
+        return (set(), {".exml", ".mbin", ".mxml", ".dds"})
 
     @property
     def mod_staging_wrap_dir_names(self) -> set[str]:

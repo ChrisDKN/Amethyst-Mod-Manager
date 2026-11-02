@@ -32,13 +32,10 @@ class _Prepared:
         self.version_change = None
         self.on_need_prefix = None
         self.cleanup_called = False
-        # Interactive-installer plugin hooks (d85e90b): a plain archive has no
-        # plugin installer, so no session and no plugin-side validation.
         self.plugin_session = None
         self.plugin_install = None
         self.plugin_source = None
         self.installer_kind = "plain"
-        # Replacement bookkeeping set by finish_install itself.
         self._preserve_position = False
         self._preserved_endorsed = False
         self._preserved_ignored_reqs = ""
@@ -195,7 +192,6 @@ def test_wrap_dir_name_signal_wraps_a_bare_game_tree() -> None:
             "Cool HUD/readme.txt",
             "meta.ini",
         ]
-        # The manager's own metadata stays at the staging root.
         assert not (mod_dir / "METADATA").exists()
 
 
@@ -203,8 +199,6 @@ def test_wrap_dir_name_signal_leaves_wrapped_mods_alone() -> None:
     from Utils.mods.install import wrap_flat_mod_dir
 
     with tempfile.TemporaryDirectory() as tmp:
-        # An archive that already has <ModName>/<tree>: staging is
-        # <staging>/<ModName>/<archive ModName>/<tree>, which must stay put.
         mod_dir = Path(tmp) / "CoolHUD"
         (mod_dir / "CoolHUD" / "METADATA").mkdir(parents=True)
         (mod_dir / "CoolHUD" / "METADATA" / "HUD.MBIN").write_bytes(b"mbin")
@@ -215,8 +209,6 @@ def test_wrap_dir_name_signal_leaves_wrapped_mods_alone() -> None:
 
 
 class _DirSignalGame:
-    """Minimal game stub: subfolder staging + one directory wrap signal."""
-
     mod_staging_requires_subdir = True
     mod_staging_wrap_dir_names = {"metadata"}
 

@@ -1962,11 +1962,7 @@ def _wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     already correctly structured and must not be touched (a loose root file
     alongside it is part of a multi-destination mod).
 
-    *signal_dirs* (lowercase, optional) extends the flat signal to directory
-    names: games whose mods are the game's own asset tree (No Man's Sky:
-    ``METADATA/``, ``TEXTURES/``, ``UI/`` ...) ship archives with that tree at
-    the archive root, which must be deployed as ``<ModName>/<tree>`` rather
-    than spread across the data dir's own top level.
+    *signal_dirs* adds lowercase directory names to the flat signals.
     """
     from Utils.filegraph.paths import EXCLUDE_NAMES
     if not mod_dir.is_dir():
@@ -2015,13 +2011,27 @@ def _wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     # manager's own metadata (meta.ini etc.) must stay at the staging root,
     # or the mod can no longer be matched to its meta.ini after wrapping.
     sub = mod_dir / subdir_name
-    if sub.exists():
-        return False
-    sub.mkdir()
-    for child in children:
-        if child.is_file() and child.name.lower() in EXCLUDE_NAMES:
-            continue
-        shutil.move(str(child), str(sub / child.name))
+    if sub.exists() or sub.is_symlink():
+        if (sub.is_symlink() or not sub.is_dir()
+                or sub.name.lower() not in signal_dir_names
+                or any(child.is_dir()
+                       and child.name.casefold() == subdir_name.casefold()
+                       for child in sub.iterdir())):
+            return False
+    wrapper = Path(tempfile.mkdtemp(prefix=".amethyst-wrap-", dir=mod_dir))
+    moved = []
+    try:
+        for child in children:
+            if child.is_file() and child.name.lower() in EXCLUDE_NAMES:
+                continue
+            shutil.move(str(child), str(wrapper / child.name))
+            moved.append(child)
+        wrapper.rename(sub)
+    except BaseException:
+        for child in reversed(moved):
+            shutil.move(str(wrapper / child.name), str(child))
+        wrapper.rmdir()
+        raise
     return True
 
 

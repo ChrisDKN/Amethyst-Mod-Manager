@@ -665,8 +665,7 @@ def test_builtin_handler_is_not_a_custom_game() -> None:
 
 
 def test_flat_game_tree_is_wrapped_into_the_mod_folder() -> None:
-    """A 5.50 archive with the asset tree at its root must deploy as
-    GAMEDATA/MODS/<ModName>/<tree>, not GAMEDATA/MODS/<tree>."""
+    """Flat asset trees need a named mod folder."""
     from Utils.mods.install import _wrap_flat_if_needed
 
     nms = _load_handler()
