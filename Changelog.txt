@@ -1,3 +1,6 @@
+- v2.6.1
+- Rebuild of 2.6.0 to fix flatpak launch issue
+
 - v2.6.0
 ### Game Support
 - Added Nivalis Nights
