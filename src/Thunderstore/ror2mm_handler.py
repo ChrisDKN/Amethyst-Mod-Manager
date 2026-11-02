@@ -36,6 +36,8 @@ import sys
 from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
 
+from Utils.environment.xdg import run_host_tool
+
 _SCHEME = "ror2mm"
 _DEFAULT_HOST = "thunderstore.io"
 _ALLOWED_HOSTS = frozenset({_DEFAULT_HOST})
@@ -260,17 +262,17 @@ class Ror2mmHandler:
         for path in cls._desktop_paths():
             if path.exists():
                 try:
-                    subprocess.run(["update-desktop-database", str(path.parent)],
-                                   check=False, capture_output=True, timeout=15)
+                    run_host_tool(["update-desktop-database", str(path.parent)],
+                                  timeout=15)
                 except (OSError, subprocess.SubprocessError):
                     pass
                 break
 
         try:
-            subprocess.run(
+            run_host_tool(
                 ["xdg-mime", "default", cls._DESKTOP_FILE_NAME,
                  f"x-scheme-handler/{cls._SCHEME}"],
-                check=False, capture_output=True, timeout=15)
+                timeout=15)
         except (OSError, subprocess.SubprocessError) as exc:
             _handler_log(
                 f"xdg-mime registration for {cls._SCHEME}:// failed: {exc}")
@@ -410,11 +412,9 @@ class Ror2mmHandler:
             return False
 
         try:
-            result = subprocess.run(
+            result = run_host_tool(
                 ["xdg-mime", "query", "default",
                  f"x-scheme-handler/{cls._SCHEME}"],
-                check=False,
-                capture_output=True,
                 timeout=10,
             )
             return (result.returncode == 0

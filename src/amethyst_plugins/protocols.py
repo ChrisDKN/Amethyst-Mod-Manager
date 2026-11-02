@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from Utils import json_limits as json
 import os
-import subprocess
 
 from .catalog import discover, load_settings
 from .downloads import matches, source_uri
@@ -86,7 +85,7 @@ def handler(scheme):
         @classmethod
         def register(cls):
             from Nexus.nxm_handler import NxmHandler
-            from Utils.environment.xdg import host_env
+            from Utils.environment.xdg import run_host_tool
             written = False
             for path in cls._desktop_paths():
                 if "flatpak" in str(path) and not path.parent.exists():
@@ -101,7 +100,7 @@ def handler(scheme):
                                         ("update-desktop-database", [str(cls._desktop_paths()[0].parent)])):
                     command = NxmHandler._host_cmd(flatpak, tool)
                     if command:
-                        subprocess.run([*command, *arguments], env=host_env(), capture_output=True, timeout=15, check=False)
+                        run_host_tool([*command, *arguments], timeout=15)
             return written
 
         @classmethod

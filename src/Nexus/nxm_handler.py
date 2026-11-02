@@ -43,6 +43,7 @@ from urllib.parse import parse_qs, urlparse
 
 from Utils.app_log import app_log
 from Utils.diagnostics.privacy import redact_paths
+from Utils.environment.xdg import host_env, run_host_tool
 
 # Max size of logs/nxm.log before it is rotated to nxm.log.old.
 _NXM_LOG_MAX_BYTES = 512_000
@@ -649,7 +650,7 @@ class NxmHandler:
                 return ["flatpak-spawn", "--host", "--directory=/", tool]
             nxm_log(f"{tool}: flatpak-spawn unavailable - cannot reach host tool from sandbox")
             return None
-        if shutil.which(tool):
+        if shutil.which(tool, path=host_env().get("PATH", os.defpath)):
             return [tool]
         return None
 
@@ -667,9 +668,9 @@ class NxmHandler:
         table = "desktop-used-apps"
         scheme = "x-scheme-handler/nxm"
         try:
-            result = subprocess.run(
+            result = run_host_tool(
                 [*base, "permissions", table],
-                check=False, capture_output=True, timeout=10)
+                timeout=10)
         except (OSError, subprocess.SubprocessError) as exc:
             nxm_log(f"Could not check portal NXM choices: {exc}")
             return
@@ -689,9 +690,9 @@ class NxmHandler:
             if not handler or handler == _DESKTOP_FILE_NAME.removesuffix(".desktop"):
                 continue
             try:
-                result = subprocess.run(
+                result = run_host_tool(
                     [*base, "permission-remove", "--", table, scheme, app_id],
-                    check=False, capture_output=True, timeout=10)
+                    timeout=10)
             except (OSError, subprocess.SubprocessError) as exc:
                 nxm_log(f"Could not clear portal NXM choice for {app_id!r}: {exc}")
                 continue
@@ -744,10 +745,8 @@ class NxmHandler:
         if base is None:
             return False
         try:
-            result = subprocess.run(
+            result = run_host_tool(
                 [*base, "query", "default", "x-scheme-handler/nxm"],
-                check=False,
-                capture_output=True,
                 timeout=10,
             )
             if in_flatpak and cls._is_host_tool_missing(result.returncode):
@@ -769,16 +768,14 @@ class NxmHandler:
         if base is None:
             return
         try:
-            result = subprocess.run(
+            result = run_host_tool(
                 [*base, "mime", "x-scheme-handler/nxm", _DESKTOP_FILE_NAME],
-                check=False,
-                capture_output=True,
             )
             if in_flatpak and cls._is_host_tool_missing(result.returncode):
                 nxm_log("gio not installed on host - skipping gio mime registration")
                 return
             nxm_log("Registered nxm:// handler via gio mime")
-        except OSError as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             nxm_log(f"gio mime registration failed: {exc}")
 
     @classmethod
@@ -793,17 +790,15 @@ class NxmHandler:
         if base is None:
             return
         try:
-            result = subprocess.run(
+            result = run_host_tool(
                 [*base, "set", "default-url-scheme-handler", "nxm",
                  _DESKTOP_FILE_NAME],
-                check=False,
-                capture_output=True,
             )
             if in_flatpak and cls._is_host_tool_missing(result.returncode):
                 nxm_log("xdg-settings not installed on host - skipping registration")
                 return
             nxm_log("Registered nxm:// handler via xdg-settings")
-        except OSError as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             nxm_log(f"xdg-settings registration failed: {exc}")
 
     @classmethod
@@ -897,11 +892,9 @@ class NxmHandler:
             return False
 
         try:
-            result = subprocess.run(
+            result = run_host_tool(
                 [*xdg_mime_cmd, "default", _DESKTOP_FILE_NAME,
                  "x-scheme-handler/nxm"],
-                check=False,
-                capture_output=True,
             )
             if in_flatpak and cls._is_host_tool_missing(result.returncode):
                 nxm_log("xdg-mime not installed on host - nxm:// handler not registered")
@@ -910,7 +903,7 @@ class NxmHandler:
                 nxm_log(f"xdg-mime default failed: {result.stderr.decode(errors='replace').strip()}")
                 return False
             nxm_log("Registered nxm:// protocol handler via xdg-mime")
-        except OSError as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             nxm_log(f"xdg-mime default failed: {exc}")
             return False
 
@@ -934,10 +927,8 @@ class NxmHandler:
                 if not db_dir.exists():
                     continue
                 try:
-                    result = subprocess.run(
+                    result = run_host_tool(
                         [*udd_cmd, str(db_dir)],
-                        check=False,
-                        capture_output=True,
                     )
                     if in_flatpak and cls._is_host_tool_missing(result.returncode):
                         if not host_missing_logged:
@@ -948,7 +939,7 @@ class NxmHandler:
                         nxm_log(f"update-desktop-database failed for {db_dir}: {result.stderr.decode(errors='replace').strip()}")
                         continue
                     nxm_log(f"Updated desktop database: {db_dir}")
-                except OSError as exc:
+                except (OSError, subprocess.SubprocessError) as exc:
                     nxm_log(f"update-desktop-database failed for {db_dir}: {exc}")
 
         cls._log_effective_handler(in_flatpak)
@@ -967,10 +958,8 @@ class NxmHandler:
         if base is None:
             return
         try:
-            result = subprocess.run(
+            result = run_host_tool(
                 [*base, "query", "default", "x-scheme-handler/nxm"],
-                check=False,
-                capture_output=True,
                 timeout=10,
             )
             effective = result.stdout.decode(errors="replace").strip()

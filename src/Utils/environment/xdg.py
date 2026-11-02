@@ -1,20 +1,10 @@
-"""Helpers for safely launching host-system programs such as xdg-open from
-a polluted shell environment.
-
-Inside an AppImage, anylinux.so (LD_PRELOAD-injected by quick-sharun) hooks
-execve and scrubs AppDir-pointing env vars from child processes - so we
-don't need to do anything special there. sharun also doesn't use
-LD_LIBRARY_PATH; it invokes the dynamic linker with --library-path.
-
-host_env() therefore only protects against pollution from *outside* the
-AppImage: conda/pyenv/Steam-runtime can leave LD_LIBRARY_PATH pointing at
-incompatible libraries, which would break xdg-open or Dolphin.
-"""
+"""Launch host desktop programs without bundled libraries or data paths."""
 
 from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
 import threading
 from pathlib import Path
@@ -124,6 +114,31 @@ def host_env() -> dict[str, str]:
 
 def _in_flatpak() -> bool:
     return os.path.exists("/.flatpak-info")
+
+
+def run_host_tool(
+    cmd: list[str], *, timeout: float = 10,
+) -> subprocess.CompletedProcess:
+    """Run a short-lived desktop helper and kill its process group on timeout."""
+    cmd = list(cmd)
+    if _in_flatpak() and os.path.basename(cmd[0]) != "flatpak-spawn":
+        cmd = ["flatpak-spawn", "--host", "--directory=/", *cmd]
+    if (os.path.basename(cmd[0]) == "flatpak-spawn" and "--host" in cmd
+            and "--watch-bus" not in cmd):
+        cmd.insert(1, "--watch-bus")
+    with subprocess.Popen(
+        cmd, env=host_env(), cwd="/", stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+    ) as proc:
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except BaseException:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            raise
+        return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
 def xdg_download_dir() -> Path:
