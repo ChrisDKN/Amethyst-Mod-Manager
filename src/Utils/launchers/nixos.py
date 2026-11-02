@@ -16,7 +16,7 @@ def wrap_nixos_command(command: list[str], *, env: dict | None = None) -> list[s
                           for line in lines if line.startswith("ID=")), "")
         else:
             os_id = platform.freedesktop_os_release().get("ID")
-        if os_id != "nixos":
+        if os_id not in ("nixos", "glfos"):
             return command
     except OSError:
         return command
