@@ -15,5 +15,6 @@ py.install_sources(
   'tcg_card_shop_simulator.py',
   'valheim.py',
   'nivalis_nights.py',
+  'graveyard_keeper_2.py',
   subdir: 'Games' / 'BepInEx',
 )

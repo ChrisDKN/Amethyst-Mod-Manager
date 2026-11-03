@@ -70,5 +70,6 @@ py.install_sources(
   'witcher_3.png',
   'nivalis_nights.png',
   'Prey_2017.png',
+  'graveyard_keeper_2.png',
   subdir: 'icons' / 'games',
 )
