@@ -408,6 +408,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         divider()
         # Group: notes
         act(_mtf("Add note ({0})", n), lambda: _open_note_editor(view, _names))
+        submenu(_mt("Custom URL"), [
+            (_mt("Open URL"), lambda: view._open_source_pages(row)),
+            (_mt("Set URL"), lambda: _set_custom_url(view, _names)),
+        ])
         _note_remove = [nm for nm in _names if _mod_note(view, nm)]
         if _note_remove:
             act(_mtf("Remove note ({0})", len(_note_remove)),
@@ -520,6 +524,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     _has_note = bool(_mod_note(view, name))
     act(_mt("Edit note") if _has_note else _mt("Add note"),
         lambda: _open_note_editor(view, [name]))
+    submenu(_mt("Custom URL"), [
+        (_mt("Open URL"), lambda: view._open_source_pages(row)),
+        (_mt("Set URL"), lambda: _set_custom_url(view, [name])),
+    ])
     if _nif_viewer_available(view) and _has_meshes(view, name):
         act(_mt("Open in NIF Viewer"), lambda: _open_nif_viewer(view, name))
     if _has_fomod_choices(view, name):
@@ -1056,6 +1064,46 @@ def _mod_custom_url(view, name: str) -> str:
         return (cp.get("General", "mmb_custom_url", raw=True, fallback="") or "").strip()
     except Exception:
         return ""
+
+
+def _set_custom_url(view, names):
+    if not names or not _allow_file_changes(view, names):
+        return
+    staging = Path(view.staging_dir)
+    urls = {_mod_custom_url(view, name) for name in names}
+    initial = urls.pop() if len(urls) == 1 else ""
+
+    def _save(text):
+        if text is None or not _allow_file_changes(view, names):
+            return
+        import configparser
+        from io import StringIO
+        from Utils.atomic_write import write_atomic_text
+        from Utils.mods.metadata import meta_file_lock
+
+        for name in names:
+            meta_path = staging / name / "meta.ini"
+            try:
+                with meta_file_lock(meta_path):
+                    if not meta_path.parent.is_dir() or meta_path.is_symlink():
+                        raise OSError("The mod metadata path is unavailable or is a symbolic link.")
+                    cp = configparser.ConfigParser(interpolation=None,
+                                                   allow_no_value=True, strict=False)
+                    if meta_path.exists():
+                        cp.read_string(meta_path.read_text(encoding="utf-8"))
+                    if not cp.has_section("General"):
+                        cp.add_section("General")
+                    cp.set("General", "mmb_custom_url", text.strip())
+                    output = StringIO()
+                    cp.write(output)
+                    write_atomic_text(meta_path, output.getvalue())
+            except Exception as exc:
+                _notify(view, _mtf('Could not set URL for "{0}":\n{1}', name, exc))
+
+    TextInputOverlay.show_over(
+        view, _mt("Set URL"),
+        _mtf("URL for {0} selected mod(s) (leave blank to clear):", len(names)),
+        _save, initial=initial)
 
 
 def _mod_nexus_url(view, name: str) -> str:
@@ -2220,6 +2268,11 @@ def _remove_mods_multi(view, model, mod_rows):
 # runtime via QCoreApplication.translate("ModListMenu", …), which lupdate
 # cannot see through - so each literal is registered here explicitly.
 _TR_MARKERS = (
+    QT_TRANSLATE_NOOP("ModListMenu", "Custom URL"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Open URL"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Set URL"),
+    QT_TRANSLATE_NOOP("ModListMenu", "URL for {0} selected mod(s) (leave blank to clear):"),
+    QT_TRANSLATE_NOOP("ModListMenu", 'Could not set URL for "{0}":\n{1}'),
     QT_TRANSLATE_NOOP("ModListMenu", "Could not save mod notes:\n{0}"),
     QT_TRANSLATE_NOOP("ModListMenu", "Group with a new cosmetic mod…"),
     QT_TRANSLATE_NOOP("ModListMenu", "Create group"),
