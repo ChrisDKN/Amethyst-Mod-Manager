@@ -47,8 +47,16 @@ def extract_exe_icon(path: Path) -> "bytes | None":
 def extract_exe_version(path: Path) -> str:
     """Return the exe's file version ("1.6.1170.0") from VS_VERSIONINFO, or ""."""
     try:
+        return extract_pe_version(path) if Path(path).suffix.lower() == ".exe" else ""
+    except Exception:
+        return ""
+
+
+def extract_pe_version(path: Path, *, machine: int | None = None) -> str:
+    """Return an EXE/DLL file version, optionally requiring a PE machine type."""
+    try:
         p = Path(path)
-        if p.suffix.lower() != ".exe" or not p.is_file():
+        if p.suffix.lower() not in {".exe", ".dll"} or not p.is_file():
             return ""
         if p.stat().st_size > _MAX_FILE:
             return ""
@@ -56,6 +64,10 @@ def extract_exe_version(path: Path) -> str:
         parser = _make_parser(data)
         if parser is None:
             return ""
+        if machine is not None:
+            coff = struct.unpack_from("<I", data, 0x3C)[0] + 4
+            if struct.unpack_from("<H", data, coff)[0] != machine:
+                return ""
         ver_dir = parser._find_type_dir(16)      # RT_VERSION
         if ver_dir is None:
             return ""

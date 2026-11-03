@@ -59,8 +59,7 @@ _VCREDIST_REQUIRED = _VCREDIST_DLLS[:3]
 VCREDIST_MIN_VERSION = (14, 30, 0, 0)
 _VCREDIST_MIN_VERSION_TEXT = "14.30"
 
-# Only the genuine Microsoft bundle installer writes these. Native DLLs prove
-# presence; this record proves the installed runtime is new enough.
+# Genuine bundle records provide version evidence when available.
 _VCREDIST_BUNDLE_RE = (
     re.escape(wine_reg.escape_key(r"Software\Classes\Installer\Dependencies"))
     + r"\\\\VC,redist\.(?:x64|x86),[^,]+,[^,]+,bundle"
@@ -167,7 +166,22 @@ def vcredist_x64_version(prefix_path: Path) -> "tuple[int, int, int, int] | None
     pfx = wine_reg.normalize_pfx(Path(prefix_path))
     versions = [version for is_x64, _name, version in _vcredist_bundle_details(pfx)
                 if is_x64 and version is not None]
-    return max(versions, default=None)
+    return max(versions, default=None) or _vcredist_dll_version(pfx)
+
+
+def _vcredist_dll_version(pfx: Path) -> "tuple[int, int, int, int] | None":
+    from Utils.executables.icon import extract_pe_version
+
+    versions = []
+    for name in _VCREDIST_REQUIRED:
+        if dll_origin(pfx, name) is not DllOrigin.NATIVE:
+            return None
+        version = parse_vcredist_version(extract_pe_version(
+            pfx / "drive_c/windows/system32" / name, machine=0x8664))
+        if version is None:
+            return None
+        versions.append(version)
+    return min(versions)
 
 
 def detect_vcredist(prefix_path: Path) -> "bool | None":
@@ -187,8 +201,8 @@ def check_vcredist(prefix_path: Path) -> HealthCheck:
     Deliberately ignores ``Software\\Microsoft\\VisualStudio\\14.0\\VC\\
     Runtimes\\x64``: Proton pre-seeds that key with ``Installed=1`` and a
     plausible Version in every prefix it creates, while the DLLs are still Wine
-    builtins (verified on prefixes 1066890, 1449850, 220200, 2060160). Native
-    DLLs and the genuine bundle install record must agree.
+    builtins (verified on prefixes 1066890, 1449850, 220200, 2060160). Requires
+    native DLLs plus a bundle version or versions read from the x64 DLLs.
     """
     label = "VC++ Redistributable (x64)"
     pfx = wine_reg.normalize_pfx(Path(prefix_path))
@@ -202,7 +216,7 @@ def check_vcredist(prefix_path: Path) -> HealthCheck:
     bundles = [name for _is_x64, name, _version in bundle_details]
     x64_versions = [version for is_x64, _name, version in bundle_details
                     if is_x64 and version is not None]
-    x64_version = max(x64_versions, default=None)
+    x64_version = max(x64_versions, default=None) or _vcredist_dll_version(pfx)
     if bundles:
         evidence["bundles"] = bundles
     if x64_version is not None:
@@ -224,7 +238,8 @@ def check_vcredist(prefix_path: Path) -> HealthCheck:
                 f"{_VCREDIST_MIN_VERSION_TEXT} or newer is required" + suffix,
                 "vcredist", evidence)
         return HealthCheck("vcredist", HealthStatus.OK, label,
-                           f"native runtime DLLs installed{suffix}",
+                           "native runtime DLLs installed (x64 version "
+                           + ".".join(map(str, x64_version)) + ")" + suffix,
                            None, evidence)
     if native:
         return HealthCheck(
