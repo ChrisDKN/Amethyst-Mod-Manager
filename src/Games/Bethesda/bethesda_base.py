@@ -603,17 +603,25 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
     def _mygames_paths(self) -> list[Path]:
         if self._prefix_path is None:
             return []
-        steam_dir = self._prefix_path / self._MYGAMES_DOCS / self._MYGAMES_SUBPATH
-        paths: list[Path] = []
-        if steam_dir.is_dir():
-            paths.append(steam_dir)
+        docs = self._prefix_path / self._MYGAMES_DOCS
+        candidates = [docs / self._MYGAMES_SUBPATH]
         if self._MYGAMES_SUBPATH_GOG is not None:
-            gog_dir = self._prefix_path / self._MYGAMES_DOCS / self._MYGAMES_SUBPATH_GOG
-            if gog_dir.is_dir():
-                paths.append(gog_dir)
-        if not paths:
-            paths.append(steam_dir)
-        return paths
+            candidates.append(docs / self._MYGAMES_SUBPATH_GOG)
+            game_path = self.get_game_path()
+            if game_path is not None:
+                try:
+                    is_gog = any(
+                        (entry.name.casefold() in {"galaxy.dll", "galaxy64.dll"}
+                         or (entry.name.casefold().startswith("goggame-")
+                             and entry.suffix.casefold() == ".info"))
+                        and entry.is_file()
+                        for entry in game_path.iterdir()
+                    )
+                except OSError:
+                    is_gog = False
+                if is_gog:
+                    candidates.reverse()
+        return [path for path in candidates if path.is_dir()] or candidates[:1]
 
     def _mygames_path(self) -> "Path | None":
         """Return the primary My Games folder (back-compat shim)."""
