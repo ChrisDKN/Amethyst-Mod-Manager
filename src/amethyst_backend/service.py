@@ -1628,7 +1628,6 @@ class AmethystService:
 
     def _start_lod_run(self, params, *, execute):
         from threading import Event
-        from Utils.bethesda.lod_run import new_output_path
         from .lod_run import plan_runner, run_runner
 
         self._require_idle_state()
@@ -1654,8 +1653,7 @@ class AmethystService:
         if request.get("prefix_mode", "isolated") not in ("isolated", "shared", "game"):
             raise ServiceError(-32602, "invalid_params", "prefix_mode must be isolated, shared, or game.")
         if "output_path" in request and not Path(request["output_path"]).expanduser().is_absolute():
-            raise ServiceError(-32602, "invalid_params", "output_path must be an absolute new work folder.")
-        request.setdefault("output_path", str(new_output_path()))
+            raise ServiceError(-32602, "invalid_params", "output_path must be an absolute new output folder.")
         cancel = Event()
         if execute:
             self._require_no_managed_launch(game)
@@ -1667,7 +1665,7 @@ class AmethystService:
             runner = plan_runner(game, profile, tool_id, params["revision"], choice, request, cancel)
         kind = "tools.lod.run" if execute else "tools.lod.run.plan"
         job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
-                                {"tool_id": tool_id, "output_path": request["output_path"]}, runner=runner, cancel=cancel.set)
+                                {"tool_id": tool_id, "output_path": request.get("output_path")}, runner=runner, cancel=cancel.set)
         return {"job": job}
 
     def _start_smapi_acquisition(self, params):

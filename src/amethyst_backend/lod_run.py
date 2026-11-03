@@ -20,7 +20,7 @@ def _map_error(exc):
 
 
 def _input_error(name, exc):
-    details = {"reason": str(exc), "exception_type": type(exc).__name__}
+    details = {**getattr(exc, "details", {}), "reason": str(exc), "exception_type": type(exc).__name__}
     for key in ("errno", "filename", "filename2"):
         value = getattr(exc, key, None)
         if value is not None:
@@ -42,6 +42,11 @@ def _planning_step(log, stage):
         raise
     else:
         log(f"{stage}: finished in {time.monotonic() - started:.1f}s")
+
+
+def _runtime_directory(name):
+    folded = name.casefold()
+    return folded.startswith("prefix_") or folded in {"pfx", "drive_c", "dosdevices"}
 
 
 def _source_tree(root, cancel, *, family="lod", label="LOD", log_fn=lambda _m: None):
@@ -66,6 +71,7 @@ def _source_tree(root, cancel, *, family="lod", label="LOD", log_fn=lambda _m: N
                     directories[:] = []
                     continue
                 visited.add(key)
+                directories[:] = [name for name in directories if not _runtime_directory(name)]
                 for path in (parent, *(parent / name for name in directories + files)):
                     if cancel.is_set():
                         raise JobCancelled(f"{label} planning cancelled.")
@@ -92,7 +98,7 @@ def _source_tree(root, cancel, *, family="lod", label="LOD", log_fn=lambda _m: N
 def _application_binaries(exe):
     records = {}
     for current, directories, files in os.walk(exe.parent, followlinks=False):
-        directories[:] = [name for name in directories if not name.startswith("prefix_") and name not in ("pfx", "drive_c")]
+        directories[:] = [name for name in directories if not _runtime_directory(name)]
         for name in files:
             if name.casefold().endswith((".exe", ".dll")):
                 path = Path(current) / name
@@ -165,9 +171,10 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
     log_fn(f"{label}: executable {exe}; runner {prefix['script']}; prefix {prefix['prefix_path']} ({settings['prefix_mode']})")
     _check_prefix(prefix, settings["launch_env"])
     log_fn(f"{label}: checking output destination and deployment ownership")
-    output = Path(request["output_path"]).expanduser().absolute()
-    validate_output_path(selected, choice, output, prefix)
     name, target = _mod_target(selected, profile, choice, request, cancel)
+    output = Path(request.get("output_path", target)).expanduser().absolute()
+    direct_output = output == target
+    validate_output_path(selected, choice, output, prefix, direct_output=direct_output)
     deploy = request.get("deploy", True)
     if selected.get_deploy_active():
         last = selected.get_last_deployed_profile()
@@ -190,7 +197,8 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
     log_fn(f"{label}: recording output, prefix and application identities")
     parent_identity = _identity(output.parent)
     snapshot = {"game": str(instance_id(game)), "profile": str(profile), "tool_id": tool_id,
-                "catalogue_revision": catalogue_revision, "choice": choice, "request": request,
+                "catalogue_revision": catalogue_revision, "choice": choice,
+                "request": {**request, "output_path": str(output)},
                 "settings": settings, "exe": [str(exe), _identity(exe)], "prefix": prefix,
                 "prefix_files": {n: _identity(Path(prefix["prefix_path"]) / n) for n in ("user.reg", "system.reg", "userdef.reg")},
                 "runner": _identity(Path(prefix["script"])), "inputs": inputs, "sources": sources,
@@ -203,7 +211,9 @@ def _build_plan(game, profile, tool_id, catalogue_revision, choice, request, can
     return {"revision": hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest(),
             "game": str(instance_id(game)), "profile": profile.name, "tool_id": tool_id,
             "settings": settings, "exe_path": str(exe), "prefix": prefix,
-            "arguments": arguments(selected, choice, output, Path(prefix["compat_data"]), settings["launch_args"]),
+            "arguments": arguments(selected, choice, output, Path(prefix["compat_data"]), settings["launch_args"],
+                                   direct_output=direct_output),
+            "direct_output": direct_output,
             "output_path": str(output), "output_mod": {"name": name, "path": str(target),
                                                        "replacing": False},
             "deploy_before_run": deploy, "root_folder_enabled": request.get("root_folder_enabled", True),
@@ -304,8 +314,9 @@ def run_runner(game, profile, tool_id, catalogue_revision, choice, request, revi
                     raise JobError("lod_settings_save_failed", "Could not save all LOD launch settings.", {"state_persisted": True})
                 return True
 
-            result = run_lod(selected, choice, exe, settings, Path(initial["output_path"]),
-                             request.get("mod_name", choice["output_dir"]),
+            output_name = initial["output_mod"]["name"] if initial["direct_output"] else request.get("mod_name", choice["output_dir"])
+            result = run_lod(selected, choice, exe, settings, Path(initial["output_path"]), output_name,
+                             direct_output=initial["direct_output"],
                              prefix=initial["prefix"], cancel=cancel, before_write=verify, before_import=before_import,
                              import_checkpoint=import_checkpoint,
                              checkpoint=checkpoint, after_prepare=after_prepare, after_restore=after_prepare,

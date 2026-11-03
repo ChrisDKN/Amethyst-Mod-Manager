@@ -812,8 +812,8 @@ Result schemas allow additional properties for compatible additions.
 | `tools.lod.acquire.start` | `game`, `profile`, `tool_id`, catalogue `revision` | Acquire the declared xLODGen GitHub release into the managed cache, or return the manual DynDOLOD standalone download link. |
 | `tools.lod.inspect.start` | Acquisition parameters plus absolute `archive_path` | Inspect the selected 64-bit LOD application, archive identity, destination writes and plan revision without installing it. |
 | `tools.lod.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source:true` for a manual archive | Recheck and install xLODGen, TexGen or DynDOLOD through the shared recoverable application installer. |
-| `tools.lod.run.plan.start` | Installation choice parameters; optional run settings, `output_path`, `mod_name` | Plan generation, prefix, source identities, a new output mod and dedicated work folder without changing files. |
-| `tools.lod.run.start` | The same run parameters plus the returned `output_path`, `plan_revision`, `confirm:true` | Run the tool, recover deployment and import its generated files as an enabled data mod. |
+| `tools.lod.run.plan.start` | Installation choice parameters; optional run settings, `output_path`, `mod_name` | Plan generation, prefix, source identities and a new disabled output mod in staging without changing files. |
+| `tools.lod.run.start` | The same run parameters plus the returned `output_path`, `plan_revision`, `confirm:true` | Run the tool, recover deployment and enable its validated generated output mod. |
 | `tools.archive_packing.scan.start` | `game`, `profile` | Refresh the archive inventory and assess enabled or tracked mods for BSA/BA2 packing and unpacking. |
 | `tools.archive_packing.plan.start` | `game`, `profile`, `action` (`pack` or `unpack`), `mods`; packing `options` or unpack `archives` (optional) | Inspect archive names, mod ownership, affected profiles and deployment restrictions; return an apply revision. |
 | `tools.archive_packing.apply.start` | Identical planning parameters plus `revision`, `confirm:true` | Recheck the plan, run the shared desktop batch, and refresh affected profiles and plugin lists under the operation lock. |
@@ -2390,17 +2390,28 @@ names, ignoring case. Previous outputs stay in place for manual removal.
 `replace_output` is still accepted for compatibility but never permits replacement.
 
 The plan returns its `revision`, runner/prefix details, arguments,
-`output_mod` and an absolute `output_path`. When no path is supplied, the
-manager chooses a new folder under `$XDG_DATA_HOME/AmethystModManager/lod-runs`
-(or `~/.local/share/AmethystModManager/lod-runs`). No work folder is created by
-planning. Custom paths must be new and outside game, profile, staging,
-application and prefix folders. Generation writes into its `files` subfolder,
-then imports those files as a mod. Choose Exit or Save & Exit without zipping:
+`output_mod`, `direct_output` and an absolute `output_path`. By default the
+output path is the new numbered mod folder in staging, and `direct_output` is
+true. Planning creates no folder or modlist entry. Execution reserves that
+folder exclusively, registers it disabled and generates files directly into
+it. After generation and Restore succeed, validated output is indexed and
+its mod is enabled. No output copy is required. Failed or cancelled runs keep
+their new folder disabled for inspection and manual recovery.
+
+Before launch, saved TexGen/DynDOLOD presets for the selected game have their
+`OutputPath` synchronized with this run, preserving other options. Keep the
+selected output path when manually loading presets from other locations.
+Choose Exit or Save & Exit without zipping:
 the tool's Zip & Exit option clears the loose output folder, as described in
 the [DynDOLOD generation instructions](https://dyndolod.info/Generation-Instructions).
 See also the
 [upstream output guidance](https://github.com/sheson/xLODGen/blob/main/README.md).
 Profile groups must select a concrete profile to own the new output.
+
+Custom external `output_path` values remain supported for compatibility:
+they must be new and outside game, profile, staging, application and prefix
+folders. These runs report `direct_output:false`, generate into a `files`
+subfolder and import the result as a new numbered staging mod after success.
 
 ```json
 {"jsonrpc":"2.0","id":"run-lod","method":"tools.lod.run.start","params":{"game":"skyrim_se","profile":"default","tool_id":"run_xlodgen_skyrimse","revision":"revision-from-tools.list","output_path":"/absolute/work/folder/from-plan","plan_revision":"revision-from-run-plan","confirm":true}}
@@ -2416,26 +2427,29 @@ leases remain held through preparation, the complete tool process, deployment
 recovery and output registration. Cancellation stops the managed tool and
 performs recovery before reporting a terminal job state.
 
-Planning logs identify each source root, scan counts, elapsed time and the
-current directory during long scans. Filesystem failures include `reason`,
+Source scans exclude Wine runtime folders (`prefix_*`, `pfx`, `drive_c` and
+`dosdevices`) before resolving their contents, while retaining legitimate mod
+and deployed-file links. Planning logs identify each source root, scan counts,
+elapsed time and the current directory during long scans. Filesystem failures include `reason`,
 `exception_type`, `errno`, `filename` and inspection `notes` when available.
 The desktop wizard also logs the chained traceback and displays the underlying
 reason alongside the launch error.
 
-A zero exit code and nonempty validated output are required for import. Links,
-special files and case collisions are rejected. Import creates a new output
-mod, registers it at highest priority as an enabled data mod,
-indexes its files and synchronizes generated plugins. The result reports
+A zero exit code and nonempty validated output are required for completion. Links,
+special files and case collisions are rejected. The output mod is registered
+at highest priority as a data mod and enabled only after successful validation,
+indexing and plugin synchronization. The result reports
 `output_mod`, `file_count`, `restored`, `output_retained` and
-`needs_deployment:true`. The final `output_mod.name` may gain a higher suffix
-if another mod occupied the planned name during generation. Deploy again to
-use the generated output. Successful imports remove their work folder;
-failed or cancelled runs retain it for
-inspection or manual recovery and report its path. Registration rollback
-preserves external edits and retains recovery files when
-recovery cannot safely finish. Index/plugin synchronization failures report
-`lod_output_sync_failed` with the installed mod and `state_persisted:true`.
-The desktop wizard uses the same run, import and recovery paths.
+`needs_deployment:true`. A direct output folder that becomes occupied before
+execution is rejected; existing mods are never replaced. Deploy again to use
+the generated output. Direct outputs remain in staging and report
+`output_retained:true`. Successful external-folder imports remove their work
+folder; failed or cancelled runs retain it and report its path.
+Index/plugin synchronization failures report
+`lod_output_sync_failed` with the retained mod and `state_persisted:true`.
+The desktop wizard uses the same run, registration and recovery paths.
+It refreshes the modlist and plugins automatically after successful generation
+or a failed run that retains a new staging mod.
 
 ### Install an xEdit application
 

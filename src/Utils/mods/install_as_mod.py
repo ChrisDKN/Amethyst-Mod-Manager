@@ -34,6 +34,7 @@ def register_as_mod_neutral(
     modlist_path: "Path | None" = None,
     log_fn: Callable[[str], None],
     root_folder: bool = True,
+    enabled: bool = True,
 ) -> Path:
     """GUI-neutral core of :func:`register_as_mod`.
 
@@ -79,7 +80,7 @@ def register_as_mod_neutral(
         else:
             modlist_path = game.get_profile_root() / "profiles" / "default" / "modlist.txt"
 
-    prepend_mod(modlist_path, mod_name, enabled=True)
+    prepend_mod(modlist_path, mod_name, enabled=enabled)
     log_fn(f"Wizard: added '{mod_name}' to modlist with rootFolder={str(root_folder).lower()}.")
 
     return mod_dir
