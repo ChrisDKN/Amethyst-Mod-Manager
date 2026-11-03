@@ -408,7 +408,7 @@ def _handoff_launch_settings(game) -> tuple[dict[str, str], list[str]]:
 
 
 def compose_steam_handoff_command(game, handoff_argv: list[str]) -> str:
-    """Compose user launch options around the short Steam handoff."""
+    """Compose user launch options with the short Steam handoff."""
     from Utils.executables.launch import (
         game_exe_key,
         load_launch_options,
@@ -417,6 +417,17 @@ def compose_steam_handoff_command(game, handoff_argv: list[str]) -> str:
 
     settings_key = game_exe_key(game)
     launch_options = load_launch_options(game, settings_key)
+    if getattr(game, "vfs_launch_enabled", False):
+        env, command = parse_launch_options(launch_options, ["%command%"])
+        if env:
+            command = [
+                "/usr/bin/env",
+                *(f"{name}={value}" for name, value in env.items()),
+                *command,
+            ]
+        # Carry game options as argv past AppImage's loader environment cleanup.
+        return shlex.join([*map(str, handoff_argv), *command])
+
     env, command = parse_launch_options(
         launch_options, [*map(str, handoff_argv), "%command%"])
 
