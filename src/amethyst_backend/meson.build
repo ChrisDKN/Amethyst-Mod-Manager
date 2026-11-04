@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'install_rules.py',
   'appearance.py',
   'application_install.py',
   'application_settings.py',

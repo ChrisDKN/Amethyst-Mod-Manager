@@ -2384,6 +2384,51 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _get_game_install_rules(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        from .jobs import JobError
+        from .install_rules import get_install_rules
+        try:
+            return {"game": self._canonical_game(game),
+                    "install_rules": get_install_rules(game)}
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+
+    def _start_set_game_install_rules(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "revision", "rules", "confirm"},
+            {"game", "revision", "rules", "confirm"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        revision = self._required_text(params, "revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be an install-rule snapshot revision.",
+                               {"parameter": "revision"})
+        rules = params["rules"]
+        if not isinstance(rules, list) or len(rules) > 512:
+            raise ServiceError(-32602, "invalid_params",
+                               "'rules' must be an array of at most 512 rules.",
+                               {"parameter": "rules"})
+        if params.get("confirm") is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to change per-game install rules.",
+                               {"parameter": "confirm"})
+        from .install_rules import set_install_rules
+        job = self._jobs.submit(
+            "games.install_rules.set", game, self._canonical_game(game),
+            None,
+            {"revision": revision, "rule_count": len(rules)},
+            runner=lambda log, progress: set_install_rules(
+                game, revision, rules,
+                log_fn=log, progress_fn=progress),
+        )
+        return {"job": job}
+
     def _get_game_blacklist(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(params, {"game"}, {"game"})

@@ -251,7 +251,7 @@ class CustomGameView(QWidget):
     Save/Delete/Cancel so the window can refresh the game list and close the
     tab. ``saved_defn`` is None on cancel/delete."""
 
-    _TYPE_COMBO_W = 110   # fixed width of the routing match-type combo
+    _TYPE_COMBO_W = 110   # fixed width of the whitelist match-type combo
 
     def __init__(self, on_done, existing: dict | None = None, parent=None):
         super().__init__(parent)
@@ -260,7 +260,7 @@ class CustomGameView(QWidget):
         self._p = active_palette()
 
         # Dynamic-table row state.
-        self._routing_rows: list[dict] = []
+        self._routing_entries = []
         self._whitelist_rows: list[dict] = []
         self._framework_rows: list[dict] = []
 
@@ -642,6 +642,13 @@ class CustomGameView(QWidget):
             _T("Like Strip Prefixes but applied after Required Top-Level Folders "
                "validation. e.g. reframework"))
 
+        self._install_entries = []
+        self._install_rules_button = QPushButton(self.tr("Install Rules (0)"))
+        self._install_rules_button.setObjectName("FormButton")
+        self._install_rules_button.clicked.connect(self._edit_install_rules)
+        self._field_row(g, self.tr("Install Rules"), self._install_rules_button,
+                        self.tr("Ordered rules applied after post-install stripping to plain archives. Supports <modname> and <random> destinations."))
+
         # --- Conflicts & Advanced Behaviour (collapsed) ---
         self._sec_conflicts = self._collapsible(
             self.tr("Conflicts & Advanced Behaviour"))
@@ -692,45 +699,17 @@ class CustomGameView(QWidget):
             self.tr("One override per line: dll_name=load_order  "
                     "e.g. winhttp=native,builtin"), align_top=True)
 
-        # --- Custom Routing Rules (collapsed) ---
         self._sec_routing = self._collapsible(
             self.tr("Custom Routing Rules"),
-            self.tr("Route specific files to alternate destinations during deploy. "
-            "Each rule maps files (by extension, folder or filename) to a "
-            "game-root-relative directory. For extensions, append (.ext, .ext) "
-            "to also route same-stem siblings (e.g. .asi (.ini) sends Foo.ini "
-            "alongside Foo.asi). Flatten drops subfolders below the matched "
-            "folder. To Prefix routes relative to the Proton/Wine prefix root "
-            "instead of the game install root."))
+            self.tr("Edit the game's default routing rules using the same editor as the Data tab. "
+                    "Rules are saved with the custom-game definition."))
         v = QVBoxLayout(self._sec_routing.body)
         v.setContentsMargins(0, 2, 0, 2)
-        v.setSpacing(6)
-        add_rule = QPushButton(self.tr("+ Add Rule"))
-        add_rule.setObjectName("FormButton")
-        add_rule.setCursor(Qt.PointingHandCursor)
-        add_rule.clicked.connect(lambda: self._add_routing_rule())
-        v.addWidget(add_rule, alignment=Qt.AlignLeft)
-        self._routing_container = QWidget()
-        self._routing_vbox = QVBoxLayout(self._routing_container)
-        self._routing_vbox.setContentsMargins(0, 0, 0, 0)
-        self._routing_vbox.setSpacing(2)
-        # Column headers over the dest / match-value inputs - shown only while
-        # at least one rule row exists. Stretch factors mirror the row layout.
-        self._routing_header = QWidget()
-        rh = QHBoxLayout(self._routing_header)
-        rh.setContentsMargins(4, 0, 4, 0); rh.setSpacing(4)
-        rh.addSpacing(24 + 4)               # up/down button column
-        dest_lbl = QLabel(self.tr("Destination"))
-        dest_lbl.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
-        file_lbl = QLabel(self.tr("File/folder"))
-        file_lbl.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
-        rh.addWidget(dest_lbl, 1)
-        rh.addSpacing(self._TYPE_COMBO_W)   # match-type combo column
-        rh.addWidget(file_lbl, 1)
-        rh.addStretch(0)
-        self._routing_header.setVisible(False)
-        v.addWidget(self._routing_header)
-        v.addWidget(self._routing_container)
+        self._routing_rules_button = QPushButton(self.tr("Routing Rules (0)"))
+        self._routing_rules_button.setObjectName("FormButton")
+        self._routing_rules_button.setCursor(Qt.PointingHandCursor)
+        self._routing_rules_button.clicked.connect(self._edit_routing_rules)
+        v.addWidget(self._routing_rules_button, alignment=Qt.AlignLeft)
 
         # --- Restore Whitelist (collapsed) ---
         self._sec_whitelist = self._collapsible(
@@ -855,134 +834,37 @@ class CustomGameView(QWidget):
                 return value
         return "standard"
 
-    # ---- routing-rule rows ------------------------------------------------
-    def _add_routing_rule(self, dest="", match_type="extensions", match_value="",
-                          loose_only=False, flatten=False, include_siblings=False,
-                          to_prefix=False, rule_id="", original=None):
-        from uuid import uuid4
-        row = QFrame(); row.setObjectName("RuleRow")
-        row.setFrameShape(QFrame.StyledPanel)
-        hb = QHBoxLayout(row); hb.setContentsMargins(4, 4, 4, 4); hb.setSpacing(4)
+    def _edit_routing_rules(self):
+        from types import SimpleNamespace
+        from gui_qt.files.routing_rules import RoutingRulesOverlay
 
-        up = QPushButton(); up.setFixedWidth(24)
-        bind_theme_icon(up, "arrow.png", 12, "TEXT_MAIN", degrees=180)
-        up.setToolTip(self.tr("Move up"))
-        down = QPushButton(); down.setFixedWidth(24)
-        bind_theme_icon(down, "arrow.png", 12, "TEXT_MAIN", degrees=0)
-        down.setToolTip(self.tr("Move down"))
+        def save(entries):
+            self._routing_entries = entries
+            self._routing_rules_button.setText(self.tr("Routing Rules ({0})").format(len(entries)))
 
-        dest_edit = self._mono_edit(self.tr("Destination"))
-        type_combo = QComboBox()
-        # Visible text translated; canonical value ("extensions"/"folders"/
-        # "filenames") rides as item-data so save/compare never keys off the
-        # translated label.
-        for _val, _lbl in (("extensions", self.tr("extensions")),
-                           ("folders", self.tr("folders")),
-                           ("filenames", self.tr("filenames"))):
-            type_combo.addItem(_lbl, userData=_val)
-        _ti = type_combo.findData(match_type)
-        type_combo.setCurrentIndex(_ti if _ti >= 0 else 0)
-        type_combo.setFixedWidth(self._TYPE_COMBO_W)
-        no_wheel(type_combo)
-        value_edit = self._mono_edit(self.tr("File/Folder"))
-        dest_edit.setText(dest)
-        value_edit.setText(match_value)
+        RoutingRulesOverlay(self.window(), SimpleNamespace(name=self._name_edit.text()),
+                            self._routing_entries, save, definition=True)
 
-        cb_loose = QCheckBox(self.tr("Loose only")); cb_loose.setChecked(loose_only)
-        cb_flat = QCheckBox(self.tr("Flatten")); cb_flat.setChecked(flatten)
-        cb_sib = QCheckBox(self.tr("Include Siblings")); cb_sib.setChecked(include_siblings)
-        cb_pfx = QCheckBox(self.tr("To Prefix")); cb_pfx.setChecked(to_prefix)
+    def _edit_install_rules(self):
+        from types import SimpleNamespace
+        from gui_qt.files.routing_rules import InstallRulesOverlay
 
-        remove = QPushButton(); remove.setObjectName("DangerButton")
-        remove.setIcon(icon("close_white.png", 12))
-        remove.setToolTip(self.tr("Remove rule"))
-        remove.setFixedWidth(28)
+        def save(entries):
+            self._install_entries = entries
+            self._install_rules_button.setText(self.tr("Install Rules ({0})").format(len(entries)))
 
-        vbtns = QVBoxLayout(); vbtns.setSpacing(0); vbtns.setContentsMargins(0, 0, 0, 0)
-        vbtns.addWidget(up); vbtns.addWidget(down)
-        hb.addLayout(vbtns)
-        hb.addWidget(dest_edit, 1)
-        hb.addWidget(type_combo)
-        hb.addWidget(value_edit, 1)
-        hb.addWidget(cb_loose); hb.addWidget(cb_flat)
-        hb.addWidget(cb_sib); hb.addWidget(cb_pfx)
-        hb.addWidget(remove)
+        InstallRulesOverlay(self.window(), SimpleNamespace(name=self._name_edit.text()),
+                            self._install_entries, save)
 
-        rd = {"frame": row, "dest": dest_edit, "type": type_combo,
-              "value": value_edit, "loose_only": cb_loose, "flatten": cb_flat,
-              "include_siblings": cb_sib, "to_prefix": cb_pfx,
-              "rule_id": rule_id or "user:" + uuid4().hex,
-              "original": dict(original or {}), "original_type": match_type}
-        self._routing_rows.append(rd)
-        self._routing_vbox.addWidget(row)
-        self._routing_header.setVisible(True)
-
-        up.clicked.connect(lambda: self._move_routing_rule(rd, -1))
-        down.clicked.connect(lambda: self._move_routing_rule(rd, 1))
-        remove.clicked.connect(lambda: self._remove_routing_rule(rd))
-
-    def _remove_routing_rule(self, rd):
-        if rd in self._routing_rows:
-            self._routing_rows.remove(rd)
-            self._routing_vbox.removeWidget(rd["frame"])
-            rd["frame"].deleteLater()
-            if not self._routing_rows:
-                self._routing_header.setVisible(False)
-
-    def _move_routing_rule(self, rd, delta):
-        rows = self._routing_rows
-        if rd not in rows:
-            return
-        i = rows.index(rd)
-        j = i + delta
-        if j < 0 or j >= len(rows):
-            return
-        rows[i], rows[j] = rows[j], rows[i]
-        self._routing_vbox.removeWidget(rd["frame"])
-        self._routing_vbox.insertWidget(j, rd["frame"])
+    def _collect_install_rules(self):
+        from Utils.games.install_rules import rule_values
+        return [dict(rule_values(entry.rule), rule_id=entry.key)
+                for entry in self._install_entries if not entry.disabled]
 
     def _collect_routing_rules(self) -> list[dict]:
-        rules = []
-        for rd in self._routing_rows:
-            dest = rd["dest"].text().strip()
-            match_type = rd["type"].currentData()
-            raw_value = rd["value"].text().strip()
-
-            companions: list[str] = []
-            if match_type == "extensions" and "(" in raw_value and ")" in raw_value:
-                before, _, rest = raw_value.partition("(")
-                inside, _, after = rest.partition(")")
-                companions = [v.strip() for v in inside.split(",") if v.strip()]
-                raw_value = (before + " " + after).strip().rstrip(",").strip()
-
-            values = [v.strip() for v in raw_value.split(",") if v.strip()]
-            if not values and not dest:
-                continue
-            rule = dict(rd["original"])
-            rule.pop(rd["original_type"], None)
-            if rd["original_type"] == "extensions":
-                rule.pop("companion_extensions", None)
-            for key in ("loose_only", "flatten", "include_siblings", "to_prefix"):
-                rule.pop(key, None)
-            rule.update(dest=dest, rule_id=rd["rule_id"])
-            if match_type == "extensions":
-                rule["extensions"] = values
-                if companions:
-                    rule["companion_extensions"] = companions
-            elif match_type == "filenames":
-                rule["filenames"] = values
-            else:
-                rule["folders"] = values
-            if rd["loose_only"].isChecked():
-                rule["loose_only"] = True
-            if rd["flatten"].isChecked():
-                rule["flatten"] = True
-            if rd["include_siblings"].isChecked():
-                rule["include_siblings"] = True
-            if rd["to_prefix"].isChecked():
-                rule["to_prefix"] = True
-            rules.append(rule)
-        return rules
+        from Utils.games.routing_rules import rule_values
+        return [dict(rule_values(entry.rule), rule_id=entry.key)
+                for entry in self._routing_entries if not entry.disabled]
 
     # ---- restore-whitelist rows --------------------------------------------
     def _add_whitelist_rule(self, path="", match_type="folders", match_value=""):
@@ -1115,8 +997,6 @@ class CustomGameView(QWidget):
             return
         # Clear any dynamic-table rows from a previous preset selection so the
         # form reflects only the newly chosen template.
-        for rd in list(self._routing_rows):
-            self._remove_routing_rule(rd)
         for rd in list(self._whitelist_rows):
             self._remove_whitelist_rule(rd)
         for rd in list(self._framework_rows):
@@ -1147,8 +1027,6 @@ class CustomGameView(QWidget):
             if not defn:
                 return
             # Clear any dynamic-table rows before applying the imported preset.
-            for rd in list(self._routing_rows):
-                self._remove_routing_rule(rd)
             for rd in list(self._whitelist_rows):
                 self._remove_whitelist_rule(rd)
             for rd in list(self._framework_rows):
@@ -1186,6 +1064,15 @@ class CustomGameView(QWidget):
         self._dependency_picker.set_selected(
             e.get("auto_install_deps", ["vcredist"]))
 
+        from Utils.games.install_rules import definition_rule_ids, new_entry, validate_rule
+        rows = e.get("custom_install_rules", [])
+        self._install_entries = []
+        for row, key in zip(rows, definition_rule_ids(rows)):
+            entry = new_entry(validate_rule({k: v for k, v in row.items() if k != "rule_id"}))
+            entry.key = key
+            self._install_entries.append(entry)
+        self._install_rules_button.setText(self.tr("Install Rules ({0})").format(len(rows)))
+
         self._adv_edits["mod_folder_strip_prefixes"].setText(
             _set_to_str(e.get("mod_folder_strip_prefixes", [])))
         self._adv_edits["mod_install_prefix"].setText(e.get("mod_install_prefix", ""))
@@ -1215,27 +1102,16 @@ class CustomGameView(QWidget):
 
         self._dll_edit.setPlainText(_dll_to_str(e.get("wine_dll_overrides", {})))
 
-        from Utils.games.routing_rules import definition_rule_ids
+        from Utils.deployment.shared import CustomRule
+        from Utils.games.routing_rules import definition_rule_ids, new_entry
         routing_rules = [rule for rule in e.get("custom_routing_rules", []) or []
                          if isinstance(rule, dict)]
+        self._routing_entries = []
         for rule, rule_id in zip(routing_rules, definition_rule_ids(routing_rules)):
-            companions = rule.get("companion_extensions") or []
-            if rule.get("filenames"):
-                mt, mv = "filenames", ", ".join(rule["filenames"])
-            elif rule.get("extensions"):
-                mt = "extensions"
-                mv = ", ".join(rule["extensions"])
-                if companions:
-                    mv = f"{mv} ({', '.join(companions)})"
-            else:
-                mt, mv = "folders", ", ".join(rule.get("folders") or [])
-            self._add_routing_rule(
-                dest=rule.get("dest", ""), match_type=mt, match_value=mv,
-                loose_only=bool(rule.get("loose_only", False)),
-                flatten=bool(rule.get("flatten", False)),
-                include_siblings=bool(rule.get("include_siblings", False)),
-                to_prefix=bool(rule.get("to_prefix", False)),
-                rule_id=rule_id, original=rule)
+            entry = new_entry(CustomRule(**({"dest": ""} | rule)))
+            entry.key = rule_id
+            self._routing_entries.append(entry)
+        self._routing_rules_button.setText(self.tr("Routing Rules ({0})").format(len(routing_rules)))
 
         for rule in e.get("restore_whitelist", []) or []:
             if not isinstance(rule, dict):
@@ -1268,6 +1144,7 @@ class CustomGameView(QWidget):
             "mod_folder_strip_prefixes_post",
         )
         if (any(edits[k].text().strip() for k in tuning_keys)
+                or self._install_entries
                 or toggles["mod_auto_strip_until_required"].isChecked()
                 or toggles["mod_install_as_is_if_no_match"].isChecked()):
             self._sec_tuning.expand()
@@ -1278,7 +1155,7 @@ class CustomGameView(QWidget):
                 or (self._casing_combo.currentData() or "upper") != "upper"
                 or self._dll_edit.toPlainText().strip()):
             self._sec_conflicts.expand()
-        if self._routing_rows:
+        if self._routing_entries:
             self._sec_routing.expand()
         if self._whitelist_rows:
             self._sec_whitelist.expand()
@@ -1388,6 +1265,7 @@ class CustomGameView(QWidget):
                 self._casing_combo.currentData() or "upper",
             "wine_dll_overrides": _parse_dll_text(self._dll_edit.toPlainText()),
             "custom_routing_rules": self._collect_routing_rules(),
+            "custom_install_rules": self._collect_install_rules(),
             "restore_whitelist": self._collect_whitelist_rules(),
             "custom_frameworks": self._collect_frameworks(),
         }

@@ -2338,6 +2338,34 @@ class MainWindow(QMainWindow, PluginPanelControls):
 
         RoutingRulesOverlay(self.window(), game, initial, save)
 
+    def _open_data_install_rules(self):
+        from Utils.games.install_rules import load_entries, save_entries
+        from gui_qt.files.routing_rules import InstallRulesOverlay
+
+        game = self._gs.game
+        error = self._blacklist_edit_error(game)
+        if error:
+            self._show_warn_popup(self.tr("Install Rules"), error, None)
+            return
+        try:
+            initial = load_entries(game)
+        except (OSError, ValueError) as exc:
+            self._show_warn_popup(self.tr("Install Rules"), str(exc), None)
+            return
+
+        def save(entries):
+            if self._gs.game is not game:
+                raise ValueError(self.tr("The selected game changed. Reopen the editor."))
+            error = self._blacklist_edit_error(game)
+            if error:
+                raise ValueError(error)
+            if entries != initial:
+                if load_entries(game) != initial:
+                    raise ValueError(self.tr("Install rules changed while the editor was open. Reopen it before saving."))
+                save_entries(game, entries)
+
+        InstallRulesOverlay(self.window(), game, initial, save)
+
     def _on_downloads_toggle_hidden(self, paths=None, hidden=None, *, view=None):
         view = view or self._downloads_view
         paths = view.checked_paths() if paths is None else paths

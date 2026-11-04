@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
 )
 
 from Utils.deployment.shared import CustomRule
-from Utils.games.routing_rules import new_entry, rule_values, validate_rule
 from gui_qt.dialogs.base import OverlayBase
 from gui_qt.appearance.theme import active_palette, _c, close_button
 
@@ -21,8 +20,12 @@ class RoutingRulesOverlay(OverlayBase):
     MIN_W = 420
     MIN_H = 400
 
-    def __init__(self, host, game, initial, on_save):
+    def __init__(self, host, game, initial, on_save, *, install=False, definition=False):
         super().__init__(host)
+        from Utils.games import install_rules, routing_rules
+        self._api = install_rules if install else routing_rules
+        self._rule_type = install_rules.InstallRule if install else CustomRule
+        self._install = install
         self._entries = copy.deepcopy(initial)
         self._on_save = on_save
         self._selected = -1
@@ -31,7 +34,7 @@ class RoutingRulesOverlay(OverlayBase):
         p = active_palette()
         _card, layout = self._make_card("_RoutingRulesCard")
         header = QHBoxLayout()
-        title = QLabel(self.tr("Routing Rules — {0}").format(game.name))
+        title = QLabel((self.tr("Install Rules — {0}") if install else self.tr("Routing Rules — {0}")).format(game.name))
         title.setWordWrap(True)
         title.setStyleSheet(f"color:{_c(p, 'TEXT_MAIN')}; font-weight:600;")
         header.addWidget(title, 1)
@@ -39,11 +42,26 @@ class RoutingRulesOverlay(OverlayBase):
         close.clicked.connect(lambda: self._finish(None))
         header.addWidget(close)
         layout.addLayout(header)
-        help_text = QLabel(self.tr(
-            "Applies to all profiles for this game. Earlier matching rules take "
-            "precedence. Changes apply on the next deploy, or automatically when "
-            "auto-deploy is enabled. Blacklist exclusions still apply. "
-            "Removed built-ins remain available to restore."))
+        install_help = self.tr(
+            "Applies to future plain-archive installs and reinstalls for all profiles. "
+            "Runs after post-install prefix stripping. Earlier rules take precedence. "
+            "Destinations are relative to the mod's staging root; <modname> uses its "
+            "installation name and <random> is saved across reinstalls and updates. "
+            "Installer-driven and exact-layout installs are unaffected.")
+        if install:
+            help_message = install_help
+        elif definition:
+            help_message = self.tr(
+                "Edit the game's default routing rules. Changes are saved when you save "
+                "the custom-game definition. Earlier matching rules take precedence. "
+                "The Data tab can override these defaults separately for this game.")
+        else:
+            help_message = self.tr(
+                "Applies to all profiles for this game. Earlier matching rules take "
+                "precedence. Changes apply on the next deploy, or automatically when "
+                "auto-deploy is enabled. Blacklist exclusions still apply. "
+                "Removed built-ins remain available to restore.")
+        help_text = QLabel(help_message)
         help_text.setWordWrap(True)
         layout.addWidget(help_text)
 
@@ -83,7 +101,7 @@ class RoutingRulesOverlay(OverlayBase):
         form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         form.setRowWrapPolicy(QFormLayout.WrapLongRows)
         destination = QLineEdit()
-        destination.setPlaceholderText(self.tr("Empty = root of the selected destination base"))
+        destination.setPlaceholderText(self.tr("e.g. <modname> or plugins/<random>; empty = mod staging root") if install else self.tr("Empty = root of the selected destination base"))
         self._fields["dest"] = destination
         form.addRow(self.tr("Destination"), destination)
         match_help = QLabel(self.tr(
@@ -100,6 +118,8 @@ class RoutingRulesOverlay(OverlayBase):
             ("exclude_extensions", self.tr("Excluded extensions"), self.tr("One extension per line. These files cannot match this rule.")),
             ("mirror_dests", self.tr("Mirrored destinations"), self.tr("One additional relative destination per line, under the same base.")),
         ):
+            if key not in self._api.rule_values(self._rule_type(dest="")):
+                continue
             edit = QPlainTextEdit()
             edit.setFixedHeight(58)
             edit.setPlaceholderText(hint)
@@ -113,6 +133,10 @@ class RoutingRulesOverlay(OverlayBase):
             ("include_siblings", self.tr("Include siblings"), self.tr("Bring the containing folder's contents along, keeping the folder name. Overrides Flatten for these matches.")),
             ("to_prefix", self.tr("To Prefix"), self.tr("Destinations are relative to the Proton/Wine prefix root instead of the game root. Requires a configured prefix.")),
         ):
+            if key not in self._api.rule_values(self._rule_type(dest="")):
+                continue
+            if install and key == "include_siblings":
+                hint = self.tr("Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.")
             check = QCheckBox(label)
             check.setToolTip(hint)
             self._fields[key] = check
@@ -158,7 +182,7 @@ class RoutingRulesOverlay(OverlayBase):
                                    ("filenames", self.tr("Filenames"))):
                     if getattr(rule, key):
                         match.append(label + ": " + ", ".join(getattr(rule, key)))
-                base = self.tr("Prefix") if rule.to_prefix else self.tr("Game")
+                base = self.tr("Staging") if self._install else (self.tr("Prefix") if rule.to_prefix else self.tr("Game"))
                 source = self.tr("Custom")
                 if entry.builtin:
                     source = self.tr("Built-in (edited)") if entry.edits else self.tr("Built-in")
@@ -181,7 +205,7 @@ class RoutingRulesOverlay(OverlayBase):
         self._selected = index
         valid = 0 <= index < len(self._entries)
         entry = self._entries[index] if valid else None
-        values = rule_values(entry.rule if entry else CustomRule(dest=""))
+        values = self._api.rule_values(entry.rule if entry else self._rule_type(dest=""))
         for key, widget in self._fields.items():
             if isinstance(widget, QCheckBox):
                 widget.setChecked(values[key])
@@ -214,7 +238,7 @@ class RoutingRulesOverlay(OverlayBase):
             return True
         try:
             values = self._form_values()
-            rule = validate_rule(values)
+            rule = self._api.validate_rule(values)
             if values != self._loaded_values:
                 self._entries[self._selected].edit(rule)
             self._error.hide()
@@ -237,7 +261,7 @@ class RoutingRulesOverlay(OverlayBase):
 
     def _add(self):
         if self._store_form():
-            self._entries.append(new_entry(CustomRule(dest="")))
+            self._entries.append(self._api.new_entry(self._rule_type(dest="")))
             self._populate(len(self._entries) - 1)
             self._fields["filenames"].setFocus()
 
@@ -283,7 +307,12 @@ class RoutingRulesOverlay(OverlayBase):
         try:
             self._on_save(copy.deepcopy(self._entries))
         except Exception as exc:
-            self._error.setText(self.tr("Could not save routing rules: {0}").format(exc))
+            self._error.setText((self.tr("Could not save install rules: {0}") if self._install else self.tr("Could not save routing rules: {0}")).format(exc))
             self._error.show()
             return
         self._finish(self._entries)
+
+
+class InstallRulesOverlay(RoutingRulesOverlay):
+    def __init__(self, host, game, initial, on_save):
+        super().__init__(host, game, initial, on_save, install=True)

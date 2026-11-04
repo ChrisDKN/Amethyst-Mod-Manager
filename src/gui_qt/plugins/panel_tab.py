@@ -26,7 +26,8 @@ class PluginPanelTab(QWidget, PluginPanelControls):
                      "_equalize_button_widths", "_filters_button", "_search_icon_label",
                      "_notify", "_open_folder_path", "_on_sort_plugins",
                      "_on_refresh_plugins", "_on_sync_plugins", "_open_loot_report",
-                     "_open_plugin_groups_tab", "_open_data_blacklist", "_open_data_routing_rules"):
+                     "_open_plugin_groups_tab", "_open_data_blacklist", "_open_data_routing_rules",
+                     "_open_data_install_rules"):
             setattr(self, name, getattr(host, name))
         if index == 0:
             from gui_qt.plugins.presentation import PluginPresentation

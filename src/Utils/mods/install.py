@@ -619,7 +619,8 @@ def try_auto_strip_for_file_types(
 
 
 def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
-                    mod_name: str = "", on_need_prefix=None,
+                    mod_name: str = "", on_need_prefix=None, install_state=None,
+                    install_rules_enabled: bool = True,
                     log_fn: LogFn = lambda _m: None
                     ) -> list[tuple[str, str, bool]] | None:
     """Build + normalise the (src, dst, is_folder) list for a non-FOMOD mod under
@@ -628,7 +629,7 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
 
       strip_prefixes → mod_install_prefix → required-top-level check →
       auto-strip folders → auto-strip to a required file type →
-      (unrecognised, not install-as-is) on_need_prefix() → post-strip.
+      (unrecognised, not install-as-is) on_need_prefix() → post-strip → install rules.
 
     *on_need_prefix(required, file_list, mod_name) -> str | None* supplies the
     prefix interactively (the toolkit shows a dialog); returning None cancels the
@@ -736,6 +737,21 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
                 if d.replace("\\", "/").strip("/").lower() != "meta.ini"]
     if len(filtered) != len(file_list):
         log_fn("Skipped bundled meta.ini from archive (Amethyst writes its own).")
+    from Utils.games.install_rules import get_rules
+    rules = get_rules(game) if install_rules_enabled and not is_root_install else []
+    if rules:
+        from Utils.mods.install_rules import InstallRuleConflict, apply_install_rules
+        state = dict(install_state) if install_state is not None else {}
+        try:
+            mapped = apply_install_rules(filtered, rules, mod_name, state)
+        except InstallRuleConflict as exc:
+            log_fn(f"Skipped all install rules for '{mod_name}': {exc}. "
+                   "Installing with the layout from before install rules.")
+        else:
+            filtered = mapped
+            if install_state is not None:
+                install_state.update(state)
+            log_fn("Applied plain-archive install rules.")
     return filtered
 
 
@@ -2342,6 +2358,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     # (and order) onto the freshly detected spec before the folder is wiped -
     # captured only on replace, a rename installs as a NEW mod (Tk parity).
     old_bundle_spec = None
+    p._install_rule_state = {}
 
     # Existing same-named folder: ask the caller what to do (replace / rename /
     # cancel), or - with no callback - silently replace (collection installs).
@@ -2418,6 +2435,8 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                 # Unknown action → treat as cancel (safe default).
                 return None
 
+    previous_meta = getattr(p, "_collection_previous_meta", None)
+    p._install_rule_state["random"] = getattr(previous_meta, "install_random", "")
     if p.version_change is not None:
         p._version_change_dest = dest_root
     if not dest_root.exists():
@@ -2519,7 +2538,13 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
         stage_root = str(p.extract_dir)
         file_list = stage_file_list(
             p.game, stage_root, is_root_install=is_root,
-            mod_name=p.mod_name, on_need_prefix=p.on_need_prefix, log_fn=log_fn)
+            mod_name=(p.version_change.rollback_name
+                      if p.version_change is not None and p.version_change.operation == "rollback"
+                      else p.mod_name), on_need_prefix=p.on_need_prefix,
+            install_state=p._install_rule_state,
+            install_rules_enabled=not (getattr(p, "fomod_parse_failed", False)
+                                       or getattr(p, "scripted_fomod", False)),
+            log_fn=log_fn)
         if file_list is None:
             cancelled = True
         else:
@@ -2564,6 +2589,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
 
     _write_install_meta(dest_root, p.archive, p.game, log_fn,
                         plugin_source=p.plugin_source,
+                        install_random=p._install_rule_state.get("random", ""),
                         prebuilt_meta=getattr(p, "prebuilt_meta", None),
                         endorsed=getattr(p, "_preserved_endorsed", False),
                         ignored_reqs=getattr(p, "_preserved_ignored_reqs", ""),
@@ -2572,7 +2598,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                         is_bain=bain_selected is not None,
                         fomod_pending_deps=fomod_pending_deps,
                         fomod_active_deps=fomod_active_deps,
-                        required=bool(p.version_change or (
+                        required=bool(p._install_rule_state.get("random") or p.version_change or (
                             getattr(p, "_collection_previous_meta", None)
                             and (p._collection_previous_meta.updated
                                  or p._collection_previous_meta.previous_version))))
@@ -3097,6 +3123,20 @@ def install_collection_archive(
                 _preserved_endorsed = False
             if prepared.is_bundle():
                 old_bundle_spec = _read_old_bundle_spec(dest_root)
+        install_state = {"random": getattr(_collection_previous_meta, "install_random", "")}
+        plain_staged = None
+        if file_list is None and not prepared.is_bundle():
+            plain_staged = stage_file_list(
+                game, stage_src_root,
+                is_root_install=bool(getattr(prebuilt_meta, "root_folder", False)),
+                mod_name=prepared.mod_name, on_need_prefix=resolve_layout,
+                install_state=install_state,
+                install_rules_enabled=not (prepared.is_fomod() or prepared.is_bain()
+                                           or prepared.fomod_parse_failed or prepared.scripted_fomod),
+                log_fn=log_fn)
+            if plain_staged is None:
+                return None
+        if dest_root.exists():
             record_download_install(
                 profile_dir, dest_root, log_fn=log_fn)
             log_fn(f"Replacing existing mod folder: {prepared.mod_name}")
@@ -3141,41 +3181,8 @@ def install_collection_archive(
             log_fn(f"Bundle: {len(spec.selected_folders())} of "
                    f"{layout.variant_count} option(s) active.")
         else:
-            # Plain (non-FOMOD/BAIN) mod: normalise structure like the Tk direct
-            # path. dinput mods (prebuilt_meta.root_folder) install verbatim.
-            is_root = bool(getattr(prebuilt_meta, "root_folder", False))
-            staged = stage_file_list(
-                game, stage_src_root, is_root_install=is_root,
-                mod_name=prepared.mod_name, on_need_prefix=resolve_layout, log_fn=log_fn)
-            if staged is None:
-                # stage_file_list only returns None when a prefix was required
-                # but no resolver was supplied - for a collection mod that means
-                # the structure wasn't recognised. Log the extract contents so a
-                # live re-run pinpoints why (the "missing mods" investigation).
-                try:
-                    _preview = []
-                    for _r, _ds, _fs in os.walk(stage_src_root):
-                        for _f in _fs:
-                            _preview.append(os.path.relpath(
-                                os.path.join(_r, _f), stage_src_root))
-                            if len(_preview) >= 12:
-                                break
-                        if len(_preview) >= 12:
-                            break
-                    log_fn(f"Collection install: '{prepared.mod_name}' - "
-                           f"stage_file_list returned None (structure not "
-                           f"recognised). Extract root={stage_src_root}; "
-                           f"first files: {_preview}")
-                except Exception:
-                    pass
-                cancelled = True
-            else:
-                dest_root.mkdir(parents=True, exist_ok=True)
-                if not staged:
-                    log_fn(f"Collection install: '{prepared.mod_name}' - "
-                           f"stage_file_list produced an EMPTY file list "
-                           f"(0 files to copy).")
-                _copy_file_list(staged, stage_src_root, dest_root, log_fn, game=game)
+            dest_root.mkdir(parents=True, exist_ok=True)
+            _copy_file_list(plain_staged, stage_src_root, dest_root, log_fn, game=game)
     finally:
         prepared.cleanup()
 
@@ -3195,6 +3202,8 @@ def install_collection_archive(
     _write_install_meta(dest_root, archive, game, log_fn,
                         plugin_source=prepared.plugin_source,
                         prebuilt_meta=prebuilt_meta, endorsed=_preserved_endorsed,
+                        install_random=install_state.get("random", ""),
+                        required=bool(install_state.get("random")),
                         previous_meta=_collection_previous_meta,
                         is_fomod=is_fomod_install,
                         fomod_pending_deps=fomod_pending_deps,
@@ -3713,7 +3722,8 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                         is_bain: bool = False,
                         fomod_pending_deps: str = "",
                         fomod_active_deps: str = "",
-                        required: bool = False, plugin_source=None) -> None:
+                        required: bool = False, plugin_source=None,
+                        install_random: str = "") -> None:
     try:
         from Utils.bsa.packing_meta import clear_packing_state
         clear_packing_state(dest_root)
@@ -3754,6 +3764,9 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
             from Utils.collections.ownership import carry_ownership
             meta.collection_ownership = carry_ownership(previous_meta, meta)
             meta.mmb_custom_url = previous_meta.mmb_custom_url
+            meta.install_random = previous_meta.install_random
+        if install_random:
+            meta.install_random = install_random
         if not getattr(meta, "installed", ""):
             meta.installed = datetime.now().isoformat(timespec="seconds")
         # Carry the endorsed flag from a replaced install (Tk parity).

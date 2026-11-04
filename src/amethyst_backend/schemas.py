@@ -43,6 +43,20 @@ _ERROR = {
 def _parameter(method, name):
     if name == 'interactive':
         return {'type': 'boolean', 'default': False}
+    if method == 'games.install_rules.set.start':
+        if name == 'revision':
+            return {'type': 'string', 'pattern': '^[0-9a-f]{64}$'}
+        if name == 'rules':
+            from Utils.games.custom_definitions import definition_schema
+            values = deepcopy(definition_schema()['properties']['custom_install_rules']['items'])
+            values['properties'].pop('rule_id')
+            values['required'] = list(values['properties'])
+            return {'type': 'array', 'maxItems': 512, 'items': {
+                'type': 'object', 'required': ['id', 'enabled', 'values'], 'additionalProperties': False,
+                'properties': {'id': {'type': ['string', 'null']}, 'enabled': {'type': 'boolean'},
+                               'values': values, 'builtin': {'type': 'boolean'},
+                               'defaults': {'type': ['object', 'null']}},
+            }}
     if method.startswith('installers.requests.') and name == 'request_id':
         return {'type': 'string', 'minLength': 1}
     if method.startswith('installers.') and name in {'step', 'group'}:
@@ -237,6 +251,7 @@ def _result(method):
             'system.ping': {'ok': 'boolean', 'protocol_version': 'integer', 'application_version': 'string'},
             'system.schema.get': {'schema_version': 'integer', 'methods': 'array'},
             'games.list': {'games': 'array'}, 'games.get': {'game': 'object'},
+            'games.install_rules.get': {'game': 'object', 'install_rules': 'object'},
             'installers.sessions.get': {'session': 'object'},
             'installers.sessions.saved.list': {'sessions': 'array'},
             'installers.requests.get': {'requests': 'array'},

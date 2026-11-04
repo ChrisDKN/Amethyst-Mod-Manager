@@ -33,6 +33,9 @@ def definition_schema():
         if spec["type"] == "array":
             spec.update(items={"type": "string"}, maxItems=512)
     routing["rule_id"] = {"type": "string", "minLength": 1}
+    from Utils.games.install_rules import InstallRule, rule_values as install_values
+    install = {key: routing[key] for key in install_values(InstallRule(dest=""))}
+    install["rule_id"] = routing["rule_id"]
     properties = {key: {"type": "string", "maxLength": 4096} for key in TEXT_FIELDS}
     properties.update({key: {"type": "array", "items": {"type": "string"}, "maxItems": 512}
                        for key in LIST_FIELDS})
@@ -44,6 +47,8 @@ def definition_schema():
         filemap_casing={"enum": ["upper", "lower", "force_upper", "force_lower", "preserve"]},
         custom_routing_rules={"type": "array", "maxItems": 512, "items": {
             "type": "object", "properties": routing, "additionalProperties": False}},
+        custom_install_rules={"type": "array", "maxItems": 512, "items": {
+            "type": "object", "properties": install, "additionalProperties": False}},
         restore_whitelist={"type": "array", "maxItems": 512, "items": {
             "type": "object", "additionalProperties": False, "properties": {
                 "path": {"type": "string"}, **{key: {"type": "array", "items": {"type": "string"}}
@@ -141,6 +146,21 @@ def validate_definition(value):
         normalized.append(values)
     definition_rule_ids(normalized)
     result["custom_routing_rules"] = normalized
+    from Utils.games.install_rules import validate_rule as validate_install_rule
+    from Utils.games.install_rules import rule_values as install_values
+    install_rules = result.get("custom_install_rules", [])
+    if not isinstance(install_rules, list) or len(install_rules) > 512:
+        raise ValueError("Supply at most 512 install rules.")
+    normalized = []
+    for row in install_rules:
+        if not isinstance(row, dict):
+            raise ValueError("Each install rule must be an object.")
+        values = install_values(validate_install_rule({k: v for k, v in row.items() if k != "rule_id"}))
+        if "rule_id" in row:
+            values["rule_id"] = row["rule_id"]
+        normalized.append(values)
+    definition_rule_ids(normalized)
+    result["custom_install_rules"] = normalized
     whitelist = result.get("restore_whitelist", [])
     if not isinstance(whitelist, list) or len(whitelist) > 512:
         raise ValueError("Supply at most 512 restore whitelist rules.")

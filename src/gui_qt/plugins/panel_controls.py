@@ -184,6 +184,10 @@ class PluginPanelControls:
         self._data_routing_btn.setFixedHeight(self._FOOT_BTN_H)
         self._data_routing_btn.clicked.connect(self._open_data_routing_rules)
         btns.addWidget(self._data_routing_btn)
+        self._data_install_rules_btn = self._text_button(self.tr("Install Rules"), compact=True)
+        self._data_install_rules_btn.setFixedHeight(self._FOOT_BTN_H)
+        self._data_install_rules_btn.clicked.connect(self._open_data_install_rules)
+        btns.addWidget(self._data_install_rules_btn)
         v.addLayout(btns)
         self._register_plugin_footer("data_footer", btns)
 

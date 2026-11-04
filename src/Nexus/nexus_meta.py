@@ -61,6 +61,7 @@ class NexusModMeta:
     previous_version: PreviousVersion | None = None
     nexus_url: str = ""                # full Nexus mod page URL
     mmb_custom_url: str = ""
+    install_random: str = ""
     workshop_app_id: str = ""
     workshop_item_id: str = ""
     workshop_title: str = ""
@@ -164,6 +165,7 @@ _KEY_MAP: dict[str, str] = {
     "updated":           "updated",
     "nexusUrl":          "nexus_url",
     "mmb_custom_url":    "mmb_custom_url",
+    "amethystInstallRandom": "install_random",
     "workshopAppId":     "workshop_app_id",
     "workshopItemId":    "workshop_item_id",
     "workshopTitle":     "workshop_title",
@@ -281,6 +283,8 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
     for ini_key, attr in _KEY_MAP.items():
         value = getattr(meta, attr, None)
         if value is None:
+            continue
+        if attr == "install_random" and not value and cp.has_option(_SECTION, ini_key):
             continue
         if attr == "mmb_custom_url":
             # This user-owned value must survive unrelated metadata writes.
@@ -526,6 +530,7 @@ def merge_reinstall_metadata(
     # package's Data/ tree on reinstall (the bug this merge exists to fix).
     meta.root_folder = installed.root_folder
     meta.mmb_custom_url = installed.mmb_custom_url
+    meta.install_random = installed.install_random
     meta.from_collection = installed.from_collection
     from Utils.collections.ownership import carry_ownership
     meta.collection_ownership = carry_ownership(installed, meta)

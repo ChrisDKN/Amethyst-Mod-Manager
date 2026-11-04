@@ -580,8 +580,15 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
                 def inspect_layout(required, files, mod):
                     layout.update(choice_required=True, required_directories=sorted(required))
                     return ""
+                from Nexus.nexus_meta import read_meta
+                install_state = {"random": read_meta(destination / "meta.ini").install_random
+                                 if destination.is_dir() else ""}
                 files = stage_file_list(game, str(prepared.extract_dir), mod_name=name,
-                                        on_need_prefix=inspect_layout, log_fn=log)
+                                        on_need_prefix=inspect_layout,
+                                        install_state=install_state, log_fn=log)
+                if install_state.get("random"):
+                    layout["random_is_provisional"] = not bool(
+                        destination.is_dir() and read_meta(destination / "meta.ini").install_random)
                 layout.update(files=[destination for _source, destination, _folder in (files or [])[:100]],
                               truncated=len(files or []) > 100)
             return {

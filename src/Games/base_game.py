@@ -1672,6 +1672,15 @@ class BaseGame(ABC):
         return []
 
     @property
+    def custom_install_rules(self) -> list:
+        return []
+
+    @property
+    def effective_custom_install_rules(self) -> list:
+        from Utils.games.install_rules import effective_rules
+        return effective_rules(self)
+
+    @property
     def vortex_mod_types(self) -> dict:
         return {}
 

@@ -571,6 +571,17 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
         return self._defn.get("vortex_mod_types", {})
 
     @property
+    def custom_install_rules(self) -> list:
+        from Utils.games.install_rules import definition_rule_ids, validate_rule
+        rows = self._defn.get("custom_install_rules", [])
+        result = []
+        for row, key in zip(rows, definition_rule_ids(rows)):
+            rule = validate_rule({k: v for k, v in row.items() if k != "rule_id"})
+            rule.rule_id = key
+            result.append(rule)
+        return result
+
+    @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return _defn_to_custom_rules(self._defn)
 
@@ -1086,6 +1097,17 @@ class Ue5CustomGame(UE5Game):
     @property
     def vortex_mod_types(self) -> dict:
         return self._defn.get("vortex_mod_types", {})
+
+    @property
+    def custom_install_rules(self) -> list:
+        from Utils.games.install_rules import definition_rule_ids, validate_rule
+        rows = self._defn.get("custom_install_rules", [])
+        result = []
+        for row, key in zip(rows, definition_rule_ids(rows)):
+            rule = validate_rule({k: v for k, v in row.items() if k != "rule_id"})
+            rule.rule_id = key
+            result.append(rule)
+        return result
 
     @property
     def custom_routing_rules(self) -> list[CustomRule]:

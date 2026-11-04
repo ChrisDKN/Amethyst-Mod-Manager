@@ -8,8 +8,7 @@ from typing import Any, Callable
 
 from Utils.deployment.shared import CustomRule
 from Utils.games.routing_rules import (
-    RoutingEntry, load_entries, new_entry, rule_values, save_entries,
-    validate_rule,
+    RoutingEntry, load_entries, rule_values, save_entries,
 )
 
 from .jobs import JobError
@@ -48,35 +47,41 @@ def get_routing(game: Any) -> dict[str, Any]:
                        {"reason": str(exc)}) from exc
 
 
-def _prepare(current: list[RoutingEntry], rows: list[dict[str, Any]]) -> list[RoutingEntry]:
+def _prepare(current: list[RoutingEntry], rows: list[dict[str, Any]], *,
+             rules_api=None, rule_type=CustomRule, kind="routing") -> list[RoutingEntry]:
+    from Utils.games import routing_rules
+    rules_api = rules_api or routing_rules
+    new_entry = rules_api.new_entry
+    rule_values = rules_api.rule_values
+    validate_rule = rules_api.validate_rule
     if not isinstance(rows, list):
-        raise JobError("invalid_routing_rules", "Rules must be an array.")
+        raise JobError(f"invalid_{kind}_rules", "Rules must be an array.")
     if len(rows) > 512:
-        raise JobError("invalid_routing_rules", "At most 512 rules are allowed.")
+        raise JobError(f"invalid_{kind}_rules", "At most 512 rules are allowed.")
     current_by_id = {entry.key: entry for entry in current}
     seen: set[str] = set()
     submitted: list[RoutingEntry] = []
     known_order: list[str] = []
-    fields = set(rule_values(CustomRule(dest="")))
+    fields = set(rule_values(rule_type(dest="")))
     for index, row in enumerate(rows):
         if (not isinstance(row, dict)
                 or set(row) - {"id", "enabled", "values", "builtin", "defaults"}
                 or "id" not in row or "enabled" not in row
                 or "values" not in row or type(row["enabled"]) is not bool):
-            raise JobError("invalid_routing_rules",
+            raise JobError(f"invalid_{kind}_rules",
                            "Every rule needs an ID, enabled flag, and values.",
                            {"index": index})
         values = row["values"]
         if not isinstance(values, dict) or set(values) != fields:
-            raise JobError("invalid_routing_rules",
-                           "Every rule must contain all routing fields.",
+            raise JobError(f"invalid_{kind}_rules",
+                           "Every rule must contain all rule fields.",
                            {"index": index, "fields": sorted(fields)})
         key = row["id"]
         if key is None:
             try:
                 entry = new_entry(validate_rule(values))
             except ValueError as exc:
-                raise JobError("invalid_routing_rules", str(exc),
+                raise JobError(f"invalid_{kind}_rules", str(exc),
                                {"index": index}) from exc
         elif isinstance(key, str) and key in current_by_id and key not in seen:
             seen.add(key)
@@ -87,15 +92,15 @@ def _prepare(current: list[RoutingEntry], rows: list[dict[str, Any]]) -> list[Ro
                 try:
                     normalized = rule_values(validate_rule(values))
                 except ValueError as exc:
-                    raise JobError("invalid_routing_rules", str(exc),
+                    raise JobError(f"invalid_{kind}_rules", str(exc),
                                    {"index": index}) from exc
                 changed = {name for name in fields
                            if values[name] != old_values[name]}
                 desired = {name: (normalized[name] if name in changed
                                   else old_values[name]) for name in fields}
-                entry.edit(CustomRule(**desired))
+                entry.edit(rule_type(**desired))
         else:
-            raise JobError("invalid_routing_rules",
+            raise JobError(f"invalid_{kind}_rules",
                            "A rule ID is unknown or repeated.",
                            {"index": index, "id": key})
         entry.disabled = not row["enabled"]
@@ -104,7 +109,7 @@ def _prepare(current: list[RoutingEntry], rows: list[dict[str, Any]]) -> list[Ro
     missing_builtins = [entry.key for entry in current
                         if entry.builtin and entry.key not in seen]
     if missing_builtins:
-        raise JobError("invalid_routing_rules",
+        raise JobError(f"invalid_{kind}_rules",
                        "Built-in rules must remain in the list; disable them instead.",
                        {"missing": missing_builtins})
     old_order = [entry.key for entry in current if entry.key in seen]

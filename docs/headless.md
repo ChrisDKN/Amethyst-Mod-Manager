@@ -796,6 +796,8 @@ Result schemas allow additional properties for compatible additions.
 | `games.options.set.start` | `game` string, `profile` string, `key` string, `value`, `expected_value` | Change one available option if its current value still matches. |
 | `games.routing.get` | `game` string | Read ordered per-game custom routing rules and their revision. |
 | `games.routing.set.start` | `game`, `revision`, full `rules` array, `confirm` true; `profile` (optional) | Save validated rule edits and optionally reconcile one profile. |
+| `games.install_rules.get` | `game` string | Read ordered plain-archive install rules and their revision. |
+| `games.install_rules.set.start` | `game`, `revision`, complete `rules` array, `confirm:true` | Save rules for future plain-archive installs and reinstalls across all profiles. |
 | `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
@@ -1542,6 +1544,56 @@ on their next use. A later deploy applies the new destinations to game files.
 A stale revision fails with `stale_routing_rules`. If the rules save but the
 selected profile cannot refresh, the job reports `routing_sync_failed` with
 `saved: true` and the saved snapshot.
+
+`games.install_rules.get` returns an `install_rules` snapshot with `revision`
+and ordered `rules`, using the same row structure and editing conventions as
+routing rules. Submit the complete array, `revision`, `game`, and `confirm:true`
+to `games.install_rules.set.start`. New rows use `id:null`; keep built-ins in
+the list and disable them with `enabled:false`. A stale revision fails with
+`stale_install_rules`. Saving does not modify installed mods or reconcile profiles.
+Untouched built-in rules follow the handler's current order after updates;
+custom and explicitly reordered entries retain their saved positions.
+
+Each rule's `values` contains `dest`, `extensions`, `folders`, `filenames`,
+`loose_only`, `flatten`, and `include_siblings`. The match lists are alternatives;
+matching is case-insensitive and filenames support glob patterns. Loose-only
+matches files at the mod root or matched folders beginning at the root. Paths
+are preserved below `dest` by default. Flatten removes parents above a matched
+folder, or uses the basename for file matches. Include siblings overrides
+flatten: it brings the top-level containing folder, or the entire installable
+mod contents for a root-level match. Earlier claims, including siblings, win.
+
+Rules run after both prefix-stripping stages and other plain-archive tuning,
+before copying files. They apply to desktop, Headless, and ordinary collection
+plain-archive installs; mods marked for the game root, FOMOD, BAIN, plugin
+installers, exact-layout replication, and Wabbajack reconstruction bypass them.
+Existing game post-install hooks retain their normal sequence. Amethyst metadata
+is excluded, and unsafe paths
+fail before copying. If rules produce conflicting destinations or a file/folder
+conflict, all install rules are skipped for that mod and the install continues
+with its layout from before install rules. The reason is recorded in the log.
+
+Destinations are relative to the installed mod's staging root, rather than the
+game root. Literal relative paths may contain `<modname>` (the final installation
+folder name) and `<random>` (one saved 12-character alphanumeric value shared
+across a mod's rules, reinstalls, updates, and rollback). New-install inspection
+may show a provisional random value, indicated by `layout.random_is_provisional`.
+Custom definitions store defaults in `custom_install_rules`, whose rows contain
+the same fields plus an optional stable `rule_id`. Both standard and UE5 custom
+handlers support them. Per-game edits live in `install_rules.json` alongside
+routing overrides. The GUI editor is available beside Routing Rules and beneath
+**Strip Prefixes (post-install)** in custom-game **Mod Install Tuning**.
+
+For DebugConsolePlus in Probably Stolen, whose deployment data directory is
+already `Mods`, use this rule to keep the DLL, manifest, and UI assets together:
+
+```json
+{"dest":"<modname>","extensions":[".dll"],"folders":[],"filenames":[],"loose_only":true,"flatten":false,"include_siblings":true}
+```
+
+Reinstall the mod after saving to produce `Mods/DebugConsolePlus/DebugConsole.dll`
+alongside its manifest and `ui/` assets. Its Amethyst `meta.ini` remains at the
+staging mod root.
 
 `games.blacklist.get` returns built-in filename and folder patterns under
 `defaults`, saved custom and disabled patterns under `overrides`, and the

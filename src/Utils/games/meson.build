@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'install_rules.py',
   'conflict_blacklist.py',
   'custom_definitions.py',
   'routing_rules.py',
