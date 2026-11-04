@@ -1080,7 +1080,30 @@ class WabbajackView(QWidget):
             self._status.setText(self.tr("This entry has no package download URL. Open a local .wabbajack file."))
             self._open_file(check_after=check_after)
 
-    def _download_package(self, url, *, check_after=False):
+    def open_nexus_collection(self, info):
+        if self._busy or self._checking or self._installing_mpi or self._installing_texture:
+            self._status.setText(self.tr("Finish the current operation before opening another list."))
+            return
+        from Utils.wabbajack.gallery import GalleryEntry
+        from Utils.wabbajack.protocol import NexusCollectionLink
+        link = NexusCollectionLink(info["slug"], info["revision"])
+        entry = GalleryEntry(
+            f"nexus-collection/{link.slug}", info["name"], "", info["game_domain"],
+            str(link.revision), download=link.url,
+            readme=f"https://www.nexusmods.com/games/{info['game_domain']}/collections/{link.slug}/revisions/{link.revision}")
+        self._open_entry(entry)
+        self._download_package(link.url, collection_info=info)
+
+    def _download_package(self, url, *, check_after=False, collection_info=None):
+        collection_link = None
+        api = None
+        if url.lower().startswith("wabbajack://"):
+            from Utils.wabbajack.protocol import NexusCollectionLink
+            collection_link = NexusCollectionLink.parse(url)
+            api = self._get_api()
+            if api is None:
+                self._status.setText(self.tr("Log in to Nexus before loading this collection revision."))
+                return
         self._stop_package_download()
         self._package_url = url
         self._manual_package = False
@@ -1118,9 +1141,24 @@ class WabbajackView(QWidget):
                 if now - last[0] >= 0.1 or maximum and current >= maximum:
                     last[0] = now
                     safe_emit(self._progress, "package", (token, current, maximum))
-            download_package(url, path, stop=stop, size=total,
-                          expected=entry.package_hash if entry else "", progress=progress,
-                          log=self._diagnostic_log)
+            urls = [url]
+            if collection_link:
+                info = collection_info or api.get_wabbajack_collection_download(
+                    collection_link.slug, collection_link.revision)
+                urls = info["download_urls"]
+            for index, download_url in enumerate(urls):
+                if stop.is_set():
+                    raise InterruptedError("Package download stopped")
+                try:
+                    download_package(download_url, path, stop=stop, size=total,
+                                     expected=entry.package_hash if entry else "", progress=progress,
+                                     log=self._diagnostic_log)
+                    break
+                except InterruptedError:
+                    raise
+                except Exception:
+                    if index == len(urls) - 1:
+                        raise
             if stop.is_set():
                 raise InterruptedError("Package download stopped")
             safe_emit(self._progress, "package-inspect", (token,))
@@ -1835,6 +1873,9 @@ class WabbajackView(QWidget):
             self._status.setText(self.tr("Modlist package download cancelled."))
             self._footer_hint.setText(self.tr("Select Check requirements to resume; any partial download will be reused."))
             return
+        if kind == "package" and error and self._package_url.startswith("wabbajack://"):
+            self._prepare_button.setText(self.tr("Retry download"))
+            self._prepare_button.show()
         if error:
             self._status.setText(error)
             self._log("[wabbajack] " + error)
@@ -1893,6 +1934,11 @@ class WabbajackView(QWidget):
             self._prepare_button.setText(self.tr("Reload"))
             self._package_path.setText(result.path.name if not (len(result.path.stem) == 64 and all(c in "0123456789abcdef" for c in result.path.stem))
                                        else self.tr("{0} · saved package").format(result.name))
+            if self._package_url.startswith("wabbajack://"):
+                from Utils.wabbajack.protocol import NexusCollectionLink
+                link = NexusCollectionLink.parse(self._package_url)
+                self._package_path.setText(self.tr("{0} · Nexus revision {1}").format(
+                    result.name, link.revision))
             self._package_path.setToolTip(str(result.path))
             self._detail_sizes.setText(
                 self.tr("{0} archives · {1} files").format(

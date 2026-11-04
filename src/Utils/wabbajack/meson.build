@@ -38,6 +38,7 @@ py.install_sources(
   'paths.py',
   'preflight.py',
   'profiles.py',
+  'protocol.py',
   'reset.py',
   'reconstruct.py',
   'store.py',

@@ -553,16 +553,17 @@ class NxmHandler:
                 nxm_log(f"Could not update {path}: {exc}")
 
     @staticmethod
-    def _patch_mimeapps_content(content: str, previous: str = "") -> str:
+    def _patch_mimeapps_content(content: str, previous: str = "", *,
+                                scheme="nxm", desktop_file=_DESKTOP_FILE_NAME) -> str:
         """
         Set ``x-scheme-handler/nxm=amethystmodmanager-nxm.desktop`` under both
         ``[Default Applications]`` and ``[Added Associations]`` sections of a
         mimeapps.list-style file. Creates the sections if missing, replaces
         the key if already present, retaining other handlers and unrelated lines.
         """
-        key = "x-scheme-handler/nxm"
+        key = f"x-scheme-handler/{scheme}"
         target_sections = ("[Default Applications]", "[Added Associations]")
-        handlers = {section: [_DESKTOP_FILE_NAME] for section in target_sections}
+        handlers = {section: [desktop_file] for section in target_sections}
         for source in (content, previous):
             section = ""
             for line in source.splitlines():

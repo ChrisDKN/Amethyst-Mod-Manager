@@ -458,6 +458,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
     _nxm_received = Signal(str)
     # NXM download worker → UI thread: (DownloadResult, mod_info, file_info).
     _nxm_download_done = Signal(object)
+    _wabbajack_link_resolved = Signal(object)
     _resumable_download_done = Signal(object)
     # ror2mm:// or gale:// install link received from a second instance (worker
     # thread → UI thread). Shares the NXM IPC socket; routed by scheme.
@@ -976,6 +977,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._nxm_install_queue: list = []
         self._nxm_received.connect(self._receive_nxm)
         self._nxm_download_done.connect(self._on_nxm_download_done)
+        self._wabbajack_link_resolved.connect(self._on_wabbajack_link_resolved)
         self._resumable_download_done.connect(self._on_resumable_download_done)
         self._ror2mm_received.connect(self._receive_ror2mm)
         self._ror2mm_resolved.connect(self._on_ror2mm_resolved)
@@ -4386,11 +4388,11 @@ class MainWindow(QMainWindow, PluginPanelControls):
             pass
 
     def _handle_nxm_argv(self):
-        """Check sys.argv for an nxm:// link and kick off a download once the
-        window has finished building."""
+        """Process Nexus install links after the window has finished building."""
         from PySide6.QtCore import QTimer
         from Nexus.nxm_handler import nxm_log, nxm_url_from_argv
-        nxm_url = nxm_url_from_argv()
+        from Utils.wabbajack.protocol import wabbajack_url_from_argv
+        nxm_url = nxm_url_from_argv() or wabbajack_url_from_argv()
         if not nxm_url:
             return
         nxm_log("Fresh instance: processing NXM link after window build")
@@ -5441,7 +5443,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 safe_emit(self._ror2mm_received, url)
             elif scheme.startswith("modl://"):
                 safe_emit(self._modl_received, url)
-            elif not scheme.startswith("nxm://"):
+            elif not scheme.startswith(("nxm://", "wabbajack://")):
                 safe_emit(self._plugin_source_received, url)
             else:
                 safe_emit(self._nxm_received, url)
@@ -5490,7 +5492,11 @@ class MainWindow(QMainWindow, PluginPanelControls):
             def _rereg():
                 from Nexus.nxm_handler import NxmHandler, nxm_log
                 try:
-                    NxmHandler.register()
+                    if nxm_url.lower().startswith("wabbajack://"):
+                        from Utils.wabbajack.protocol import WabbajackHandler
+                        WabbajackHandler.register()
+                    else:
+                        NxmHandler.register()
                 except Exception as exc:
                     nxm_log(f"Re-register after IPC receive failed: {exc}")
 
@@ -5511,7 +5517,10 @@ class MainWindow(QMainWindow, PluginPanelControls):
         return matches[0] if len(matches) == 1 else None
 
     def _process_nxm_link(self, nxm_url: str, *, use_amethyst=False):
-        """Handle an nxm:// link - download a mod or open a collection."""
+        """Route Nexus mod, collection, and Wabbajack install links."""
+        if nxm_url.lower().startswith("wabbajack://"):
+            self._process_wabbajack_link(nxm_url)
+            return
         from Nexus.nxm_handler import parse_nxm_url, nxm_log
         nxm_log(f"Processing NXM link: {nxm_url}")
         try:
@@ -5752,6 +5761,90 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 preferred_names={path: change.mod_name} if rollback else None,
                 on_all_done=on_done, clear_archives=not (rollback or len(changes) > 1),
                 version_changes={path: change} if change else None)
+
+    def _process_wabbajack_link(self, url):
+        import threading
+        from Utils.wabbajack.protocol import NexusCollectionLink
+        try:
+            link = NexusCollectionLink.parse(url)
+        except ValueError as exc:
+            self._notify(str(exc), "warning")
+            return
+        if getattr(self, "_nexus_api_init_deferred", False):
+            self._start_nexus_api_init()
+        if getattr(self, "_nexus_api_init_running", False):
+            if url not in self._nxm_install_queue:
+                self._nxm_install_queue.append(url)
+            return
+        api = self._ensure_nexus_api()
+        if api is None:
+            self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
+                         "warning")
+            return
+        token = getattr(self, "_wabbajack_link_token", 0) + 1
+        self._wabbajack_link_token = token
+        generation = getattr(self, "_nexus_auth_generation", 0)
+        self._append_log(f"[wabbajack] resolving Nexus collection {link.slug}, "
+                         f"revision {link.revision or 'latest'}")
+        signal = self._wabbajack_link_resolved
+
+        def resolve():
+            from gui_qt.runtime.safe_emit import safe_emit
+            result = {"token": token, "generation": generation}
+            try:
+                result["collection"] = api.get_wabbajack_collection_download(
+                    link.slug, link.revision)
+            except Exception as exc:
+                result["error"] = str(exc)
+            safe_emit(signal, result)
+
+        threading.Thread(target=resolve, daemon=True, name="wabbajack-link").start()
+
+    def _on_wabbajack_link_resolved(self, result, game_name=None):
+        if (result["token"] != getattr(self, "_wabbajack_link_token", 0)
+                or result["generation"] != getattr(self, "_nexus_auth_generation", 0)):
+            return
+        if result.get("error"):
+            self._notify(result["error"], "warning")
+            return
+        if (self._col_install_running or self._tool_busy
+                or getattr(self, "_install_running", False)
+                or getattr(self, "_deploy_running", False)
+                or getattr(self, "_staged_finish_running", False)):
+            self._notify(self.tr("Finish the current operation before opening a Wabbajack list."),
+                         "warning")
+            return
+        from Utils.games.registry import _GAMES
+        info = result["collection"]
+        domain = info["game_domain"]
+        matches = [(name, game) for name, game in _GAMES.items()
+                   if game.is_configured() and game.accepts_nexus_domain(domain)]
+        matched = (next((pair for pair in matches if pair[0] == game_name), None)
+                   if game_name else self._match_game_for_domain(domain))
+        if matched is None and not game_name and len(matches) > 1:
+            from gui_qt.dialogs.list_picker import ListPickerOverlay
+            ListPickerOverlay.show_over(
+                self, self.tr("Select game instance"),
+                [(name, name) for name, _game in matches],
+                lambda name: self._on_wabbajack_link_resolved(result, name) if name else None)
+            return
+        if matched is None:
+            self._notify(self.tr("No configured game for Nexus domain '{0}'.").format(domain),
+                         "warning")
+            return
+        view = getattr(self, "_wabbajack_view", None)
+        if view is not None and view.tab_close_blocked():
+            self._notify(self.tr("Finish the current Wabbajack operation before opening another list."),
+                         "warning")
+            return
+        if matched[0] != self._gs.game_name:
+            self._on_game_changed(matched[0])
+            if self._gs.game_name != matched[0]:
+                return
+        self._open_wabbajack_tab(from_collection=True)
+        view = getattr(self, "_wabbajack_view", None)
+        if view is not None:
+            view.open_nexus_collection(info)
 
     def _process_nxm_collection_link(self, coll_link, matched=None):
         """Switch to the matching game and open the collection's detail tab."""
@@ -6147,8 +6240,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
         with _perftrace.span("nexus.browser.tab_open"):
             self._tabs.open_tab(view, self.tr("Nexus"), key="nexus_browser")
 
-    def _open_wabbajack_tab(self):
-        if not self._wabbajack_available():
+    def _open_wabbajack_tab(self, *, from_collection=False):
+        if not from_collection and not self._wabbajack_available():
             return
         if self._tabs.has_key("wabbajack"):
             self._tabs.focus_key("wabbajack")
@@ -24344,14 +24437,16 @@ def run(startup_timing=None) -> int:
         GaleHandler, gale_url_from_argv, strip_gale_argv)
     from Utils.downloads.modl import (
         ModlHandler, modl_url_from_argv, strip_modl_argv)
+    from Utils.wabbajack.protocol import (
+        WabbajackHandler, wabbajack_url_from_argv, strip_wabbajack_argv)
     if startup_timing is not None:
         startup_timing.record(
             "Import protocol handlers", phase_started=phase_started,
             category="imports")
 
     phase_started = _startup_time.perf_counter()
-    nxm_url = nxm_url_from_argv()
-    if nxm_url or "--nxm" in sys.argv:
+    nxm_url = nxm_url_from_argv() or wabbajack_url_from_argv()
+    if nxm_url or "--nxm" in sys.argv or "--wabbajack" in sys.argv:
         nxm_log(f"NXM launch: argv={sys.argv[1:]}")
 
     ror2mm_url = ror2mm_url_from_argv() or gale_url_from_argv()
@@ -24380,8 +24475,8 @@ def run(startup_timing=None) -> int:
             nxm_log("NXM link handed off to running instance - exiting")
             return 0
         nxm_log("No running instance - continuing into full app launch")
-    elif "--nxm" in sys.argv:
-        nxm_log("--nxm flag present but no nxm:// URL in argv")
+    elif "--nxm" in sys.argv or "--wabbajack" in sys.argv:
+        nxm_log("Nexus install flag present but no nxm:// or wabbajack:// URL in argv")
 
     # Same single-instance handoff for repository links - they ride the same
     # IPC socket (the payload is just a URL; the receiver routes by scheme).
@@ -24437,7 +24532,8 @@ def run(startup_timing=None) -> int:
                 phase_started=registration_started,
                 lane="protocol worker", category="services")
 
-        for handler, label in ((Ror2mmHandler, "Thunderstore"), (GaleHandler, "Gale")):
+        for handler, label in ((Ror2mmHandler, "Thunderstore"), (GaleHandler, "Gale"),
+                               (WabbajackHandler, "Wabbajack")):
             registration_started = _startup_time.perf_counter()
             current = False
             try:
@@ -24756,7 +24852,7 @@ def run(startup_timing=None) -> int:
     if _RESTART_REQUESTED:
         # Drop one-shot protocol links so no install is repeated after restart.
         argv = strip_plugin_argv(strip_modl_argv(strip_gale_argv(
-            strip_ror2mm_argv(strip_nxm_argv(list(sys.argv))))))
+            strip_ror2mm_argv(strip_nxm_argv(strip_wabbajack_argv(list(sys.argv)))))))
         try:
             os.execv(sys.executable, [sys.executable] + argv)
         except Exception:
