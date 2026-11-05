@@ -1,8 +1,10 @@
 - v2.6.2
+- Added Graveyard Keeper 2
 - Added Nexus v3 api update groups as part of mod update detection
 - Added a wizard to Install Fallout: New california
 - Added a Hexium browser and mod handling
 - Added an option in the game configure menu to duplicate an instance
+- Added an option to change the default mod name on install (Settings > Downloads > Archives)
 - Fixed ReShade wizard output paths for games with nested executables
 - Fixed Wabbajack installations failing with “Missing or ambiguous source” for legacy-encoded BA2 filenames
 - Fixed Restore and Deploy failing with a lazy_import error on Python 3.15
