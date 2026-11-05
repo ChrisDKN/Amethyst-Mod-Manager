@@ -21528,6 +21528,30 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
       <source>Check for updates</source>
       <translation>Проверить обновления</translation>
     </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>Имя установки Nexus по умолчанию</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Выберите имя папки по умолчанию для установки Nexus mod. Имя файла использует отображаемое имя файла Nexus; оригинальное имя файла использует имя архива без его расширения. Отсутствующие имена Nexus возвращаются к имени файла или имени очищенного архива.</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>Имя файла</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Имя мода Nexus</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Имя мода Nexus и имя файла</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>Исходное имя файла</translation>
+    </message>
   </context>
   <context>
     <name>SetupOptions</name>

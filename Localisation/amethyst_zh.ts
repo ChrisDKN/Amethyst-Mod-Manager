@@ -21526,6 +21526,30 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
       <source>Check for updates</source>
       <translation>检查更新</translation>
     </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>默认 Nexus 安装名称</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>选择 Nexus mod 安装的默认文件夹名称。 文件名使用Nexus 文件的显示名称；原文件名使用的是归档名，不使用扩展名。 缺失的 Nexus 名称返回到文件名或清理归档名。明确更新和收藏名称优先处理。</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>文件名称</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>下一个模组名称</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Nexus 模组名称和文件名</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>原始文件名</translation>
+    </message>
   </context>
   <context>
     <name>SetupOptions</name>
