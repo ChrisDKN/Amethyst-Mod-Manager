@@ -21521,6 +21521,30 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
       <source>Check for updates</source>
       <translation>Verificar se há atualizações</translation>
     </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>Nome de instalação padrão Nexus</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Escolha o nome padrão da pasta para instalação do mod Nexus. O nome do arquivo usa o nome de exibição do arquivo Nexus; o nome original usa o nome do arquivo sem sua extensão. Nomes em Nexus ausentes caem de volta ao nome do arquivo ou nome de arquivo limpo. Atualizado e nomes de coleção explícitos têm prioridade.</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>Nome do arquivo</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Nome do mod Nexus</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Nome do mod Nexus e nome do arquivo</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>Nome do arquivo original</translation>
+    </message>
   </context>
   <context>
     <name>SetupOptions</name>
