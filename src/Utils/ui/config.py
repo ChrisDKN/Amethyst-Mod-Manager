@@ -2395,6 +2395,40 @@ def save_nexus_page_size(value: int) -> None:
     _write_ini(parser, path)
 
 
+def load_nexus_tag_excludes(domain: str) -> list[str]:
+    import json
+
+    domain = domain.strip().lower()
+    path = get_ui_config_path()
+    if not domain or not path.is_file():
+        return []
+    try:
+        parser = _read_ini(path)
+        tags = json.loads(parser.get(
+            _NEXUS_SECTION, f"tag_excludes.{domain}", fallback="[]"))
+        if not isinstance(tags, list):
+            return []
+        return list(dict.fromkeys(
+            tag.strip() for tag in tags if isinstance(tag, str) and tag.strip()))
+    except Exception:
+        return []
+
+
+def save_nexus_tag_excludes(domain: str, tags: list[str]) -> None:
+    import json
+
+    domain = domain.strip().lower()
+    if not domain:
+        return
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _read_for_write(path)
+    if _NEXUS_SECTION not in parser:
+        parser[_NEXUS_SECTION] = {}
+    parser[_NEXUS_SECTION][f"tag_excludes.{domain}"] = json.dumps(tags).replace("%", "%%")
+    _write_ini(parser, path)
+
+
 # ---------------------------------------------------------------------------
 # Custom launcher paths
 # ---------------------------------------------------------------------------

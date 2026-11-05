@@ -202,7 +202,7 @@ class NexusBrowserView(QWidget):
         self._tags_loaded = False
         self._game_tags: list = []          # list[NexusTag] for the active domain
         self._tag_includes: list[str] = []
-        self._tag_excludes: list[str] = []
+        self._tag_excludes: list[str] = self._load_tag_excludes()
         self._languages: list[str] = []
         self._hide_translations = False
         self._min_size_kb: int | None = None
@@ -299,6 +299,7 @@ class NexusBrowserView(QWidget):
 
         with perftrace.span("nexus.browser.build"):
             self._build()
+        self._rebuild_tag_chips()
         self._mouse_navigation = MouseNavigationFilter(
             self, self._mouse_back, self._mouse_forward)
         self._update_section_buttons()
@@ -911,6 +912,20 @@ class NexusBrowserView(QWidget):
         self._reload()
 
     # -- advanced search: tags / language / size / downloads / endorsements -
+    def _load_tag_excludes(self) -> list[str]:
+        try:
+            from Utils.ui.config import load_nexus_tag_excludes
+            return load_nexus_tag_excludes(self._domain)
+        except Exception:
+            return []
+
+    def _save_tag_excludes(self):
+        try:
+            from Utils.ui.config import save_nexus_tag_excludes
+            save_nexus_tag_excludes(self._domain, self._tag_excludes)
+        except Exception:
+            pass
+
     def _load_tags(self):
         if self._tags_loaded or not self._domain:
             return
@@ -951,6 +966,7 @@ class NexusBrowserView(QWidget):
             other.remove(name)           # a tag can't be both included and excluded
         if name not in target:
             target.append(name)
+        self._save_tag_excludes()
         self._rebuild_tag_chips()
         self._page = 0
         self._reload()
@@ -959,6 +975,7 @@ class NexusBrowserView(QWidget):
         target = self._tag_includes if include else self._tag_excludes
         if name in target:
             target.remove(name)
+        self._save_tag_excludes()
         self._rebuild_tag_chips()
         self._page = 0
         self._reload()
@@ -1055,6 +1072,7 @@ class NexusBrowserView(QWidget):
 
     def _clear_advanced_filters(self):
         self._reset_advanced_filter_state(keep_adult=False)
+        self._save_tag_excludes()
         self._page = 0
         self._reload()
 
@@ -1348,6 +1366,8 @@ class NexusBrowserView(QWidget):
         self._tags_loaded = False
         self._game_tags = []
         self._reset_advanced_filter_state()
+        self._tag_excludes = self._load_tag_excludes()
+        self._rebuild_tag_chips()
         self._update_section_buttons()
         self._update_browse_controls_visibility()
         self._load_categories()
