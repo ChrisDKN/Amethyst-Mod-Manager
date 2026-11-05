@@ -21528,6 +21528,30 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
       <source>Check for updates</source>
       <translation>アップデートを確認</translation>
     </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>デフォルトネクサスのインストール名</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Nexus mod のデフォルトのフォルダ名を選択します。 ファイル名はNexusファイルの表示名を使用します。元のファイル名は拡張子のないアーカイブ名を使用します。 見つからないネクサス名はファイル名またはクリーンアップされたアーカイブ名に戻ります。明示的な更新とコレクション名は優先されます。</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>ファイル名</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Nexus mod 名</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Nexus modの名前とファイル名</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>元のファイル名</translation>
+    </message>
   </context>
   <context>
     <name>SetupOptions</name>
