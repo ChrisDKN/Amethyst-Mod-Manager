@@ -152,6 +152,8 @@ def _specs():
         add(key, "downloads" if key == "nexus_download_server" else "appearance",
             getattr(uc, "load_" + key), getattr(uc, "save_" + key),
             {"type": "string", "enum": choices}, restart=key == "language")
+    add("nexus_install_name", "archives", uc.load_nexus_install_name, uc.save_nexus_install_name,
+        {"type": "string", "enum": list(uc.NEXUS_INSTALL_NAME_MODES)})
     add("ui_scale", "appearance", _scale, _save_scale,
         {"oneOf": [{"const": "auto"}, {"type": "number", "minimum": 0.5, "maximum": 2}]},
         validate=_validate_scale, restart=True)

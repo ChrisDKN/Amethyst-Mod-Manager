@@ -511,7 +511,7 @@ def _archive_stem(installation_file: str) -> str:
 
 def name_suggestions(meta=None, *, installation_file: str = "",
                      previous_name: str = "",
-                     exclude: str = "") -> list[tuple[str, str]]:
+                     exclude: str = "", source: str = "") -> list[tuple[str, str]]:
     """Return ``[(name, source_label), …]`` naming candidates, best first."""
     file_name = installation_file or getattr(meta, "installation_file", "") or ""
     stem = _archive_stem(file_name)
@@ -539,6 +539,8 @@ def name_suggestions(meta=None, *, installation_file: str = "",
     out: list[tuple[str, str]] = []
     seen = {exclude.strip().lower()} if exclude else set()
     for raw, label in ordered:
+        if source and label != source:
+            continue
         if not raw.strip():
             continue
         name = sanitize_mod_folder_name(raw.strip())

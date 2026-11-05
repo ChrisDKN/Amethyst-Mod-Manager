@@ -1660,15 +1660,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     if staging_root is None:
         log_fn("Install: no staging folder configured.")
         return None
-    # Name the mod folder. Priority:
-    #   1. preferred_name  - the caller forces it (Nexus browser, collections).
-    #   2. prebuilt_meta   - the caller already resolved the Nexus file → use its
-    #                        per-file display name if it has one.
-    #   3. Nexus MD5/filename lookup - when logged in, name the folder after the
-    #                        file's Nexus display name (e.g. "Engine Fixes - Main
-    #                        File") and reuse the resolved meta as prebuilt_meta so
-    #                        finish_install doesn't look it up a second time.
-    #   4. _clean_mod_name - strip the archive stem (offline / not on Nexus).
+    # Explicit names win over provider defaults and the archive-name fallback.
     if preferred_name:
         mod_name = preferred_name
     else:
@@ -1686,14 +1678,14 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         if workshop_title:
             from Utils.mods.names import sanitize_mod_folder_name
             workshop_title = sanitize_mod_folder_name(workshop_title)[:120]
-        nexus_name = provider_title or ts_name or workshop_title or _nexus_file_display_name(prebuilt_meta, game)
+        nexus_name = provider_title or ts_name or workshop_title or _nexus_install_name(prebuilt_meta, archive)
         if not nexus_name and prebuilt_meta is None:
             from Nexus.nexus_meta import NexusModMeta
             resolved = _resolve_nexus_meta_for_naming(archive, game, log_fn)
             # Carry failed lookups too so finish_install does not repeat them.
             prebuilt_meta = resolved if resolved is not None else NexusModMeta()
             if resolved is not None:
-                nexus_name = _nexus_file_display_name(resolved, game)
+                nexus_name = _nexus_install_name(resolved, archive)
         mod_name = nexus_name or _clean_mod_name(archive.stem, game)
         if provider_title:
             log_fn(f"Naming mod folder from plugin provider: '{mod_name}'.")
@@ -3478,26 +3470,27 @@ def _nexus_domains_for(game) -> tuple[str, ...]:
     return domains or tuple(d for d in (_nexus_domain_for(game),) if d)
 
 
-def _nexus_file_display_name(meta, game) -> str:
-    """The sanitized per-file Nexus display name from *meta*, or "" if absent.
-
-    Uses ``file_details.name`` (NexusModMeta.nexus_file_name, e.g. "Engine Fixes
-    - Main File") - the label shown against the download on the mod's Files tab -
-    to name the staging folder. Sanitized to a valid folder name; returns "" so
-    the caller falls back to the archive-stem name when the meta has no file name.
-    """
-    if meta is None:
+def _nexus_install_name(meta, archive: Path) -> str:
+    if meta is None or not (getattr(meta, "mod_id", 0)
+                           or getattr(meta, "nexus_file_name", "")
+                           or getattr(meta, "nexus_name", "")):
         return ""
-    raw = (getattr(meta, "nexus_file_name", "") or "").strip()
-    if not raw:
-        return ""
-    try:
-        from Utils.mods.names import sanitize_mod_folder_name
-        cleaned = sanitize_mod_folder_name(raw) or raw
-    except Exception:
-        import re
-        cleaned = re.sub(r'[<>:"/\\|?*]', "_", raw).rstrip(". ")
-    return cleaned.strip()
+    from Utils.mods.names import (
+        name_suggestions, SRC_NEXUS_FILE, SRC_NEXUS_MOD,
+        SRC_NEXUS_MOD_FILE, SRC_ORIGINAL,
+    )
+    from Utils.ui.config import load_nexus_install_name
+    source = {
+        "file_name": SRC_NEXUS_FILE,
+        "mod_name": SRC_NEXUS_MOD,
+        "mod_and_file_name": SRC_NEXUS_MOD_FILE,
+        "original_file_name": SRC_ORIGINAL,
+    }[load_nexus_install_name()]
+    suggestions = name_suggestions(meta, installation_file=archive.name, source=source)
+    if not suggestions and source != SRC_NEXUS_FILE:
+        suggestions = name_suggestions(meta, installation_file=archive.name,
+                                       source=SRC_NEXUS_FILE)
+    return suggestions[0][0] if suggestions else ""
 
 
 def _thunderstore_display_name(archive: Path) -> str:

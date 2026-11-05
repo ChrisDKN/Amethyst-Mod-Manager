@@ -1259,6 +1259,20 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             g, self.tr("Rename mod after install"),
             uc.load_rename_mod_after_install, uc.save_rename_mod_after_install,
             help=self.tr("Show a rename prompt after installing a mod."))
+        name_combo = self._combo(
+            g, self.tr("Default Nexus install name"),
+            [(self.tr("File name"), "file_name"),
+             (self.tr("Nexus mod name"), "mod_name"),
+             (self.tr("Nexus mod name and file name"), "mod_and_file_name"),
+             (self.tr("Original file name"), "original_file_name")],
+            uc.load_nexus_install_name(), uc.save_nexus_install_name,
+            help=self.tr("Choose the default folder name for Nexus mod installs. "
+                         "File name uses the Nexus file's display name; original "
+                         "file name uses the archive name without its extension. "
+                         "Missing Nexus names fall back to the file name or "
+                         "cleaned archive name. Explicit update and collection "
+                         "names take priority."))
+        name_combo.setFixedWidth(max(self.COMBO_W, name_combo.sizeHint().width()))
         self._finish_section(g)
 
     def _build_downloads(self):
