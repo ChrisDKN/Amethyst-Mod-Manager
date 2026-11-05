@@ -1,7 +1,7 @@
 {
   "name": "Clair Obscur: Expedition 33",
   "game_id": "Clair_Obscur__Expedition_33",
-  "exe_name": "Expedition33_Steam.exe",
+  "exe_name": "Sandfall/Binaries/Win64/SandFall-Win64-Shipping.exe",
   "deploy_type": "ue5",
   "mod_data_path": "Sandfall",
   "steam_id": "1903340",
@@ -100,6 +100,6 @@
     }
   ],
   "custom_frameworks": {},
-  "version": 3,
+  "version": 4,
   "editable": false
 }
