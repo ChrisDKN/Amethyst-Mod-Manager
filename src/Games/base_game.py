@@ -453,6 +453,16 @@ class BaseGame(ABC):
         return set()
 
     @property
+    def conflict_detection_ignore_filenames(self) -> set[str]:
+        """Case-insensitive filename globs hidden from conflicts, still deployed."""
+        return set()
+
+    @property
+    def conflict_detection_ignore_foldernames(self) -> set[str]:
+        """Folder-name globs hiding descendant conflicts while preserving deployment."""
+        return set()
+
+    @property
     def conflict_ignore_foldernames(self) -> set[str]:
         """
         Lowercase folder-name glob patterns excluded from the filemap.
@@ -474,10 +484,8 @@ class BaseGame(ABC):
         entirely, but only when the file is *loose* (sits at the top level of
         a mod with no parent folder).
 
-        Unlike conflict_ignore_filenames (which keeps files in the filemap and
-        only skips conflict tracking), matched loose files are dropped from the
-        filemap and never deployed.  Files of the same name nested inside a
-        folder are unaffected.
+        Matched loose files are dropped from the filemap and never deployed.
+        Files of the same name nested inside a folder are unaffected.
 
         Useful for generic loose readme/spawn-command .txt files that can crash
         a game, while preserving identically-extensioned files (e.g. .txt

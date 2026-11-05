@@ -2297,10 +2297,17 @@ class MainWindow(QMainWindow, PluginPanelControls):
             if error:
                 raise ValueError(error)
             if overrides != initial:
+                if load_overrides(game) != initial:
+                    raise ValueError(self.tr(
+                        "The blacklist changed. Close and reopen the editor before saving."))
                 previous_rules = effective_rules(game, initial)
+                conflict_rules_changed = (
+                    effective_rules(game, initial, conflict_only=True)
+                    != effective_rules(game, overrides, conflict_only=True))
                 save_overrides(game, overrides)
-                self._rebuild_conflicts_async(edit_ctx=(
-                    "blacklist", previous_rules))
+                edit_ctx = (("rules",) if conflict_rules_changed else
+                            ("blacklist", previous_rules))
+                self._rebuild_conflicts_async(edit_ctx=edit_ctx)
 
         BlacklistOverlay(self.window(), game, initial, save)
 

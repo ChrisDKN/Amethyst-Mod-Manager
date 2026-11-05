@@ -14,6 +14,8 @@ TEXT_FIELDS = (
 LIST_FIELDS = (
     "exe_name_alts", "additional_nexus_domains", "auto_install_deps",
     "mod_folder_strip_prefixes", "conflict_ignore_filenames", "conflict_ignore_foldernames",
+    "excluded_loose_filenames",
+    "conflict_detection_ignore_filenames", "conflict_detection_ignore_foldernames",
     "mod_folder_strip_prefixes_post", "mod_required_top_level_folders", "mod_required_file_types",
 )
 BOOL_FIELDS = (

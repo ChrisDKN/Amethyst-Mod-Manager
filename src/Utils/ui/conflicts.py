@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 
 from Utils.games.conflict_blacklist import path_is_ignored
+from Utils.filegraph.constants import FLAG_CONFLICT_IGNORED
 
 # Rows whose path looks like ``archive.bsa : inner/path`` come from an archive.
 BSA_ROW_RE = re.compile(r"^[^/\\:]+\.(?:bsa|ba2)\s+:\s", re.IGNORECASE)
@@ -79,6 +80,9 @@ def _compute_snapshot_conflicts(
         if file.provider_kind == "archive_member":
             archive = file.source.replace("\\", "/").rsplit("/", 1)[-1]
             display = f"{archive} : {display}"
+        if file.flags & FLAG_CONFLICT_IGNORED:
+            files_no_conflict.append(display)
+            continue
         is_archive = file.provider_kind == "archive_member"
         if not is_archive and not file.deployable:
             # The retired index still listed disabled Mod Files rows, while the
@@ -154,7 +158,7 @@ def _compute_snapshot_conflicts(
         elif (not destination_involved and file.conflict_status < 0
               and identity_losses):
             files_lose.append((display, sorted(identity_losses)[-1]))
-        elif not is_archive and not active_candidate:
+        elif not is_archive and not active_candidate and not beaten:
             files_lose.append((display, "(no winner - disabled?)"))
         elif is_archive and not active_candidate and winner is None:
             # The retired archive view omitted an inactive archive member when

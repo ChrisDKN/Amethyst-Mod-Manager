@@ -20,6 +20,7 @@ use std::time::Instant;
 const DEPLOYMENT_PLAN_REVISION: u64 = 3;
 const FLAG_INDEXED: u32 = 1 << 6;
 const FLAG_INDEX_ROOT: u32 = 1 << 8;
+const FLAG_CONFLICT_IGNORED: u32 = 1 << 10;
 
 struct AssetCopyFilter {
     prefixes: Vec<String>,
@@ -1438,31 +1439,44 @@ impl GraphSnapshot {
             .copied()
             .unwrap_or(0)
             > 0;
-        let contested = self
+        let destination_contested = self
             .destination_states
             .get(&effective)
             .is_some_and(|state| {
                 destination_edges(state, self)
                     .iter()
                     .any(|edge| edge.loser == candidate.mod_id || edge.winner == candidate.mod_id)
-            })
-            || candidate.identities.iter().any(|identity| {
-                self.identity_states
-                    .get(identity.as_ref())
-                    .is_some_and(|state| {
-                        identity_edges(state, self).iter().any(|edge| {
-                            edge.loser == candidate.mod_id || edge.winner == candidate.mod_id
-                        }) || state.suppressed().iter().any(|index| {
-                            self.candidate_at(*index)
-                                .is_some_and(|provider| provider.id == candidate.id)
-                        })
-                    })
             });
-        let conflict_status = if !self.enabled(candidate) || !contested {
+        let mut identity_wins = false;
+        let mut identity_losses = false;
+        let mut identity_suppressed = false;
+        for state in candidate
+            .identities
+            .iter()
+            .filter_map(|identity| self.identity_states.get(identity.as_ref()))
+        {
+            for edge in identity_edges(state, self) {
+                identity_wins |= edge.winner == candidate.mod_id;
+                identity_losses |= edge.loser == candidate.mod_id;
+            }
+            identity_suppressed |= state
+                .providers
+                .iter()
+                .filter_map(|index| self.candidate_at(*index))
+                .all(tracks_conflicts)
+                && state.suppressed().iter().any(|index| {
+                    self.candidate_at(*index)
+                        .is_some_and(|provider| provider.id == candidate.id)
+                });
+        }
+        let contested =
+            destination_contested || identity_wins || identity_losses || identity_suppressed;
+        let ignored = !tracks_conflicts(candidate) || (identity_loser && !contested);
+        let conflict_status = if ignored || !self.enabled(candidate) || !contested {
             0
-        } else if identity_loser {
+        } else if identity_loser && (identity_losses || !identity_wins) {
             -1
-        } else if winning {
+        } else if winning || (identity_loser && identity_wins) {
             1
         } else {
             -1
@@ -1481,7 +1495,7 @@ impl GraphSnapshot {
             winning,
             conflict_status,
             deployable: candidate.deployable,
-            flags: candidate.flags,
+            flags: candidate.flags | if ignored { FLAG_CONFLICT_IGNORED } else { 0 },
             plugin_key: candidate.plugin_key.as_deref().map(str::to_owned),
             legacy_rel: candidate.legacy_rel.to_string(),
         }
@@ -1513,7 +1527,7 @@ impl GraphSnapshot {
                 self.candidate(*winner)
                     .is_some_and(|winner| winner.mod_key == candidate.mod_key)
             });
-            let conflict_status = if !self.enabled(candidate) {
+            let conflict_status = if !tracks_conflicts(candidate) || !self.enabled(candidate) {
                 0
             } else {
                 self.destination_states.get(&effective).map_or(0, |state| {
@@ -1869,6 +1883,7 @@ impl GraphSnapshot {
                 .providers
                 .iter()
                 .filter_map(|index| self.candidate_at(*index))
+                .filter(|candidate| tracks_conflicts(candidate))
                 .map(|candidate| candidate.mod_key.as_ref())
                 .collect();
             if owners.len() > 1 {
@@ -1984,6 +1999,7 @@ impl GraphSnapshot {
         let mut result = BTreeMap::new();
         for candidate in self.candidates.iter().filter(|candidate| {
             candidate.kind == ProviderKind::ArchiveMember
+                && tracks_conflicts(candidate)
                 && candidate.mod_key.as_ref() == mod_key
                 && candidate.source_rel.as_ref() == source_rel
                 && self.enabled(candidate)
@@ -2151,6 +2167,9 @@ impl GraphSnapshot {
         let Some(candidate) = self.candidate(candidate_id) else {
             return false;
         };
+        if !tracks_conflicts(candidate) {
+            return false;
+        }
         let Some(effective) = self
             .inventory
             .effective(&candidate.target, &candidate.destination_key)
@@ -2165,6 +2184,7 @@ impl GraphSnapshot {
             .providers
             .iter()
             .filter_map(|index| self.candidate_at(*index))
+            .filter(|provider| tracks_conflicts(provider))
         {
             match first_owner {
                 None => first_owner = Some(provider.mod_key.as_ref()),
@@ -2371,12 +2391,17 @@ fn apply_edge_effect(
     );
 }
 
+fn tracks_conflicts(candidate: &Candidate) -> bool {
+    candidate.flags & FLAG_CONFLICT_IGNORED == 0
+}
+
 fn edge_key(kind: ConflictKind, loser: &Candidate, winner: &Candidate) -> Option<EdgeKey> {
-    (loser.mod_id != winner.mod_id).then_some(EdgeKey {
-        kind,
-        loser: loser.mod_id,
-        winner: winner.mod_id,
-    })
+    (loser.mod_id != winner.mod_id && tracks_conflicts(loser) && tracks_conflicts(winner))
+        .then_some(EdgeKey {
+            kind,
+            loser: loser.mod_id,
+            winner: winner.mod_id,
+        })
 }
 
 fn disabled(intent: &ProfileIntent, candidate: &Candidate) -> bool {
@@ -2440,22 +2465,20 @@ fn namespace_edges(
     snapshot: &GraphSnapshot,
     result: &mut SmallVec<[EdgeKey; 4]>,
 ) {
-    let mut previous_mod = None;
+    let mut previous: Option<&Candidate> = None;
     for id in ids {
-        let Some(mod_id) = snapshot.candidate_at(*id).map(|candidate| candidate.mod_id) else {
+        let Some(candidate) = snapshot.candidate_at(*id) else {
             continue;
         };
-        if previous_mod == Some(mod_id) {
+        if previous.is_some_and(|provider| provider.mod_id == candidate.mod_id) {
             continue;
         }
-        if let Some(loser) = previous_mod {
-            result.push(EdgeKey {
-                kind,
-                loser,
-                winner: mod_id,
-            });
+        if let Some(loser) = previous
+            && let Some(edge) = edge_key(kind, loser, candidate)
+        {
+            result.push(edge);
         }
-        previous_mod = Some(mod_id);
+        previous = Some(candidate);
     }
 }
 
@@ -2507,14 +2530,19 @@ fn destination_edges(state: &DestinationState, snapshot: &GraphSnapshot) -> Smal
 
 fn identity_edges(state: &IdentityState, snapshot: &GraphSnapshot) -> SmallVec<[EdgeKey; 4]> {
     let mut result = SmallVec::new();
-    for pair in state.providers.windows(2) {
-        if let (Some(loser), Some(winner)) = (
-            snapshot.candidate_at(pair[0]),
-            snapshot.candidate_at(pair[1]),
-        ) && let Some(edge) = edge_key(ConflictKind::Identity, loser, winner)
+    let mut previous = None;
+    for winner in state
+        .providers
+        .iter()
+        .filter_map(|index| snapshot.candidate_at(*index))
+        .filter(|candidate| tracks_conflicts(candidate))
+    {
+        if let Some(loser) = previous
+            && let Some(edge) = edge_key(ConflictKind::Identity, loser, winner)
         {
             result.push(edge);
         }
+        previous = Some(winner);
     }
     result
 }

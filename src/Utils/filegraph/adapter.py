@@ -22,7 +22,7 @@ from Utils.deployment.vortex import (
     FLAG_VORTEX_ROUTE, INSTRUCTIONS, METADATA_NAMES, mod_types, read_instructions, resolve_routes,
 )
 from Utils.filegraph.models import FileGraphCancelled, RefreshProgress
-from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+from Utils.filegraph.constants import FLAG_CONFLICT_IGNORED, OVERWRITE_NAME, ROOT_FOLDER_NAME
 from Utils.filegraph.link_changes import ctime_ns, load_changes
 from Utils.filegraph.paths import mod_strip_args
 from Utils.filegraph.archives import (
@@ -370,7 +370,7 @@ class GameCandidateAdapter:
         self._custom_claim_cache = {}
 
     def _refresh_blacklist(self) -> None:
-        from Utils.games.conflict_blacklist import effective_rules
+        from Utils.games.conflict_blacklist import effective_rules, load_overrides
         from Utils.games.routing_rules import get_rules
         default_domain = self._default_domain()
         if default_domain != getattr(self, "_default_route_domain", None):
@@ -393,10 +393,21 @@ class GameCandidateAdapter:
             self._root_route_domain = root_domain
             self._rules_hash_cache = None
             self._variant_rules_hash_cache = None
-        rules = effective_rules(self.game)
+        overrides = load_overrides(self.game)
+        rules = effective_rules(self.game, overrides)
         if rules != getattr(self, "_ignore_rules", None):
             self._ignore_rules = rules
             self._rules_hash_cache = None
+        conflict_rules = effective_rules(self.game, overrides, conflict_only=True)
+        previous_conflict_rules = (
+            getattr(self, "_conflict_detection_ignore", None),
+            getattr(self, "_conflict_detection_ignore_folders", None),
+        )
+        if conflict_rules != previous_conflict_rules:
+            (self._conflict_detection_ignore,
+             self._conflict_detection_ignore_folders) = conflict_rules
+            self._rules_hash_cache = None
+            self._variant_rules_hash_cache = None
         routing = get_rules(self.game)
         if routing != getattr(self, "_routing_rules", None):
             self._routing_rules = routing
@@ -445,6 +456,8 @@ class GameCandidateAdapter:
             "extensions": getattr(game, "mod_install_extensions", ()),
             "exclude_dirs": getattr(game, "filemap_exclude_dirs", ()),
             "exclude_loose": getattr(game, "excluded_loose_filenames", ()),
+            "conflict_detection_ignore": self._conflict_detection_ignore,
+            "conflict_detection_ignore_folders": self._conflict_detection_ignore_folders,
             "required_top": getattr(game, "mod_required_top_level_folders", ()),
             "filter_top": getattr(game, "filemap_exclude_unknown_top_level", False),
             "routing": self._routing_rules,
@@ -947,6 +960,7 @@ class GameCandidateAdapter:
 
     def _flags(self, routed: _Route, staged: str) -> int:
         result = FLAG_ROOT_RULE if routed.root_rule else 0
+        result |= self._conflict_flags(routed.destination_display)
         if routed.vortex:
             result |= FLAG_VORTEX_ROUTE
         lower = staged.lower()
@@ -967,6 +981,13 @@ class GameCandidateAdapter:
             flags |= FLAG_TEXT
         self._path_flags[lower] = flags
         return result | flags
+
+    def _conflict_flags(self, destination: str) -> int:
+        if not (self._conflict_detection_ignore or self._conflict_detection_ignore_folders):
+            return 0
+        return FLAG_CONFLICT_IGNORED if path_is_ignored(
+            destination, (self._conflict_detection_ignore,
+                          self._conflict_detection_ignore_folders)) else 0
 
     def _plugin_key_for_route(self, route: _Route, staged: str) -> str | None:
         filename = staged.lower().rsplit("/", 1)[-1]
@@ -1417,7 +1438,7 @@ class GameCandidateAdapter:
                     "deployable": False,
                     "legacy_root": False,
                     "legacy_rel": member,
-                    "flags": FLAG_ARCHIVE,
+                    "flags": FLAG_ARCHIVE | self._conflict_flags(full),
                 })
 
     def _append_cached_archive_candidates(
@@ -1505,7 +1526,7 @@ class GameCandidateAdapter:
                 "deployable": False,
                 "legacy_root": False,
                 "legacy_rel": member,
-                "flags": FLAG_ARCHIVE,
+                "flags": FLAG_ARCHIVE | self._conflict_flags(full),
             })
 
     def prepare_profile_rules(self, *, refresh_rules: bool = True) -> None:

@@ -14,7 +14,7 @@ from gui_qt.appearance.theme import active_palette, _c, close_button
 
 
 class BlacklistOverlay(OverlayBase):
-    CARD_W = 660
+    CARD_W = 760
     CARD_H = 540
     MIN_W = 360
     MIN_H = 340
@@ -23,7 +23,12 @@ class BlacklistOverlay(OverlayBase):
         super().__init__(host)
         self._on_save = on_save
         files, folders = builtin_rules(game)
-        self._defaults = {"files": files, "folders": folders}
+        conflict_files, conflict_folders = builtin_rules(game, conflict_only=True)
+        self._defaults = {
+            "files": files, "folders": folders,
+            "conflict_only_files": conflict_files,
+            "conflict_only_folders": conflict_folders,
+        }
         self._custom = {kind: set(getattr(initial, kind))
                         for kind in self._defaults}
         self._disabled = {kind: set(getattr(initial, "disabled_" + kind))
@@ -44,20 +49,29 @@ class BlacklistOverlay(OverlayBase):
         layout.addLayout(header)
 
         help_text = QLabel(self.tr(
-            "Applies to all profiles for this game. Matching files and folders "
-            "are excluded from deployment and conflict tracking; files remain "
-            "in staging. Changes apply on the next deploy, or automatically "
-            "when auto-deploy is enabled."))
+            "Applies to all profiles for this game. Exclusions prevent deployment. "
+            "Conflict-only rules keep files deployed and hide their conflicts. "
+            "Changes apply on the next deploy, or automatically when auto-deploy "
+            "is enabled. Deployment exclusions take precedence."))
         help_text.setWordWrap(True)
         layout.addWidget(help_text)
         tabs = QTabWidget()
         layout.addWidget(tabs, 1)
         for kind, label, hint in (
-            ("files", self.tr("Files"), self.tr(
-                "Case-insensitive filename patterns, e.g. *.txt or readme*.")),
-            ("folders", self.tr("Folders"), self.tr(
+            ("files", self.tr("Exclude Files"), self.tr(
+                "Case-insensitive filename patterns excluded from deployment "
+                "and conflict tracking, e.g. *.txt or readme*.")),
+            ("folders", self.tr("Exclude Folders"), self.tr(
                 "Case-insensitive folder-name patterns at any depth, e.g. docs "
-                "or *_backup. Matching folders exclude their entire contents.")),
+                "or *_backup. Their entire contents are excluded from deployment "
+                "and conflict tracking.")),
+            ("conflict_only_files", self.tr("Ignore File Conflicts"), self.tr(
+                "Case-insensitive destination filename patterns, e.g. readme*.txt. "
+                "Matching files deploy normally without conflict reporting.")),
+            ("conflict_only_folders", self.tr("Ignore Folder Conflicts"), self.tr(
+                "Case-insensitive destination folder-name patterns at any depth, "
+                "e.g. docs or *_info. Their contents and subfolders deploy normally "
+                "without conflict reporting.")),
         ):
             page = QWidget()
             body = QVBoxLayout(page)

@@ -798,8 +798,8 @@ Result schemas allow additional properties for compatible additions.
 | `games.routing.set.start` | `game`, `revision`, full `rules` array, `confirm` true; `profile` (optional) | Save validated rule edits and optionally reconcile one profile. |
 | `games.install_rules.get` | `game` string | Read ordered plain-archive install rules and their revision. |
 | `games.install_rules.set.start` | `game`, `revision`, complete `rules` array, `confirm:true` | Save rules for future plain-archive installs and reinstalls across all profiles. |
-| `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
-| `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
+| `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game deployment exclusions and conflict-only rules with a revision. |
+| `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder deployment exclusions and conflict-only rules, and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
 | `tools.synthesis.acquire.start` | `game`, `profile`, `tool_id`, catalogue `revision` | Download the declared Synthesis ZIP release to the managed cache. |
 | `tools.synthesis.inspect.start` | Acquisition parameters plus absolute `archive_path` | Inspect application files, source identity, destination writes and installation revision. |
@@ -1489,6 +1489,25 @@ existing staging/profile location. Per-game routing overrides are retained;
 `custom_routing_rules` in the definition edits handler defaults, while
 `games.routing.*` edits Data-tab overrides for any game.
 
+Definitions can set `"excluded_loose_filenames":["*.txt"]` to exclude matching
+files only at the top level of a mod. Matching filenames inside folders remain
+deployable. Patterns are case-insensitive. The custom-game editor exposes this
+as **Exclude Loose Filenames** for standard, root and UE5 handlers; the default
+is an empty list.
+
+Definitions can set `"conflict_detection_ignore_filenames":["readme*.txt"]`
+to suppress conflict reporting for matching destination filenames while keeping
+normal deployment priority. Patterns are case-insensitive and apply at any
+folder depth. The custom-game editor exposes this as **Ignore Conflicts Only —
+Filenames** for standard, root and UE5 handlers. Existing
+`conflict_ignore_filenames` and blacklist rules still exclude files from deployment.
+
+The matching folder option is
+`"conflict_detection_ignore_foldernames":["docs","*_info"]`, exposed as
+**Ignore Conflicts Only — Folders**. It matches destination folder names at any
+depth, case-insensitively, and suppresses conflicts for all descendants while
+preserving deployment. Both conflict-only options default to empty lists.
+
 Definitions can opt into Hexium with `"hexium_community":"<community-slug>"`,
 alongside the independent `thunderstore_community` field. The custom-game editor
 exposes both fields. An empty or omitted Hexium community disables integration.
@@ -1598,8 +1617,12 @@ staging mod root.
 `games.blacklist.get` returns built-in filename and folder patterns under
 `defaults`, saved custom and disabled patterns under `overrides`, and the
 resulting `effective` patterns. To change them, send the complete `overrides`
-object and its `revision` to `games.blacklist.set.start`. The object must have
-four arrays: `files`, `folders`, `disabled_files`, and `disabled_folders`.
+object and its `revision` to `games.blacklist.set.start`. The object contains
+eight arrays: `files`, `folders`, `disabled_files`, `disabled_folders`,
+`conflict_only_files`, `conflict_only_folders`, `disabled_conflict_only_files`,
+and `disabled_conflict_only_folders`. The conflict-only arrays suppress conflict
+reporting while preserving deployment. Requests containing only the original
+four arrays remain supported and preserve saved conflict-only settings.
 Only built-in patterns or previously saved disabled patterns may appear in the
 disabled arrays. To restore one, remove it from the disabled array. Patterns
 are case-insensitive filename or folder globs without path separators.
@@ -1609,7 +1632,10 @@ reconciles that profile's Filegraph immediately; other profiles refresh on their
 next use. A later deploy applies the exclusions to game files. A stale revision
 fails with `stale_blacklist`. If the rules save but the selected profile cannot
 refresh, the job reports `blacklist_sync_failed` with `saved: true` and the
-saved snapshot.
+saved snapshot. The desktop Data tab's **Blacklist** editor exposes all four
+rule types: **Exclude Files**, **Exclude Folders**, **Ignore File Conflicts**
+and **Ignore Folder Conflicts**, including disabling and restoring handler
+defaults. Deployment exclusions take precedence over conflict-only rules.
 
 List profiles:
 

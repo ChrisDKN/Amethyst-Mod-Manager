@@ -1,4 +1,4 @@
-"""Per-game overrides for handler filename and folder exclusions."""
+"""Per-game overrides for deployment exclusions and conflict reporting."""
 
 from __future__ import annotations
 
@@ -16,6 +16,10 @@ class BlacklistOverrides:
     folders: frozenset[str] = field(default_factory=frozenset)
     disabled_files: frozenset[str] = field(default_factory=frozenset)
     disabled_folders: frozenset[str] = field(default_factory=frozenset)
+    conflict_only_files: frozenset[str] = field(default_factory=frozenset)
+    conflict_only_folders: frozenset[str] = field(default_factory=frozenset)
+    disabled_conflict_only_files: frozenset[str] = field(default_factory=frozenset)
+    disabled_conflict_only_folders: frozenset[str] = field(default_factory=frozenset)
 
 
 def normalize_pattern(value: str) -> str:
@@ -27,11 +31,13 @@ def normalize_pattern(value: str) -> str:
     return pattern
 
 
-def builtin_rules(game) -> tuple[frozenset[str], frozenset[str]]:
+def builtin_rules(game, *, conflict_only: bool = False
+                  ) -> tuple[frozenset[str], frozenset[str]]:
+    prefix = "conflict_detection_ignore_" if conflict_only else "conflict_ignore_"
     return tuple(
         frozenset(str(pattern).lower() for pattern in
-                  (getattr(game, attribute, None) or ()))
-        for attribute in ("conflict_ignore_filenames", "conflict_ignore_foldernames")
+                  (getattr(game, prefix + suffix, None) or ()))
+        for suffix in ("filenames", "foldernames")
     )
 
 
@@ -61,13 +67,18 @@ def save_overrides(game, overrides: BlacklistOverrides) -> None:
     write_atomic_text(path, json.dumps(payload, indent=2) + "\n")
 
 
-def effective_rules(game, overrides: BlacklistOverrides | None = None
+def effective_rules(game, overrides: BlacklistOverrides | None = None,
+                    *, conflict_only: bool = False
                     ) -> tuple[frozenset[str], frozenset[str]]:
     if overrides is None:
         overrides = load_overrides(game)
-    files, folders = builtin_rules(game)
-    return ((files - overrides.disabled_files) | overrides.files,
-            (folders - overrides.disabled_folders) | overrides.folders)
+    defaults = builtin_rules(game, conflict_only=conflict_only)
+    prefix = "conflict_only_" if conflict_only else ""
+    return tuple(
+        (patterns - getattr(overrides, "disabled_" + prefix + kind))
+        | getattr(overrides, prefix + kind)
+        for kind, patterns in zip(("files", "folders"), defaults)
+    )
 
 
 def path_is_ignored(path: str, rules) -> bool:

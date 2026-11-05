@@ -2604,6 +2604,32 @@ Disabling or removing a plugin removes its games from discovery after restart;
 saved paths, profiles and mods are retained. JSON `games.custom.*` APIs remain
 available for definitions that do not need Python behaviour.
 
+Handlers can override `BaseGame.conflict_detection_ignore_filenames` with a set
+of case-insensitive filename globs, or set the same JSON field to an array in a
+custom definition. Matching destination filenames still deploy with normal
+priority but do not contribute conflict counts, icons or file highlighting.
+For example, `{"conflict_detection_ignore_filenames": ["readme*.txt"]}` keeps
+required README files deployable. Existing `conflict_ignore_filenames` and
+blacklist rules continue to exclude matching files from deployment.
+
+Custom definitions also support `"excluded_loose_filenames": ["*.txt"]`,
+matching `BaseGame.excluded_loose_filenames`. These case-insensitive filename
+globs exclude only files at the mod's top level; matching files inside folders
+remain deployable. The field defaults to an empty array and is available in
+the custom-game editor for standard, root and UE5 handlers.
+
+`BaseGame.conflict_detection_ignore_foldernames` provides the same behaviour for
+folder-name globs, with the matching JSON array field available to custom
+handlers. For example, `{"conflict_detection_ignore_foldernames": ["docs", "*_info"]}`
+suppresses conflicts inside matching destination folders and all subfolders,
+at any depth and regardless of case. Files still deploy normally. Both
+conflict-only properties default to empty sets.
+
+All four filename and folder rule properties supply defaults to **Data →
+Blacklist**. Users can add patterns or disable and restore defaults there;
+overrides persist per game across profiles. Deployment exclusions take
+precedence when a file also matches a conflict-only rule.
+
 These handler classes use Amethyst's Python game API, which may change between
 manager versions. Set `min_manager_version` and validate the packaged plugin
 against the manager versions you support. Modules execute as trusted Python with

@@ -654,17 +654,33 @@ class CustomGameView(QWidget):
             self.tr("Conflicts & Advanced Behaviour"))
         g = self._make_grid(self._sec_conflicts.body)
         _render_entry(
+            g, "excluded_loose_filenames", _T("Exclude Loose Filenames"),
+            _T("Comma-separated filename glob patterns excluded from deployment "
+               "only at the top level of a mod. Files with the same names inside "
+               "folders are unaffected. Matches are case-insensitive. e.g. *.txt"))
+        _render_entry(
             g, "conflict_ignore_filenames", _T("Conflict Ignore Filenames"),
-            _T("Comma-separated filenames excluded from conflict detection. "
+            _T("Comma-separated filenames excluded from deployment and conflict detection. "
                "Supports glob patterns: *.<ext> matches any file with that "
                "extension, <name>.* matches that name with any extension. "
                "e.g. modinfo.ini, manifest.json, *.txt, LICENCE.*"))
+        _render_entry(
+            g, "conflict_detection_ignore_filenames", _T("Ignore Conflicts Only - Filenames"),
+            _T("Comma-separated filename glob patterns excluded from conflict "
+               "reporting. Matching files still deploy using normal mod priority. "
+               "Matches are case-insensitive. e.g. readme*.txt, LICENSE.*"))
         _render_entry(
             g, "conflict_ignore_foldernames", _T("Conflict Ignore Folder Names"),
             _T("Comma-separated folder names excluded from deployment and "
                "conflict detection. A folder whose name matches (at any "
                "depth) is skipped along with everything inside it. Supports "
                "glob patterns. e.g. docs, screenshots, *_backup"))
+        _render_entry(
+            g, "conflict_detection_ignore_foldernames", _T("Ignore Conflicts Only - Folders"),
+            _T("Comma-separated folder-name glob patterns excluded from conflict "
+               "reporting at any depth. Files inside matching folders and their "
+               "subfolders still deploy using normal mod priority. Matches are "
+               "case-insensitive. e.g. docs, metadata, *_info"))
         _render_toggle(
             g, "restore_before_deploy", _T("Restore Before Deploy"),
             _T("When enabled (default), the manager runs Restore before every "
@@ -1084,6 +1100,12 @@ class CustomGameView(QWidget):
             _set_to_str(e.get("mod_folder_strip_prefixes_post", [])))
         self._adv_edits["conflict_ignore_filenames"].setText(
             _set_to_str(e.get("conflict_ignore_filenames", [])))
+        self._adv_edits["excluded_loose_filenames"].setText(
+            _set_to_str(e.get("excluded_loose_filenames", [])))
+        self._adv_edits["conflict_detection_ignore_filenames"].setText(
+            _set_to_str(e.get("conflict_detection_ignore_filenames", [])))
+        self._adv_edits["conflict_detection_ignore_foldernames"].setText(
+            _set_to_str(e.get("conflict_detection_ignore_foldernames", [])))
         self._adv_edits["conflict_ignore_foldernames"].setText(
             _set_to_str(e.get("conflict_ignore_foldernames", [])))
 
@@ -1149,6 +1171,9 @@ class CustomGameView(QWidget):
                 or toggles["mod_install_as_is_if_no_match"].isChecked()):
             self._sec_tuning.expand()
         if (edits["conflict_ignore_filenames"].text().strip()
+                or edits["excluded_loose_filenames"].text().strip()
+                or edits["conflict_detection_ignore_filenames"].text().strip()
+                or edits["conflict_detection_ignore_foldernames"].text().strip()
                 or edits["conflict_ignore_foldernames"].text().strip()
                 or not toggles["restore_before_deploy"].isChecked()
                 or not toggles["normalize_folder_case"].isChecked()
@@ -1243,6 +1268,12 @@ class CustomGameView(QWidget):
                 _str_to_list(self._adv_edits["mod_folder_strip_prefixes"].text()),
             "conflict_ignore_filenames":
                 _str_to_list(self._adv_edits["conflict_ignore_filenames"].text()),
+            "excluded_loose_filenames":
+                _str_to_list(self._adv_edits["excluded_loose_filenames"].text()),
+            "conflict_detection_ignore_filenames":
+                _str_to_list(self._adv_edits["conflict_detection_ignore_filenames"].text()),
+            "conflict_detection_ignore_foldernames":
+                _str_to_list(self._adv_edits["conflict_detection_ignore_foldernames"].text()),
             "conflict_ignore_foldernames":
                 _str_to_list(self._adv_edits["conflict_ignore_foldernames"].text()),
             "mod_folder_strip_prefixes_post":

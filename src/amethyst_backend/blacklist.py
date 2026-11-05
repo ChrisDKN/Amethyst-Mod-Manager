@@ -13,21 +13,26 @@ from Utils.games.conflict_blacklist import (
 from .jobs import JobError
 
 
-_KEYS = ("files", "folders", "disabled_files", "disabled_folders")
+_LEGACY_KEYS = ("files", "folders", "disabled_files", "disabled_folders")
+_KEYS = tuple(BlacklistOverrides.__dataclass_fields__)
 
 
 def _snapshot(game: Any, overrides: BlacklistOverrides) -> dict[str, Any]:
-    builtin_files, builtin_folders = builtin_rules(game)
-    effective_files, effective_folders = effective_rules(game, overrides)
-    defaults = {"files": sorted(builtin_files),
-                "folders": sorted(builtin_folders)}
+    defaults = {}
+    effective = {}
+    for conflict_only in (False, True):
+        prefix = "conflict_only_" if conflict_only else ""
+        defaults.update(zip(
+            (prefix + "files", prefix + "folders"),
+            map(sorted, builtin_rules(game, conflict_only=conflict_only))))
+        effective.update(zip(
+            (prefix + "files", prefix + "folders"),
+            map(sorted, effective_rules(game, overrides, conflict_only=conflict_only))))
     saved = {key: sorted(getattr(overrides, key)) for key in _KEYS}
     payload = {"defaults": defaults, "overrides": saved}
     revision = hashlib.sha256(json.dumps(
         payload, sort_keys=True, ensure_ascii=True).encode("ascii")).hexdigest()
-    return {"revision": revision, **payload,
-            "effective": {"files": sorted(effective_files),
-                          "folders": sorted(effective_folders)}}
+    return {"revision": revision, **payload, "effective": effective}
 
 
 def get_blacklist(game: Any) -> dict[str, Any]:
@@ -41,12 +46,13 @@ def get_blacklist(game: Any) -> dict[str, Any]:
 
 def _prepare(game: Any, values: dict[str, Any],
              current: BlacklistOverrides) -> BlacklistOverrides:
-    if not isinstance(values, dict) or set(values) != set(_KEYS):
+    if (not isinstance(values, dict)
+            or set(values) not in (set(_KEYS), set(_LEGACY_KEYS))):
         raise JobError("invalid_blacklist",
-                       "Supply all four blacklist override lists.")
+                       "Supply the complete blacklist override lists.")
     normalized: dict[str, frozenset[str]] = {}
     for key in _KEYS:
-        raw = values[key]
+        raw = values.get(key, sorted(getattr(current, key)))
         if not isinstance(raw, list) or len(raw) > 512:
             raise JobError("invalid_blacklist",
                            "Each blacklist override must be an array of at most 512 patterns.",
@@ -58,8 +64,11 @@ def _prepare(game: Any, values: dict[str, Any],
             raise JobError("invalid_blacklist", str(exc),
                            {"field": key}) from exc
     builtin_files, builtin_folders = builtin_rules(game)
+    conflict_files, conflict_folders = builtin_rules(game, conflict_only=True)
     for kind, defaults in (("files", builtin_files),
-                           ("folders", builtin_folders)):
+                           ("folders", builtin_folders),
+                           ("conflict_only_files", conflict_files),
+                           ("conflict_only_folders", conflict_folders)):
         disabled_key = "disabled_" + kind
         invalid = normalized[disabled_key] - defaults - getattr(current, disabled_key)
         if invalid:
@@ -101,6 +110,9 @@ def set_blacklist(
             return {"changed": False, "blacklist": current_snapshot,
                     "reconciled_profile": None}
         previous = effective_rules(game, current)
+        conflict_rules_changed = (
+            effective_rules(game, current, conflict_only=True)
+            != effective_rules(game, proposed, conflict_only=True))
         progress(0, 2, "Saving conflict blacklist")
         try:
             latest = _snapshot(game, load_overrides(game))
@@ -130,7 +142,7 @@ def set_blacklist(
                 library.ensure_ready(profile_dir)
                 session = library.open_profile(profile_dir)
                 session.ensure_reconciled(operation_hint={
-                    "kind": "blacklist", "mods": [],
+                    "kind": "rules" if conflict_rules_changed else "blacklist", "mods": [],
                     "_blacklist_previous": [sorted(part) for part in previous],
                 })
                 generation = session.snapshot().generation

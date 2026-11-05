@@ -118,7 +118,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             }
 
     @property
-    def conflict_ignore_filenames(self) -> set[str]:
+    def conflict_detection_ignore_filenames(self) -> set[str]:
         return {
             "*read*.txt",
             "*.png",
