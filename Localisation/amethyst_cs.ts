@@ -21528,6 +21528,30 @@ ametyst.flatpakrepo</translation>
       <source>Check for updates</source>
       <translation>Zkontrolovat aktualizace</translation>
     </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>Výchozí název instalace Nexus</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Zvolte výchozí název složky pro instalaci Nexus modů. Název souboru používá zobrazovací název Nexus souboru; původní název souboru používá název archivu bez jeho přípony. Chybějící Nexus jména se vrátí k názvu souboru nebo k čistému názvu archivu. Přednost aktualizace a názvy kolekcí mají prioritu.</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>Název souboru</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Nexus název modu</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Nexus název modu a název souboru</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>Původní název souboru</translation>
+    </message>
   </context>
   <context>
     <name>SetupOptions</name>
