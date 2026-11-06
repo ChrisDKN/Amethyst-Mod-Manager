@@ -738,7 +738,7 @@ def stage_file_list(game, extract_dir: str, *, is_root_install: bool = False,
     if len(filtered) != len(file_list):
         log_fn("Skipped bundled meta.ini from archive (Amethyst writes its own).")
     from Utils.games.install_rules import get_rules
-    rules = get_rules(game) if install_rules_enabled and not is_root_install else []
+    rules = get_rules(game) if install_rules_enabled else []
     if rules:
         from Utils.mods.install_rules import InstallRuleConflict, apply_install_rules
         state = dict(install_state) if install_state is not None else {}

@@ -1584,8 +1584,11 @@ mod contents for a root-level match. Earlier claims, including siblings, win.
 
 Rules run after both prefix-stripping stages and other plain-archive tuning,
 before copying files. They apply to desktop, Headless, and ordinary collection
-plain-archive installs; mods marked for the game root, FOMOD, BAIN, plugin
-installers, exact-layout replication, and Wabbajack reconstruction bypass them.
+plain-archive installs, including reinstalls of mods marked for the game root.
+The root flag still controls deployment location and bypasses the game's prefix
+stripping and automatic install prefix. Explicit install rules still apply.
+FOMOD, BAIN, plugin installers, exact-layout replication, and Wabbajack
+reconstruction bypass them.
 Existing game post-install hooks retain their normal sequence. Amethyst metadata
 is excluded, and unsafe paths
 fail before copying. If rules produce conflicting destinations or a file/folder
