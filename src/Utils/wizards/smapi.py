@@ -45,6 +45,13 @@ def _noop(_msg: str) -> None:
 
 def fetch_latest_smapi_asset() -> tuple[str, str]:
     """Return (version_tag, download_url) for the latest SMAPI installer zip."""
+    tag, url, _sha256 = fetch_latest_smapi_asset_checked()
+    return tag, url
+
+
+def fetch_latest_smapi_asset_checked() -> tuple[str, str, str]:
+    """fetch_latest_smapi_asset() plus the asset's GitHub SHA-256 (or "")."""
+    from Utils.wizards.archives import github_asset_sha256
     req = urllib.request.Request(
         _GITHUB_API_URL,
         headers={"Accept": "application/vnd.github+json",
@@ -59,18 +66,25 @@ def fetch_latest_smapi_asset() -> tuple[str, str]:
         nl = asset.get("name", "").lower()
         if (nl.endswith(".zip") and "smapi" in nl and "installer" in nl
                 and "double" not in nl):
-            return tag, asset["browser_download_url"]
+            return tag, asset["browser_download_url"], github_asset_sha256(asset)
     for asset in assets:
         nl = asset.get("name", "").lower()
         if nl.endswith(".zip") and "smapi" in nl and "double" not in nl:
-            return tag, asset["browser_download_url"]
+            return tag, asset["browser_download_url"], github_asset_sha256(asset)
     raise RuntimeError("No SMAPI installer zip found in the latest GitHub release.")
 
 
-def download_smapi(url: str, dest: Path, reporthook=None) -> None:
-    """Download *url* to *dest* over HTTPS using the app's resolved CA bundle."""
+def download_smapi(url: str, dest: Path, reporthook=None, *,
+                  sha256: str = "", log_fn=None) -> None:
+    """Download *url* to *dest* over HTTPS using the app's resolved CA bundle.
+
+    With *sha256* (from fetch_latest_smapi_asset_checked) the file is
+    verified and deleted on a mismatch.
+    """
     from Utils.ca_bundle import download_file
+    from Utils.wizards.archives import verify_github_download
     download_file(url, dest, reporthook=reporthook)
+    verify_github_download(dest, sha256, log_fn=log_fn)
 
 
 # ---------------------------------------------------------------------------

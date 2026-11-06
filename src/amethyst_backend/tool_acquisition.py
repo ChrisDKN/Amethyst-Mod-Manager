@@ -91,7 +91,8 @@ def _publish(cache, name, temporary, identity):
     raise JobError("tool_download_failed", "Too many archives already have the declared filename.")
 
 
-def _download(game, tool_id, version_index, version, url, tag, control, progress):
+def _download(game, tool_id, version_index, version, url, tag, control, progress,
+              expected_sha256=""):
     from Utils.ca_bundle import get_ssl_context
     from Utils.config_paths import get_download_cache_dir_for_game
     from Utils.operations import acquire_resource_operation
@@ -146,6 +147,9 @@ def _download(game, tool_id, version_index, version, url, tag, control, progress
             if not size or (total and size != total):
                 raise JobError("tool_archive_incomplete", "The tool archive download is incomplete.",
                                {"received": size, "expected": total or None})
+            if expected_sha256 and digest.hexdigest() != expected_sha256:
+                raise JobError("tool_archive_checksum", "The tool archive failed its checksum.",
+                               {"expected": expected_sha256, "received": digest.hexdigest()})
             _verify_archive(temporary, name)
             _checkpoint(control)
             identity = {"version": 1, "tool_id": version.get("source_tool_id", tool_id), "version_index": version_index,
@@ -178,13 +182,14 @@ def acquire_runner(session, game, tool_id, version_index, version, control, nxm_
                                      source["file_id"], nxm_link=nxm_link, cancel=control)(log, progress)
             return {**result, "tool_id": tool_id, "version_index": version_index}
         if kind == "github_release":
-            from Utils.wizards.archives import fetch_latest_github_asset
+            from Utils.wizards.archives import fetch_latest_github_asset_checked
             declared = urlsplit(source["url"])
             if declared.scheme != "https" or declared.hostname != "api.github.com":
                 raise JobError("tool_source_invalid", "The declared GitHub release API URL is invalid.")
             _checkpoint(control)
             try:
-                tag, url = fetch_latest_github_asset(source["url"], version["archive_keywords"])
+                tag, url, expected = fetch_latest_github_asset_checked(
+                    source["url"], version["archive_keywords"])
             except (OSError, ValueError, RuntimeError, KeyError, TypeError,
                     urllib.error.URLError) as exc:
                 raise JobError("tool_release_unavailable", "Could not resolve the declared GitHub release asset.",
@@ -193,11 +198,12 @@ def acquire_runner(session, game, tool_id, version_index, version, control, nxm_
             if urlsplit(url).hostname != "github.com":
                 raise JobError("tool_source_invalid", "The declared GitHub release asset is not hosted on GitHub.")
         elif kind == "direct":
-            tag, url = None, source["url"]
+            tag, url, expected = None, source["url"], ""
         else:
             raise JobError("tool_source_invalid", "The declared tool source is unsupported.")
         try:
-            result = _download(game, tool_id, version_index, version, url, tag, control, progress)
+            result = _download(game, tool_id, version_index, version, url, tag, control, progress,
+                               expected)
         except OperationCancelled as exc:
             raise JobCancelled("Tool download cancelled.") from exc
         except (OSError, urllib.error.URLError) as exc:

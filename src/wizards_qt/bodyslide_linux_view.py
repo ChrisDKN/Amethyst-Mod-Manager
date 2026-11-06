@@ -37,7 +37,7 @@ class BodySlideLinuxView(WizardViewBase):
 
     _inst_status_sig = Signal(str, str)
     _inst_progress_sig = Signal(int)
-    _inst_latest_sig = Signal(object)     # (tag, url) | None
+    _inst_latest_sig = Signal(object)     # (tag, url, sha256) | None
     _inst_done_sig = Signal(bool)
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
@@ -49,7 +49,7 @@ class BodySlideLinuxView(WizardViewBase):
         self._output_widget = BodySlideOutputWidget(
             game, tool, self._output_default, self._dim)
         self._output_mod_name = self._output_widget.output_name()
-        self._latest: tuple[str, str] | None = None
+        self._latest: tuple[str, str, str] | None = None
         self._installing = False
 
         self._inst_status_sig.connect(self._guard(
@@ -120,8 +120,7 @@ class BodySlideLinuxView(WizardViewBase):
         def worker():
             from Utils.bethesda.bodyslide_linux import fetch_latest_release
             try:
-                tag, url = fetch_latest_release()
-                safe_emit(self._inst_latest_sig, (tag, url))
+                safe_emit(self._inst_latest_sig, fetch_latest_release())
             except Exception as exc:
                 self._log_tool(f"release check failed: {exc}")
                 safe_emit(self._inst_latest_sig, None)
@@ -148,7 +147,7 @@ class BodySlideLinuxView(WizardViewBase):
                             "see log."), err_text())
             return
 
-        tag, _url = latest
+        tag = latest[0]
         self._latest = latest
         self._inst_btn.setEnabled(True)
         if not have:
@@ -170,7 +169,7 @@ class BodySlideLinuxView(WizardViewBase):
         if self._latest is None or self._installing:
             return
         self._installing = True
-        tag, url = self._latest
+        tag, url, sha256 = self._latest
         self._inst_btn.setEnabled(False)
         self._inst_next_btn.setEnabled(False)
         self._inst_bar.setValue(0)
@@ -197,7 +196,7 @@ class BodySlideLinuxView(WizardViewBase):
 
             try:
                 self._log_tool(f"downloading {tag} from {url}")
-                install_release(url, tag, reporthook=hook,
+                install_release(url, tag, reporthook=hook, sha256=sha256,
                                 log_fn=self._log_tool)
                 safe_emit(self._inst_progress_sig, 100)
                 safe_emit(self._inst_status_sig,

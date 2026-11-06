@@ -117,8 +117,9 @@ def installed_version() -> str | None:
 # Download
 # ---------------------------------------------------------------------------
 
-def fetch_latest_release() -> tuple[str, str]:
-    """Return (tag, download_url) for the newest x86_64 portable tarball.
+def fetch_latest_release() -> tuple[str, str, str]:
+    """Return (tag, download_url, sha256) for the newest x86_64 portable
+    tarball; sha256 is the digest GitHub publishes for it, or "".
 
     Deliberately not Utils.wizards.archives.fetch_latest_github_asset: that one
     only accepts ARCHIVE_EXTS (.zip/.7z/…), and would also have to be taught to
@@ -128,6 +129,7 @@ def fetch_latest_release() -> tuple[str, str]:
     import urllib.request
 
     from Utils.ca_bundle import get_ssl_context
+    from Utils.wizards.archives import github_asset_sha256
 
     req = urllib.request.Request(
         GITHUB_API_URL,
@@ -142,12 +144,12 @@ def fetch_latest_release() -> tuple[str, str]:
     for asset in data.get("assets", []):
         name = asset.get("name", "").lower()
         if name.endswith(".tar.zst") and "x86_64" in name:
-            return tag, asset["browser_download_url"]
+            return tag, asset["browser_download_url"], github_asset_sha256(asset)
     raise RuntimeError(
         f"No x86_64 .tar.zst asset in the latest release ({tag}).")
 
 
-def install_release(url: str, tag: str, *, reporthook=None,
+def install_release(url: str, tag: str, *, reporthook=None, sha256: str = "",
                     log_fn: Callable[[str], None] = _noop) -> Path:
     """Download and extract *url*, replacing any existing install.
 
@@ -160,7 +162,7 @@ def install_release(url: str, tag: str, *, reporthook=None,
     import tempfile
 
     from Utils.ca_bundle import download_file
-    from Utils.wizards.archives import extract_to_dir
+    from Utils.wizards.archives import extract_to_dir, verify_github_download
 
     root = install_root()
     root.parent.mkdir(parents=True, exist_ok=True)
@@ -172,6 +174,7 @@ def install_release(url: str, tag: str, *, reporthook=None,
     with tempfile.TemporaryDirectory(dir=str(root.parent)) as tmpdir:
         archive = Path(tmpdir) / "bodyslide.tar.zst"
         download_file(url, archive, reporthook=reporthook)
+        verify_github_download(archive, sha256, log_fn=log_fn)
         log_fn(f"extracting {archive.name}…")
         unpacked = Path(tmpdir) / "x"
         unpacked.mkdir()
