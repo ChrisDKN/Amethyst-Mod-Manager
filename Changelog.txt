@@ -1,3 +1,9 @@
+- v2.6.3
+- Fixed some incorrect Nexus domain mappings when installing Wabbajack lists
+- Fixed deployment being blocked when a Stock Game folder is inside staging.
+
+---
+
 - v2.6.2
 ### Game Support
 - Added Graveyard Keeper 2
