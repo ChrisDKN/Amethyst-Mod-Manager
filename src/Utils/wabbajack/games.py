@@ -16,6 +16,7 @@ _DOMAINS = {
     "enderalse": "enderalspecialedition", "baldursgate3": "baldursgate3",
     "oblivionremastered": "oblivionremastered",
     "sevendaystodie": "7daystodie",
+    "dragonageorigins": "dragonage",
 }
 
 
