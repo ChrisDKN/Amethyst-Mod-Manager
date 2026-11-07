@@ -2,7 +2,7 @@ use crate::model::{
     AssetCopyRecord, Candidate, CatalogRows, ConflictEdgeRecord, ConflictStateExport,
     ConflictSummary, DataEntryRecord, DeployEntryRecord, DeployedStateRecord, DeploymentPlanRecord,
     InventoryFacets, ModFileRecord, Namespace, ProfileIntent, ProviderKind, ProviderRecord,
-    RawCatalogFile, ResolutionDelta, SnapshotExport, WinnerRecord,
+    RawCatalogFile, ResolutionDelta, SnapshotExport, WinnerRecord, normalise_mod_key,
 };
 use im::{HashMap as PersistentHashMap, HashSet as PersistentHashSet};
 use parking_lot::Mutex;
@@ -721,7 +721,7 @@ impl GraphInventory {
             effective_postings[effective as usize].push(provider_index);
             if let Some(archive) = &candidate.archive_key {
                 archive_candidates
-                    .entry(archive.to_lowercase())
+                    .entry(archive.to_string())
                     .or_default()
                     .push(provider_index);
             }
@@ -797,7 +797,7 @@ impl GraphInventory {
         self.effective_postings.push(effective, index);
         if let Some(archive) = &candidate.archive_key {
             self.archive_candidates
-                .value_mut(archive.to_lowercase())
+                .value_mut(archive.to_string())
                 .push(index);
         }
         if candidate.kind != ProviderKind::ArchiveMember
@@ -844,8 +844,8 @@ impl GraphInventory {
     }
 
     fn mod_id(&self, name: &str) -> Option<i64> {
-        let name = name.to_lowercase();
-        self.mod_ids_by_key.get(name.as_str()).copied()
+        let name = normalise_mod_key(name);
+        self.mod_ids_by_key.get(name).copied()
     }
 }
 
@@ -878,7 +878,7 @@ impl RankContext {
             .archive_order
             .iter()
             .enumerate()
-            .map(|(index, key)| (key.to_lowercase(), index as i64 + 1))
+            .map(|(index, key)| (key.clone(), index as i64 + 1))
             .collect();
         let plugin_rank = intent
             .plugin_order
@@ -908,7 +908,7 @@ impl RankContext {
             let archive_rank = candidate
                 .archive_key
                 .as_ref()
-                .and_then(|key| self.archive_rank.get(&key.to_lowercase()))
+                .and_then(|key| self.archive_rank.get(key.as_ref()))
                 .copied()
                 .unwrap_or(normal_rank);
             if let Some(plugin_key) = &candidate.plugin_key {
@@ -1253,7 +1253,7 @@ impl GraphSnapshot {
     /// serialising, decoding, and allocating tens of thousands of rich
     /// conflict records to discover one or two plugin names.
     pub fn mod_plugins(&self, mod_name: &str) -> Vec<String> {
-        let mod_key = mod_name.to_lowercase();
+        let mod_key = normalise_mod_key(mod_name).to_owned();
         let mut selected_plugins: HashMap<&[u8], ProviderIndex> = HashMap::new();
         for index in self
             .inventory
@@ -1297,7 +1297,7 @@ impl GraphSnapshot {
     }
 
     pub fn mod_files(&self, mod_name: &str) -> Vec<ModFileRecord> {
-        self.mod_file_rows(&mod_name.to_lowercase(), false, &BTreeSet::new())
+        self.mod_file_rows(normalise_mod_key(mod_name), false, &BTreeSet::new())
             .iter()
             .map(|row| self.mod_file_record(row))
             .collect()
@@ -1502,7 +1502,7 @@ impl GraphSnapshot {
     }
 
     pub fn archive_files(&self, mod_name: &str) -> Vec<ModFileRecord> {
-        let mod_key = mod_name.to_lowercase();
+        let mod_key = normalise_mod_key(mod_name).to_owned();
         let mut result = Vec::new();
         for candidate in self
             .inventory
@@ -1580,7 +1580,10 @@ impl GraphSnapshot {
         if mod_names.is_empty() {
             return Vec::new();
         }
-        let allowed: HashSet<String> = mod_names.iter().map(|name| name.to_lowercase()).collect();
+        let allowed: HashSet<String> = mod_names
+            .iter()
+            .map(|name| normalise_mod_key(name).to_owned())
+            .collect();
         let filter = AssetCopyFilter::new(prefixes, exact_paths, extensions);
         let mut selected_candidates: HashMap<(&str, &[u8]), ProviderIndex> = HashMap::new();
         let mut result = Vec::new();
@@ -1699,7 +1702,7 @@ impl GraphSnapshot {
         cursor: usize,
         limit: usize,
     ) -> Vec<ModFileRecord> {
-        let mod_key = mod_name.to_lowercase();
+        let mod_key = normalise_mod_key(mod_name).to_owned();
         let rows = {
             let mut cached = self.page_indexes.mod_files.lock();
             if let Some(index) = cached.as_ref()
@@ -1861,10 +1864,13 @@ impl GraphSnapshot {
     }
 
     pub fn framework_basenames(&self, mod_names: &BTreeSet<String>) -> BTreeSet<String> {
-        let lowered: HashSet<_> = mod_names.iter().map(|name| name.to_lowercase()).collect();
+        let selected: HashSet<_> = mod_names
+            .iter()
+            .map(|name| normalise_mod_key(name).to_owned())
+            .collect();
         self.raw_files
             .iter()
-            .filter(|raw| raw.flags & (1 << 4) != 0 && lowered.contains(raw.mod_key.as_ref()))
+            .filter(|raw| raw.flags & (1 << 4) != 0 && selected.contains(raw.mod_key.as_ref()))
             .map(|raw| {
                 raw.source_display
                     .replace('\\', "/")
@@ -1995,7 +2001,7 @@ impl GraphSnapshot {
     }
 
     pub fn archive_member_conflicts(&self, mod_name: &str, source_rel: &[u8]) -> Vec<(String, i8)> {
-        let mod_key = mod_name.to_lowercase();
+        let mod_key = normalise_mod_key(mod_name).to_owned();
         let mut result = BTreeMap::new();
         for candidate in self.candidates.iter().filter(|candidate| {
             candidate.kind == ProviderKind::ArchiveMember
@@ -3564,7 +3570,7 @@ fn changed_mods(previous_intent: &ProfileIntent, intent: &ProfileIntent) -> Hash
         .hint
         .mods
         .iter()
-        .map(|name| name.to_lowercase())
+        .map(|name| normalise_mod_key(name).to_owned())
         .collect();
     let local_order_hint = matches!(
         intent.hint.kind.as_str(),
@@ -3645,13 +3651,13 @@ fn archive_rank_changes(
         .archive_order
         .iter()
         .enumerate()
-        .map(|(index, key)| (key.to_lowercase(), index))
+        .map(|(index, key)| (key.clone(), index))
         .collect();
     let new: HashMap<_, _> = intent
         .archive_order
         .iter()
         .enumerate()
-        .map(|(index, key)| (key.to_lowercase(), index))
+        .map(|(index, key)| (key.clone(), index))
         .collect();
     let mut changed: HashSet<String> = old
         .keys()
@@ -3683,7 +3689,7 @@ fn archive_rank_changes(
             if !moved_plugins.contains(&plugin) {
                 return None;
             }
-            candidate.archive_key.as_ref().map(|key| key.to_lowercase())
+            candidate.archive_key.as_ref().map(|key| key.to_string())
         }));
     }
     changed
@@ -4291,7 +4297,7 @@ mod tests {
                 _ => 100,
             },
             mod_name: Arc::from(owner),
-            mod_key: Arc::from(owner.to_lowercase()),
+            mod_key: Arc::from(normalise_mod_key(owner)),
             variant_key: Arc::from("default"),
             source_rel: Arc::from(path.as_bytes()),
             source_display: Arc::from(path),
@@ -4316,7 +4322,7 @@ mod tests {
         RawCatalogFile {
             id,
             mod_name: Arc::from(owner),
-            mod_key: Arc::from(owner.to_lowercase()),
+            mod_key: Arc::from(normalise_mod_key(owner)),
             source_rel: Arc::from(source.as_bytes()),
             source_display: Arc::from(source),
             index_display: Arc::from(display),
@@ -4370,19 +4376,19 @@ mod tests {
             mods: vec![
                 IntentMod {
                     name: "C".into(),
-                    key: "c".into(),
+                    key: "C".into(),
                     enabled: true,
                     variant_key: "default".into(),
                 },
                 IntentMod {
                     name: "B".into(),
-                    key: "b".into(),
+                    key: "B".into(),
                     enabled: true,
                     variant_key: "default".into(),
                 },
                 IntentMod {
                     name: "A".into(),
-                    key: "a".into(),
+                    key: "A".into(),
                     enabled: true,
                     variant_key: "default".into(),
                 },
@@ -4576,7 +4582,7 @@ mod tests {
     #[test]
     fn inventory_add_touches_only_the_new_mod_destinations() {
         let mut first_intent = intent();
-        first_intent.mods.retain(|entry| entry.key != "c");
+        first_intent.mods.retain(|entry| entry.key != "C");
         let first_candidates = Arc::new(vec![
             candidate(1, "A", "shared"),
             candidate(2, "A", "only-a"),
@@ -4590,7 +4596,7 @@ mod tests {
             0,
             IntentMod {
                 name: "C".into(),
-                key: "c".into(),
+                key: "C".into(),
                 enabled: true,
                 variant_key: "default".into(),
             },
@@ -4636,7 +4642,7 @@ mod tests {
     #[test]
     fn toggle_after_inventory_add_reuses_the_merged_inventory() {
         let mut first_intent = intent();
-        first_intent.mods.retain(|entry| entry.key != "c");
+        first_intent.mods.retain(|entry| entry.key != "C");
         let first = build_full(
             Arc::new(vec![
                 candidate(1, "A", "shared"),
@@ -4653,7 +4659,7 @@ mod tests {
             0,
             IntentMod {
                 name: "C".into(),
-                key: "c".into(),
+                key: "C".into(),
                 enabled: true,
                 variant_key: "default".into(),
             },
@@ -4740,7 +4746,7 @@ mod tests {
 
         let mut changed_chunks = raw_files.chunks().to_vec();
         changed_chunks.push((
-            Arc::from("b"),
+            Arc::from("B"),
             Arc::new(vec![raw_file(
                 2,
                 "B",
@@ -4774,7 +4780,7 @@ mod tests {
         let mut first_intent = intent();
         first_intent
             .mods
-            .retain(|entry| matches!(entry.key.as_str(), "a" | "b"));
+            .retain(|entry| matches!(entry.key.as_str(), "A" | "B"));
         let first_candidates = Arc::new(vec![
             candidate(1, "A", "shared"),
             candidate(2, "A", "only-a"),
@@ -4791,7 +4797,7 @@ mod tests {
         );
 
         let mut removed_intent = first_intent.clone();
-        removed_intent.mods.retain(|entry| entry.key != "b");
+        removed_intent.mods.retain(|entry| entry.key != "B");
         removed_intent.hint = OperationHint {
             kind: "remove".to_owned(),
             mods: vec!["B".to_owned()],
@@ -4839,7 +4845,7 @@ mod tests {
         let mut profile = intent();
         profile
             .mods
-            .retain(|entry| matches!(entry.key.as_str(), "a" | "b"));
+            .retain(|entry| matches!(entry.key.as_str(), "A" | "B"));
         let first = build_full(
             Arc::new(vec![
                 candidate(1, "A", "shared"),
@@ -4896,7 +4902,7 @@ mod tests {
         let mut profile = intent();
         profile
             .mods
-            .retain(|entry| matches!(entry.key.as_str(), "a" | "b"));
+            .retain(|entry| matches!(entry.key.as_str(), "A" | "B"));
         let first = build_full(
             Arc::new(vec![
                 candidate(1, "A", "shared"),
@@ -4977,7 +4983,7 @@ mod tests {
         let mut profile = intent();
         profile
             .mods
-            .retain(|entry| matches!(entry.key.as_str(), "a" | "b"));
+            .retain(|entry| matches!(entry.key.as_str(), "A" | "B"));
         let first = build_full(
             Arc::new(vec![
                 candidate(1, "A", "shared"),
@@ -4995,10 +5001,10 @@ mod tests {
         let renamed_entry = renamed_profile
             .mods
             .iter_mut()
-            .find(|entry| entry.key == "a")
+            .find(|entry| entry.key == "A")
             .unwrap();
         renamed_entry.name = "Renamed A".into();
-        renamed_entry.key = "renamed a".into();
+        renamed_entry.key = "Renamed A".into();
 
         let update = reconcile_graph(
             &first,
@@ -5030,7 +5036,7 @@ mod tests {
             .map(|index| candidate(index + 1, "A", &format!("textures/{index:06}.dds")))
             .collect();
         let mut first_intent = intent();
-        first_intent.mods.retain(|entry| entry.key == "a");
+        first_intent.mods.retain(|entry| entry.key == "A");
         let first = build_full(
             Arc::new(first_candidates.clone()),
             Arc::new(Vec::new()),
@@ -5049,7 +5055,7 @@ mod tests {
             0,
             IntentMod {
                 name: "B".into(),
-                key: "b".into(),
+                key: "B".into(),
                 enabled: true,
                 variant_key: "default".into(),
             },
@@ -5139,7 +5145,7 @@ mod tests {
         let mut profile = intent();
         profile
             .disabled_plugin_paths
-            .insert("c".to_owned(), [b"same".to_vec()].into_iter().collect());
+            .insert("C".to_owned(), [b"same".to_vec()].into_iter().collect());
         let snapshot = build_full(
             Arc::new(vec![candidate(1, "A", "same"), candidate(3, "C", "same")]),
             Arc::new(Vec::new()),

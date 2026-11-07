@@ -4,7 +4,7 @@ use crate::model::{
     API_VERSION, BlacklistPreparation, Candidate, CandidateRecord, CatalogRows, CatalogStatus,
     DeployedStateRecord, DeploymentJournal, DeploymentPlanRecord, ManifestBatch, Namespace,
     OperationRecord, ProfileIntent, ProviderKind, RawCatalogFile, RawFileRecord, ResolutionDelta,
-    SCHEMA_VERSION,
+    SCHEMA_VERSION, normalise_mod_key,
 };
 use crate::schema::{initialise, read_u64_meta, write_u64_meta};
 use fs2::FileExt;
@@ -230,7 +230,7 @@ fn profile_order_labels(
             .hint
             .mods
             .iter()
-            .map(|name| name.to_lowercase())
+            .map(|name| normalise_mod_key(name).to_owned())
             .collect()
     } else {
         HashSet::new()

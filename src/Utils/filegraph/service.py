@@ -21,6 +21,7 @@ from Utils.filegraph.adapter import (
     FLAG_ARCHIVE, FLAG_FRAMEWORK, FLAG_PLUGIN, FLAG_PRE_RTX, FLAG_ROOT_RULE,
     FLAG_TEXT,
     OVERWRITE_NAME, ROOT_FOLDER_NAME, GameCandidateAdapter, SharedInventory,
+    _normalise_mod_key,
 )
 from Utils.filegraph.models import (
     AssetCopy, CatalogStatus, ConflictState, ConflictSummary, DeployedStateEntry,
@@ -994,7 +995,7 @@ class ProfileSession:
         with self._lock:
             try:
                 removed = int(self._native.forget_deployed_mods(
-                    [name.lower() for name in mod_names]))
+                    [_normalise_mod_key(name) for name in mod_names]))
             except BaseException as exc:
                 raise _native_error(exc) from exc
             if removed:
@@ -1176,9 +1177,9 @@ class LibrarySession:
                     ROOT_FOLDER_NAME: adapter.root_folder}.get(
                         mod_name, adapter.staging / mod_name)
             files = adapter._scan_root(root, cancel=token) if root.is_dir() else []
-            mod_key = mod_name.lower()
+            mod_key = _normalise_mod_key(mod_name)
             fingerprints = {
-                name.lower(): fingerprint
+                _normalise_mod_key(name): fingerprint
                 for name, fingerprint in self.manifest_fingerprints().items()
             }
             variants = self.variant_keys().get(mod_key, frozenset())
@@ -1232,7 +1233,7 @@ class LibrarySession:
     def manifest_for_rederive(self, mod_name: str) -> dict | None:
         try:
             value = unpack(
-                self._native.manifest_for_rederive(mod_name.lower()))
+                self._native.manifest_for_rederive(_normalise_mod_key(mod_name)))
             return dict(value) if value is not None else None
         except BaseException as exc:
             raise _native_error(exc) from exc
@@ -1270,7 +1271,7 @@ class LibrarySession:
 
     def remove_mod(self, mod_name: str) -> bool:
         try:
-            removed = bool(self._native.remove_mod(mod_name.lower()))
+            removed = bool(self._native.remove_mod(_normalise_mod_key(mod_name)))
             if removed:
                 self._variant_keys_cache = None
                 for profile in self._profile_sessions():
@@ -1284,7 +1285,8 @@ class LibrarySession:
     def rename_mod(self, old_name: str, new_name: str) -> bool:
         try:
             renamed = bool(self._native.rename_mod(
-                old_name.lower(), new_name.lower(), new_name))
+                _normalise_mod_key(old_name), _normalise_mod_key(new_name),
+                new_name))
             if renamed:
                 self._variant_keys_cache = None
                 for profile in self._profile_sessions():
@@ -1381,14 +1383,16 @@ class LibrarySession:
             adapter = self.open_profile(profile_dir).adapter
             adapter.prepare_profile_rules()
             fingerprints = self.manifest_fingerprints()
-            names = {name.lower(): name for name in fingerprints}
-            previous = {name.lower(): value for name, value in fingerprints.items()}
+            names = {_normalise_mod_key(name): name for name in fingerprints}
+            previous = {_normalise_mod_key(name): value
+                        for name, value in fingerprints.items()}
             variants = self.variant_keys()
             roots = {entry.name: entry for entry in sorted(adapter.staging.iterdir())
                      if entry.is_dir() and not entry.name.endswith("_separator")}
             roots[OVERWRITE_NAME] = adapter.overwrite
             roots[ROOT_FOLDER_NAME] = adapter.root_folder
-            removed = previous.keys() - {name.lower() for name in roots}
+            removed = (previous.keys() | variants.keys()) - {
+                _normalise_mod_key(name) for name in roots}
             changed = 0
             shared_changed = bool(removed - {OVERWRITE_NAME.lower(), ROOT_FOLDER_NAME.lower()})
 
@@ -1403,12 +1407,13 @@ class LibrarySession:
                               else adapter._scan_root(root, scan_token)) if root.is_dir() else [])
                     fingerprint = (shared.fingerprint(files) if shared is not None
                                    else manifest_fingerprint(files))
-                    same = previous.get(name.lower()) == fingerprint
+                    mod_key = _normalise_mod_key(name)
+                    same = previous.get(mod_key) == fingerprint
                     batch = None
-                    if (not same or names.get(name.lower()) != name
-                            or adapter.variant_key(name) not in variants.get(name.lower(), ())):
+                    if (not same or names.get(mod_key) != name
+                            or adapter.variant_key(name) not in variants.get(mod_key, ())):
                         changed += 1
-                        shared_changed |= ((not same or names.get(name.lower()) != name)
+                        shared_changed |= ((not same or names.get(mod_key) != name)
                                            and name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME))
                         batch = adapter.build_manifest(
                             name, cancel=scan_token, raw_files=files, inventory=shared)

@@ -116,7 +116,7 @@ def _display_path(value: bytes) -> str:
 
 
 def _normalise_mod_key(name: str) -> str:
-    return name.lower()
+    return name.lower() if name in (OVERWRITE_NAME, ROOT_FOLDER_NAME) else name
 
 
 def _cancelled(cancel) -> bool:

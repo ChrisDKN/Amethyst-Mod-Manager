@@ -122,7 +122,15 @@ impl<T> Index<usize> for CatalogRows<T> {
 pub const API_VERSION: u32 = 13;
 pub const SCHEMA_VERSION: u32 = 10;
 pub const ENGINE_REVISION: u64 = 1;
-pub const RULES_REVISION: u64 = 18;
+pub const RULES_REVISION: u64 = 19;
+
+pub fn normalise_mod_key(name: &str) -> &str {
+    match name {
+        "[Overwrite]" => "[overwrite]",
+        "[Root_Folder]" => "[root_folder]",
+        _ => name,
+    }
+}
 
 pub fn perftrace_enabled() -> bool {
     std::env::var_os("MM_PERFTRACE").is_some_and(|value| {
