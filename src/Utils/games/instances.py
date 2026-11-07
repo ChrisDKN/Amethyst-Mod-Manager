@@ -397,7 +397,12 @@ def validate_paths(game, games=None, *, staging_only=False):
     game_root = game.get_game_path()
     staging = game.get_profile_root()
     prefix = getattr(game, "get_prefix_path", lambda: None)()
-    if (game_root and paths_overlap(game_root, staging)) or (prefix and paths_overlap(prefix, staging)):
+    staging_data = [staging / name for name in ("mods", "profiles", "overwrite", "Root_Folder", "Root_Backup")]
+    staging_data.append(game.get_mod_staging_path())
+    staging_data.append(getattr(game, "get_effective_mod_staging_path", game.get_mod_staging_path)())
+    if game_root and any(paths_overlap(game_root, path) for path in staging_data):
+        raise InstanceError("instance_path_overlap", "The game folder must be separate from mod, profile, and deployment storage.")
+    if prefix and paths_overlap(prefix, staging):
         raise InstanceError("instance_path_overlap", "The staging folder must be separate from the game and prefix folders.")
     staging_targets = [(label, path) for label, path in targets if label == "staging"]
     for key, record in _read(get_config_dir() / "instance_reservations.json").items():
