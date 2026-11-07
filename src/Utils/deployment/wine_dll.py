@@ -136,12 +136,13 @@ def remove_deployed_files(game_dir: Path, log_fn=None, *,
     return removed
 
 
-def clean_game_folder(game, target: Path, log_fn=None) -> int:
+def clean_game_folder(game, target: Path, log_fn=None, *,
+                      _operation_locked: bool = False) -> int:
     """Recover physical deployment leftovers under the shared operation lock."""
     import json
     from Utils.deployment.game_root import (
         _FILEMAP_BACKUP_DIR, _FILEMAP_LOG_NAME, restore_filemap_from_root)
-    from Utils.deployment.locking import coordinated_game_mutation
+    from Utils.deployment.locking import coordinated_game_mutation, game_mutation_lock
     from Utils.deployment.root import (
         _ROOT_BACKUP_NAME, _ROOT_IDENTITY_NAME, _ROOT_LOG_NAME,
         restore_root_folder_for_game)
@@ -150,7 +151,8 @@ def clean_game_folder(game, target: Path, log_fn=None) -> int:
     from Utils.vfs import has_any_deployment_state
 
     _log = _safe_log(log_fn)
-    with coordinated_game_mutation(game, "clean-game-folder"):
+    with (game_mutation_lock(game) if _operation_locked
+          else coordinated_game_mutation(game, "clean-game-folder")):
         if has_any_deployment_state(game):
             raise RuntimeError("Cannot clean the game folder while a VFS deployment exists. "
                                "Recover missing game files before using Restore.")

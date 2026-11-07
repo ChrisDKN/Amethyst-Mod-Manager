@@ -2997,6 +2997,17 @@ class ConfigureGameView(QWidget):
         else:
             self._game_status.setText(self.tr("Restore failed: {0}").format(error))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            from gui_qt.dialogs.deployment_repair import offer_deleted_profile_repair
+            offer_deleted_profile_repair(
+                self, self._game, on_done=self._on_deleted_profile_repaired)
+
+    def _on_deleted_profile_repaired(self):
+        self._recovery_bar.setVisible(self._game.get_deploy_active())
+        self._game_status.setText(self.tr(
+            "Deployment state repaired. Review the recovery advice before deploying."))
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+        self._staging_status.setText(self.tr("The staging folder can now be changed."))
+        self._staging_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
 
     def _confirm(self, title, text, on_yes):
         """Borderless in-app confirm; runs *on_yes* only on confirmation."""

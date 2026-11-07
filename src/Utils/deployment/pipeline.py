@@ -167,6 +167,92 @@ def _recover_restore_profile(profile_dir, context, staging, log_fn):
         "Deleted mod files and saves are not recreated.")
 
 
+def deleted_profile_repair(game) -> dict | None:
+    from copy import deepcopy
+
+    try:
+        context = game.get_deployment_context()
+        mode = game.get_last_deploy_mode()
+        if not context or mode not in ("SYMLINK", "VFS", "HARDLINK", "COPY"):
+            return None
+        staging = Path(game.get_profile_root())
+        recorded_staging = Path(context["staging_root"]["path"])
+        profile = Path(context["profile_dir"])
+        storage = Path(context["filemap_path"]).parent
+        if (not staging.is_absolute() or not staging.is_dir()
+                or staging.resolve() != recorded_staging.resolve()
+                or not profile.is_absolute()
+                or profile.parent != recorded_staging / "profiles"
+                or profile.parent.is_symlink()
+                or storage not in (profile, recorded_staging)):
+            return None
+        try:
+            profile.lstat()
+        except FileNotFoundError:
+            return {"profile": profile.name, "mode": mode,
+                    "context": deepcopy(context)}
+    except (AttributeError, KeyError, TypeError, ValueError, OSError):
+        pass
+    return None
+
+
+def repair_deleted_profile(game, repair: dict, *, log_fn: LogFn) -> int:
+    from copy import copy
+    import json
+    from Utils.atomic_write import write_atomic, write_atomic_text
+    from Utils.deployment.locking import coordinated_game_mutation
+    from Utils.vfs import has_any_deployment_state
+
+    if deleted_profile_repair(game) != repair:
+        raise RestoreIncompleteError(
+            "The deployment or profile changed. Run Restore again before repairing it.")
+    recovery = copy(game)
+    if repair["mode"] == "SYMLINK":
+        context = repair["context"]
+        recovery._game_path = Path(context["game_root"]["path"])
+        if not recovery._game_path.is_absolute():
+            raise RestoreIncompleteError("The recorded game folder is not absolute.")
+        prefix = context.get("prefix_root")
+        recovery._prefix_path = Path(prefix["path"]) if prefix else None
+        recovery.set_active_profile_dir(Path(context["profile_dir"]))
+        storage = Path(context["filemap_path"]).parent
+        recovery.get_effective_mod_staging_path = lambda: storage / "mods"
+        recovery.get_effective_root_folder_path = lambda: storage / "Root_Folder"
+    with coordinated_game_mutation(recovery, "repair-deleted-profile"):
+        if deleted_profile_repair(game) != repair:
+            raise RestoreIncompleteError(
+                "The deployment or profile changed. Run Restore again before repairing it.")
+        if has_any_deployment_state(game):
+            raise RestoreIncompleteError(
+                "A VFS deployment still exists. Use Restore to recover it before "
+                "resetting the deployment record.")
+        state_path = game._deploy_state_file
+        original = state_path.read_bytes()
+        state = json.loads(original)
+        if (not state.get("deploy_active")
+                or state.get("recovery_context") != repair["context"]
+                or state.get("last_deploy_mode") != repair["mode"]):
+            raise RestoreIncompleteError("The deployment record changed. Run Restore again.")
+        backup = state_path.with_name(
+            f"deploy_state.deleted-profile-{time.time_ns()}.json")
+        write_atomic(backup, original)
+        removed = 0
+        if repair["mode"] == "SYMLINK":
+            from Utils.deployment.wine_dll import clean_game_folder
+
+            target = recovery.get_mod_data_path() or recovery.get_game_path()
+            removed = clean_game_folder(
+                recovery, target, log_fn=log_fn, _operation_locked=True)
+        state["deploy_active"] = False
+        for key in ("recovery_context", "last_deployed", "last_deploy_mode"):
+            state.pop(key, None)
+        write_atomic_text(state_path, json.dumps(state, indent=2))
+        log_fn(f"Repaired deleted profile '{repair['profile']}' "
+               f"({repair['mode']}); removed {removed} deployed link(s). "
+               f"Previous deployment record saved to {backup}.")
+        return removed
+
+
 def _apply_recorded_restore_paths(game):
     from Utils.deployment.custom_rules import _root_identity_matches
 

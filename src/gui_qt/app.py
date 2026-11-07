@@ -14560,6 +14560,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._deploy_timing_previous = self._deploy_timing_origin
         self._deploy_timing_mark("deploy request accepted; worker starting")
         self._deploy_running = True
+        self._op_game = game
         self._op_silent = silent
         self._op_is_restore = False
         self._op_title = "Deploying"
@@ -14831,6 +14832,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._restore_timing_previous = self._restore_timing_origin
         self._restore_timing_mark("restore request accepted; worker starting")
         self._deploy_running = True
+        self._op_game = game
         self._op_is_restore = True
         self._op_title = "Restoring"
         self._set_deploy_buttons_enabled(False)
@@ -14905,6 +14907,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
             self._progress_popup.set_progress(done, total, phase, title=title)
 
     def _on_op_done(self, kind: str, success: bool, warnings, error: str = ""):
+        operation_game = getattr(self, "_op_game", None) or self._gs.game
+        self._op_game = None
         if kind == "deploy":
             self._deploy_timing_mark("worker result reached the Qt thread")
         elif kind == "restore":
@@ -14925,16 +14929,22 @@ class MainWindow(QMainWindow, PluginPanelControls):
         # immediately undoes the requested restore. Arm the guard so either
         # operation's own rebuild is swallowed.
         game = self._gs.game
+        repair = None
+        if (not success and kind in ("deploy", "restore")
+                and operation_game is not None):
+            from Utils.deployment.pipeline import deleted_profile_repair
+            repair = deleted_profile_repair(operation_game)
         if (kind in ("deploy", "restore")
                 and game is not None and game.is_configured()
                 and getattr(game, "auto_deploy", False)):
             self._auto_deploy_in_progress = True
-        self._deploy_refresh_pending = kind == "deploy"
+        self._deploy_refresh_pending = kind == "deploy" and repair is None
         self._deploy_refresh_conflicts_done = False
-        self._restore_refresh_pending = kind == "restore"
+        self._restore_refresh_pending = kind == "restore" and repair is None
         self._restore_refresh_conflicts_done = False
         # Refresh the modlist/conflicts + deployed-profile highlight after the op.
-        self._reload_modlist()
+        if repair is None:
+            self._reload_modlist()
         self._update_deployed_profile_highlight()
         self._refresh_framework_banner()
         # Deploy/restore adds/removes framework launchers (script extenders)
@@ -14952,7 +14962,10 @@ class MainWindow(QMainWindow, PluginPanelControls):
                    else self.tr("{0} Restored")).format(game_name)
             self._notify(msg, "success")
         else:
-            if kind == "deploy" and error:
+            if repair is not None:
+                self._clear_op_progress()
+                self._deploy_rerun_pending = False
+            elif kind == "deploy" and error:
                 summary = error.splitlines()[0][:500]
                 self._notify(self.tr("Deploy failed: {0}").format(summary), "error")
                 if not self._op_was_silent:
@@ -15039,6 +15052,12 @@ class MainWindow(QMainWindow, PluginPanelControls):
                     h(success)
                 except Exception as exc:
                     self._append_log(f"Wizards: restore hook error: {exc}")
+
+        if repair is not None:
+            from gui_qt.dialogs.deployment_repair import offer_deleted_profile_repair
+            offer_deleted_profile_repair(
+                self, operation_game, repair=repair,
+                on_done=self._update_deployed_profile_highlight)
 
     def _maybe_offer_launch_handoff(self):
         """Show settings for the profile's detected launcher after deploy."""
