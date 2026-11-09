@@ -13677,7 +13677,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Add separator below</source>
-      <translation>Dodaj poniżej znak oddzielający</translation>
+      <translation>Dodaj separator poniżej</translation>
     </message>
     <message>
       <source>Bundle options…</source>
