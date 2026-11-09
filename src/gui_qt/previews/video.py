@@ -4,17 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QRectF, Qt, QUrl, Slot
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QPushButton, QSizePolicy, QSlider, QStackedWidget,
     QStyle, QToolButton, QVBoxLayout, QWidget,
 )
 
 try:
-    from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-    from PySide6.QtMultimediaWidgets import QVideoWidget
+    from PySide6.QtMultimedia import (
+        QAudioOutput, QMediaPlayer, QVideoFrame, QVideoSink,
+    )
 except ImportError:
-    QAudioOutput = QMediaPlayer = QVideoWidget = None
+    QAudioOutput = QMediaPlayer = QVideoFrame = QVideoSink = None
 
 
 VIDEO_EXTS = {
@@ -33,6 +35,34 @@ def _format_time(milliseconds: int) -> str:
     if hours:
         return f"{hours}:{minutes:02d}:{seconds:02d}"
     return f"{minutes}:{seconds:02d}"
+
+
+class _VideoCanvas(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.sink = QVideoSink(self)
+        self.sink.videoFrameChanged.connect(self._update_frame)
+        self.setAttribute(Qt.WA_OpaquePaintEvent)
+        self.setMinimumSize(1, 1)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+    @Slot()
+    def _update_frame(self) -> None:
+        self.update()
+
+    def clear(self) -> None:
+        self.sink.setVideoFrame(QVideoFrame())
+
+    def paintEvent(self, _event) -> None:
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), Qt.black)
+        frame = self.sink.videoFrame()
+        if frame.isValid():
+            options = QVideoFrame.PaintOptions()
+            options.aspectRatioMode = Qt.KeepAspectRatio
+            options.backgroundColor = Qt.black
+            frame.paint(painter, QRectF(self.rect()), options)
+        painter.end()
 
 
 class VideoPreview(QWidget):
@@ -59,12 +89,8 @@ class VideoPreview(QWidget):
         layout.setSpacing(0)
 
         self._display = QStackedWidget(self)
-        self._video = QVideoWidget(self._display) if QVideoWidget else None
+        self._video = _VideoCanvas(self._display) if QVideoSink else None
         if self._video is not None:
-            self._video.setAspectRatioMode(Qt.KeepAspectRatio)
-            self._video.setSizePolicy(QSizePolicy.Expanding,
-                                      QSizePolicy.Expanding)
-            self._video.setStyleSheet("background: black;")
             self._display.addWidget(self._video)
 
         self._message = QLabel(self.tr("No video selected"), self._display)
@@ -135,7 +161,7 @@ class VideoPreview(QWidget):
         self._audio_output = QAudioOutput(self)
         self._audio_output.setVolume(self._volume.value() / 100.0)
         self._player.setAudioOutput(self._audio_output)
-        self._player.setVideoOutput(self._video)
+        self._player.setVideoSink(self._video.sink)
         self._player.positionChanged.connect(self._on_position_changed)
         self._player.durationChanged.connect(self._on_duration_changed)
         self._player.playbackStateChanged.connect(self._on_state_changed)
@@ -170,6 +196,8 @@ class VideoPreview(QWidget):
         if self._player is not None:
             self._player.stop()
             self._player.setSource(QUrl())
+        if self._video is not None:
+            self._video.clear()
 
     def _reset_timeline(self) -> None:
         self._duration = 0
