@@ -5,19 +5,19 @@
     <name>ACMOSView</name>
     <message>
       <source>Run ACMOS Road Generator - {0}</source>
-      <translation>ACMOS Straßengenerator laufen - {0}</translation>
+      <translation>ACMOS Road Generator ausführen - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download ACMOS Road Generator</source>
-      <translation>Schritt 1: Laden Sie den ACMOS Road Generator herunter</translation>
+      <translation>Schritt 1: ACMOS Road Generator herunterladen</translation>
     </message>
     <message>
       <source>Click the button below to open ACMOS Road Generator on Nexus Mods.
 
 Download the archive manually (do NOT use the Mod Manager download button), then click Next.</source>
-      <translation>Klicken Sie auf die Schaltfläche unten, um den ACMOS Road Generator für Nexus Mods zu öffnen.
+      <translation>Klicken Sie auf die Schaltfläche unten, um ACMOS Road Generator auf Nexus Mods zu öffnen.
 
-Laden Sie das Archiv manuell herunter (verwenden Sie NICHT den Download-Button Mod Manager), und klicken Sie dann auf Weiter.</translation>
+Laden Sie das Archiv manuell herunter (verwenden Sie NICHT den Mod Manager Download-Knopf ), und klicken Sie dann auf Weiter.</translation>
     </message>
     <message>
       <source>Step 2: Locate the Archive</source>
@@ -27422,7 +27422,7 @@ Das Veröffentlichen macht diese Revision zu dem, den Benutzer installieren. Es 
     </message>
     <message>
       <source>Save current view…</source>
-      <translation type="unfinished">Save current view…</translation>
+      <translation>Aktuelle Ansicht speichern…</translation>
     </message>
   </context>
   <context>
