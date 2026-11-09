@@ -1,3 +1,9 @@
+- v2.6.4
+- Fixed mods whose names differ only by casing sharing file listings and deployment ownership.
+- Fixed video files not playing correctly from the mod files tab
+
+---
+
 - v2.6.3
 - Fixed some incorrect Nexus domain mappings when installing Wabbajack lists
 - Fixed deployment being blocked when a Stock Game folder is inside staging.
