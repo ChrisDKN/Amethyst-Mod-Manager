@@ -224,7 +224,7 @@ def _markers_dir(pfx: Path) -> Path:
 
 
 def _is_done(pfx: Path, step: str) -> bool:
-    from .synthesis_setup import SynthesisSetupError, dotnet_present, registry_patches_present
+    from .synthesis_setup import SynthesisSetupError, dotnet_present, registry_patches_present, win11_present
     from Utils.wine.registry import read_value
 
     _setup_check()
@@ -239,8 +239,7 @@ def _is_done(pfx: Path, step: str) -> bool:
         return (read_value(pfx, r"Software\Microsoft\VisualStudio\14.0\VC\Runtimes\x64", "Installed") == "dword:00000001"
                 and all((pfx / "drive_c/windows/system32" / name).is_file() for name in ("vcruntime140.dll", "msvcp140.dll")))
     if step == "win11_version":
-        return (read_value(pfx, r"Software\Wine", "Version", hive="user.reg") == "win11"
-                and read_value(pfx, r"Software\Microsoft\Windows NT\CurrentVersion", "CurrentBuild") == "22000")
+        return win11_present(pfx)
     if step == "mscoree_cleanup":
         return read_value(pfx, r"Software\Wine\DllOverrides", "*mscoree", hive="user.reg") is None
     if step == "regedit_v2":
@@ -611,60 +610,26 @@ def _step_nuget_trusted_roots(pfx: Path, wine: Path, log: LogFn) -> bool:
 
 
 def _step_win11_version(pfx: Path, wine: Path, log: LogFn) -> bool:
-    """Set Windows version to Win11 directly via registry."""
+    from .synthesis_setup import flush_prefix, win11_present
+
     if _is_done(pfx, "win11_version"):
         log("  Windows version already set, skipping.")
         return True
     log("Setting Windows version to Windows 11 …")
-
-    updates = [
-        (r"HKLM\Software\Microsoft\Windows NT\CurrentVersion",
-         "CurrentBuild", "REG_SZ", "22000"),
-        (r"HKLM\Software\Microsoft\Windows NT\CurrentVersion",
-         "CurrentBuildNumber", "REG_SZ", "22000"),
-        (r"HKLM\Software\Microsoft\Windows NT\CurrentVersion",
-         "CurrentVersion", "REG_SZ", "10.0"),
-        (r"HKLM\Software\Microsoft\Windows NT\CurrentVersion",
-         "ProductName", "REG_SZ", "Windows 10 Pro"),
-        (r"HKLM\Software\Microsoft\Windows NT\CurrentVersion",
-         "CSDVersion", "REG_SZ", ""),
-        (r"HKCU\Software\Wine", "Version", "REG_SZ", "win11"),
-    ]
-
-    env = _base_env(pfx, wine)
-    all_ok = True
-    for key, name, rtype, value in updates:
-        args = [str(wine), "reg", "add", key, "/v", name, "/t", rtype, "/f"]
-        if value:
-            args += ["/d", value]
-        result = _run_setup_command(
-            wrap_nixos_command(args, env=env),
-            env=env, capture_output=True, text=True, errors="replace",
-            timeout=30,
-        )
-        if result.returncode != 0:
-            log(f"  reg add {name} failed: {result.stderr[:200].strip()}")
-            all_ok = False
-
-    _run_setup_command(
-        _wine_command(wine, "reg", "delete",
-         r"HKLM\System\CurrentControlSet\Control\Windows",
-         "/v", "CSDVersion", "/f"),
-        env=env, capture_output=True, text=True, errors="replace", timeout=30,
+    result = _run_setup_command(
+        _wine_command(wine, "winecfg", "-v", "win11"),
+        env=_base_env(pfx, wine), capture_output=True, text=True, errors="replace", timeout=60,
     )
-
-    if all_ok:
-        from .synthesis_setup import flush_prefix
-        from Utils.wine.registry import read_value
-        flush_prefix(pfx, wine, log)
-        all_ok = (read_value(pfx, r"Software\Wine", "Version", hive="user.reg") == "win11"
-                  and read_value(pfx, r"Software\Microsoft\Windows NT\CurrentVersion", "CurrentBuild") == "22000")
-    if all_ok:
+    if result.returncode != 0:
+        log(f"  winecfg exited with {result.returncode}: {result.stderr[:200].strip()}")
+        return False
+    flush_prefix(pfx, wine, log)
+    if win11_present(pfx):
         _mark_done(pfx, "win11_version")
         log("  Windows version set to Win11.")
-    else:
-        log("  Win11 version set with some errors (non-fatal).")
-    return all_ok
+        return True
+    log("  Windows 11 version could not be verified.")
+    return False
 
 
 def _build_reg_blob() -> str:

@@ -110,7 +110,8 @@ def flush_prefix(prefix, wine, log):
                                      env=env, forward_host=True, cwd=prefix.parent)
         code, output = run_prefix_installer(command, env,
                                             prefix.parent, label="Synthesis prefix cleanup", timeout=30, log_fn=log)
-        if code != 0:
+        # Wine returns 1 without output when there is no server to stop.
+        if code != 0 and not (option == "-k" and code == 1 and not output):
             raise SynthesisSetupError("synthesis_prefix_cleanup_failed", "Could not finish Synthesis prefix cleanup.",
                                       {"exit_code": code, "output": output})
 
@@ -222,6 +223,13 @@ def verify_dotnet(prefix, wine):
             "verified": sdk and {6, 7, 8, 10}.issubset(runtimes)}
 
 
+def win11_present(prefix):
+    from Utils.wine.registry import read_value
+
+    return (read_value(prefix, r"Software\Wine", "Version", hive="user.reg") in (None, "win11")
+            and read_value(prefix, r"Software\Microsoft\Windows NT\CurrentVersion", "CurrentBuild") == "22000")
+
+
 def registry_patches_present(prefix):
     from .synthesis import _DLL_OVERRIDES, _XEDIT_EXECUTABLES
     from Utils.wine.registry import read_value
@@ -307,7 +315,8 @@ def prepare_prefix(game, script, *, cancel=None, before_write=lambda: None, chec
         if not report["registration"]["registered"]:
             report["failed_steps"].append("game_registration_readback")
         if report["failed_steps"]:
-            raise SynthesisSetupError("synthesis_prefix_setup_failed", "Some Synthesis setup steps could not be verified.", report)
+            raise SynthesisSetupError("synthesis_prefix_setup_failed",
+                                      f"Some Synthesis setup steps could not be verified: {', '.join(report['failed_steps'])}.", report)
         report["ok"] = True
         report["runtime_execution_verified"] = True
         log_fn("Synthesis prefix ready.")
