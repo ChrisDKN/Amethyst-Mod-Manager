@@ -72,6 +72,13 @@ _LAUNCHER_ID_SETTERS = {
 }
 
 
+def _is_available_directory(path: Path) -> bool:
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
+
+
 def _ensure_lutris_prefix_compat(prefix_path: "Path | None") -> None:
     """When the game's prefix is Lutris-managed, make sure a ``steamuser``
     account exists (classic lutris-wine prefixes only have the real user;
@@ -3033,11 +3040,11 @@ class BaseGame(ABC):
         if not isinstance(raw_game, str) or not raw_game:
             return []
         game_path = Path(raw_game)
-        missing = [] if game_path.is_dir() else [game_path]
+        missing = [] if _is_available_directory(game_path) else [game_path]
         raw_staging = data.get("staging_path")
         if isinstance(raw_staging, str) and raw_staging:
             staging = Path(raw_staging)
-            if not (staging / "profiles").is_dir():
+            if not _is_available_directory(staging / "profiles"):
                 missing.append(staging)
         return missing
 
@@ -3048,9 +3055,9 @@ class BaseGame(ABC):
     def is_configured(self) -> bool:
         """Return whether the saved game and staging paths are available."""
         p = self.get_game_path()
-        return (p is not None and p.is_dir()
+        return (p is not None and _is_available_directory(p)
                 and (self._staging_path is None
-                     or (self._staging_path / "profiles").is_dir()))
+                     or _is_available_directory(self._staging_path / "profiles")))
 
     def validate_install(self) -> list[str]:
         """
