@@ -29,7 +29,17 @@ from Utils.filegraph.models import (
     FileGraphRecoveryRequired, FileGraphStale, ModFile, OperationRecord,
     RefreshProgress, ResolutionDelta, SnapshotExport, Winner,
 )
-from Utils.filegraph.native import pack, require_native, unpack
+from Utils.filegraph.native import (
+    ENGINE_REVISION, RULES_REVISION, SCHEMA_VERSION, pack, require_native, unpack,
+)
+from Utils.profiles.state import read_filegraph_version, write_filegraph_version
+
+
+_PROFILE_FILEGRAPH_VERSION = {
+    "schema": SCHEMA_VERSION,
+    "engine": ENGINE_REVISION,
+    "rules": RULES_REVISION,
+}
 
 
 def _native_error(exc: BaseException) -> BaseException:
@@ -1309,12 +1319,7 @@ class LibrarySession:
         if mod_names is None:
             return self.refresh_changed(
                 profile_dir, progress=progress, cancel=cancel)
-        # A targeted transaction is valid only on top of a complete catalog.
-        # Treat the first manager-owned mutation as first migration instead
-        # of publishing a catalog that contains only the touched mod.
-        if mod_names is not None and not self.status().ready:
-            return self.rebuild(
-                profile_dir, progress=progress, cancel=cancel)
+        self.ensure_ready(profile_dir, progress=progress, cancel=cancel)
         token = cancel or CancellationToken()
         with self._refresh_lock:
             session = self.open_profile(profile_dir)
@@ -1442,6 +1447,7 @@ class LibrarySession:
                     self._invalidate_shared_catalogs(shared_batch)
                 self.log(f"File catalog: {changed} changed, {len(removed)} removed, "
                          f"{len(roots) - changed} unchanged mods")
+                write_filegraph_version(profile_dir, _PROFILE_FILEGRAPH_VERSION)
                 return self.status()
             except BaseException as exc:
                 if committed:
@@ -1499,6 +1505,7 @@ class LibrarySession:
                 profile._reset_after_catalog_rebuild(profile_id)
             if previous_fingerprints is not None and previous_fingerprints != self.manifest_fingerprints():
                 self._invalidate_shared_catalogs(shared_batch)
+            write_filegraph_version(profile_dir, _PROFILE_FILEGRAPH_VERSION)
             return self.status()
         except BaseException as exc:
             if isinstance(exc, FileGraphCancelled):
@@ -1512,15 +1519,17 @@ class LibrarySession:
         self, profile_dir: Path, *, progress: Callable | None = None,
         cancel: CancellationToken | None = None,
     ) -> CatalogStatus:
-        status = self.status()
-        if status.ready:
-            return status
         with self._refresh_lock:
             status = self.status()
-            if status.ready:
+            if not status.ready:
+                return self._rebuild_locked(
+                    profile_dir, progress=progress, cancel=cancel)
+            if read_filegraph_version(profile_dir) == _PROFILE_FILEGRAPH_VERSION:
                 return status
-            return self._rebuild_locked(
-                profile_dir, progress=progress, cancel=cancel)
+        self.log("Filegraph version changed or is missing; "
+                 "refreshing this profile's file catalog.")
+        return self.refresh_changed(
+            profile_dir, progress=progress, cancel=cancel)
 
 
 _library_sessions: "weakref.WeakValueDictionary[str, LibrarySession]" = (

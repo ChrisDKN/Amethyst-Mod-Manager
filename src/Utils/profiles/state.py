@@ -20,6 +20,7 @@ consolidates all small per-profile JSON/text state files:
                                     hide_from_profile_dropdown, …)
   ignored_missing_requirements list[str]
   custom_exes                 list[str]  (per-profile Run-menu exe paths)
+  filegraph_version           dict[str, int]
 
 Migration: when profile_state.json is missing but legacy per-key files exist,
 read_profile_state() merges them into a new profile_state.json and deletes those
@@ -208,6 +209,11 @@ def read_collapsed_seps(profile_dir: Path, state: dict | None = None) -> set[str
     if isinstance(raw, list):
         return set(raw)
     return set()
+
+
+def read_filegraph_version(profile_dir: Path) -> dict:
+    raw = read_profile_state(profile_dir, read_only=True).get("filegraph_version")
+    return raw if isinstance(raw, dict) else {}
 
 
 def read_mod_groups(profile_dir: Path, state: dict | None = None) -> dict[str, dict]:
@@ -528,6 +534,10 @@ def _remove_key(profile_dir: Path, key: str) -> None:
 
 def write_collapsed_seps(profile_dir: Path, value: set[str]) -> None:
     _update_key(profile_dir, "collapsed_seps", sorted(value))
+
+
+def write_filegraph_version(profile_dir: Path, value: dict[str, int]) -> None:
+    _update_key(profile_dir, "filegraph_version", value)
 
 
 def write_mod_groups(profile_dir: Path, value: dict[str, dict]) -> None:
