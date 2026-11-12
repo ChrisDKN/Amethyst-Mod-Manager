@@ -69,6 +69,7 @@ def _snapshot(selected, profile: Path):
     settings = {
         "mode": mode.get(key, "auto") if mode.get(key, "auto") in _MODES else "auto",
         "deploy_before_launch": bool(mode.get("__deploy_before_launch", True)),
+        "capture_logs": bool(mode.get("__capture_logs", False)),
         "arguments": _text(local_args.get(key, fallback_args.get(key, "")), "arguments"),
         "launch_options": _text(mode.get(f"__launch_options_{key}", ""), "launch_options"),
         "wayland": bool(mode.get("__launch_with_wayland", False)),
@@ -138,7 +139,7 @@ def _validated_changes(current: dict, changes: dict):
         if field == "mode":
             if value not in _MODES:
                 raise JobError("invalid_launch_settings", "Unknown launch mode.")
-        elif field in ("deploy_before_launch", "wayland", "plain_wine"):
+        elif field in ("deploy_before_launch", "capture_logs", "wayland", "plain_wine"):
             if not isinstance(value, bool):
                 raise JobError("invalid_launch_settings", f"'{field}' must be a boolean.")
         elif field in ("arguments", "launch_options"):
@@ -216,6 +217,7 @@ def set_settings(game, profile: Path, revision: str, changes: dict, log):
             key = current["executable_key"]
             mode = dict(files[mode_path][1])
             mapping = {"mode": key, "deploy_before_launch": "__deploy_before_launch",
+                       "capture_logs": "__capture_logs",
                        "launch_options": f"__launch_options_{key}",
                        "wayland": "__launch_with_wayland", "lsfg": "__lsfg_vk",
                        "mangohud": "__mangohud"}

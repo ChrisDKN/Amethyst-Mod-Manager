@@ -14241,11 +14241,12 @@ class MainWindow(QMainWindow, PluginPanelControls):
         toggles = list(getattr(game, "launch_toggles", []) or [])
 
         def _done(mode, deploy, args, options, wayland, lsfg, mangohud,
-                  toggle_states):
+                  toggle_states, capture_logs):
             if mode is None:
                 return
             exe_launch.save_launch_mode(game, exe_key, mode)
             exe_launch.save_deploy_before_launch(game, deploy)
+            exe_launch.save_capture_logs(game, capture_logs)
             exe_launch.save_launch_with_wayland(game, wayland)
             exe_launch.save_lsfg_settings(game, lsfg)
             exe_launch.save_mangohud_settings(game, mangohud)
@@ -14281,6 +14282,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             game_name=game.name,
             mode=exe_launch.load_launch_mode(game, exe_key),
             deploy=exe_launch.load_deploy_before_launch(game),
+            capture_logs=exe_launch.load_capture_logs(game),
             args=exe_launch.load_exe_args(game, exe_key),
             options=exe_launch.load_launch_options(game, exe_key),
             wayland=exe_launch.load_launch_with_wayland(game),

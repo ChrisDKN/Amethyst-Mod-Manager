@@ -485,6 +485,16 @@ def save_deploy_before_launch(game, enabled: bool) -> None:
     _write_launch_mode_key(game, "__deploy_before_launch", bool(enabled))
 
 
+def load_capture_logs(game, exe_name: str | None = None) -> bool:
+    key = f"__capture_logs_{exe_name}" if exe_name else "__capture_logs"
+    return bool(_read_launch_mode_data(game).get(key, False))
+
+
+def save_capture_logs(game, enabled: bool, exe_name: str | None = None) -> None:
+    key = f"__capture_logs_{exe_name}" if exe_name else "__capture_logs"
+    _write_launch_mode_key(game, key, True if enabled else None)
+
+
 def load_launch_with_wayland(game) -> bool:
     """Whether the game's Play entry should request a Wayland backend."""
     entry = getattr(game, "_plugin_launcher_entry", None)

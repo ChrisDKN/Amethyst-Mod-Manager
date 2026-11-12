@@ -5,7 +5,7 @@ selector (Auto / Steam / Heroic / Lutris / Faugus / Bottles / None), launch argu
 Steam-style launch options, Wayland, LSFG-VK, MangoHud and deploy controls,
 plus any game-specific checkboxes the handler declares (BaseGame.launch_toggles
 - e.g. OpenMW's "skip the launcher").
-``on_done(mode, deploy, args, options, wayland, lsfg, mangohud, toggles)`` fires on Save,
+``on_done(mode, deploy, args, options, wayland, lsfg, mangohud, toggles, capture_logs)`` fires on Save,
 all-None on Cancel/Esc; *toggles* is {key: bool} and empty for a game that
 declares none.
 
@@ -28,14 +28,14 @@ _MODES = ["Auto", "Steam", "Heroic", "Lutris", "Faugus", "Bottles", "None"]
 
 class LauncherSettingsOverlay(OverlayBase):
     CARD_W = 520
-    CARD_H = 460
+    CARD_H = 500
     MIN_H = 340
     ESC_RESULT = False
 
     def __init__(self, host: QWidget, game_name: str, mode: str, deploy: bool,
                  args: str, options: str, wayland: bool, lsfg: dict,
                  mangohud: dict, on_done,
-                 toggles=None, toggle_values=None):
+                 toggles=None, toggle_values=None, capture_logs=False):
         # Each extra checkbox (plus its optional hint) needs room, or the card
         # clips them - OverlayBase gives the card a FIXED size.
         toggles = list(toggles or [])
@@ -127,6 +127,12 @@ class LauncherSettingsOverlay(OverlayBase):
         v.addLayout(mangohud_row)
         self._sync_mangohud_button()
 
+        self._capture_logs_check = QCheckBox(self.tr("Capture launch logs"))
+        self._capture_logs_check.setChecked(bool(capture_logs))
+        self._capture_logs_check.setToolTip(self.tr(
+            "Save launch output and Proton diagnostic logs in the cache."))
+        v.addWidget(self._capture_logs_check)
+
         # Handler-declared checkboxes. Labels/hints come from the game module,
         # which has no Qt to translate with, so they stay canonical English
         # there and are translated here, at display. The literals are extracted
@@ -168,11 +174,11 @@ class LauncherSettingsOverlay(OverlayBase):
     @classmethod
     def show_over(cls, host, *, game_name, mode, deploy, args, options,
                   wayland, lsfg, mangohud, on_done, toggles=None,
-                  toggle_values=None):
+                  toggle_values=None, capture_logs=False):
         top = host.window() if host is not None else None
         return cls(top or host, game_name, mode, deploy, args, options,
                    wayland, lsfg, mangohud, on_done, toggles=toggles,
-                   toggle_values=toggle_values)
+                   toggle_values=toggle_values, capture_logs=capture_logs)
 
     # -- internals ----------------------------------------------------------
     def _sync_lsfg_button(self):
@@ -244,11 +250,12 @@ class LauncherSettingsOverlay(OverlayBase):
         lsfg = dict(self._lsfg_settings)
         mangohud = dict(self._mangohud_settings)
         toggles = {k: b.isChecked() for k, b in self._toggle_checks.items()}
+        capture_logs = self._capture_logs_check.isChecked()
         self.hide()
         self.deleteLater()
         if cb is not None:
             if saved:
                 cb(mode, deploy, args, options, wayland, lsfg, mangohud,
-                   toggles)
+                   toggles, capture_logs)
             else:
-                cb(None, None, None, None, None, None, None, None)
+                cb(None, None, None, None, None, None, None, None, None)

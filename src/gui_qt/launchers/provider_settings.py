@@ -127,6 +127,11 @@ class LauncherEntryOverlay(OverlayBase):
                 deploy = QCheckBox("Deploy before launch")
                 deploy.setChecked(shared.load_deploy_before_launch(game))
                 self.manager_controls["deploy"] = deploy
+            capture_logs = QCheckBox(self.tr("Capture launch logs"))
+            capture_logs.setChecked(shared.load_capture_logs(game))
+            capture_logs.setToolTip(self.tr(
+                "Save launch output and Proton diagnostic logs in the cache."))
+            self.manager_controls["capture_logs"] = capture_logs
             for toggle in getattr(game, "launch_toggles", ()):
                 check = QCheckBox(toggle.label)
                 check.setChecked(shared.load_launch_toggle(game, toggle.key, toggle.default))
@@ -358,6 +363,8 @@ class LauncherEntryOverlay(OverlayBase):
                 with coordinated_game_mutation(self.game, "launcher_settings"):
                     if "deploy" in manager_values:
                         shared.save_deploy_before_launch(self.game, manager_values.pop("deploy"))
+                    if "capture_logs" in manager_values:
+                        shared.save_capture_logs(self.game, manager_values.pop("capture_logs"))
                     for key, enabled in manager_values.items():
                         shared.save_launch_toggle(self.game, key, enabled)
             return result

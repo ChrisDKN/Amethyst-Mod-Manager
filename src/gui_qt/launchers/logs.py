@@ -54,7 +54,8 @@ class LaunchLogEditor(TextEditor):
                 self._label.setToolTip("")
                 content = self.tr(
                     "No {0} log is available for the latest launch.\n"
-                    "Press Play to capture logs. Native and plain Wine launches "
+                    "Enable Capture launch logs in launch settings, then press Play. "
+                    "Native and plain Wine launches "
                     "do not produce Proton logs.").format(self._kind.upper())
             else:
                 with path.open("rb") as source:

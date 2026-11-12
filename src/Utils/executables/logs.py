@@ -68,6 +68,11 @@ def open_output():
 
 @contextmanager
 def capture(game, executable=None, *, label: str, log_fn):
+    from Utils.executables.launch import load_capture_logs
+
+    if not load_capture_logs(game, Path(executable).name if executable else None):
+        yield log_fn
+        return
     directory = log_directory(game, executable)
     run = None
     try:

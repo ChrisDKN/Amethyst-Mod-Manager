@@ -281,6 +281,10 @@ class ExeSettingsView(QWidget):
         self._options_edit.setPlaceholderText(
             self.tr("e.g. PROTON_ENABLE_WAYLAND=0 gamemoderun %command%"))
         so.addWidget(self._options_edit)
+        self._capture_logs_chk = QCheckBox(self.tr("Capture launch logs"))
+        self._capture_logs_chk.setToolTip(self.tr(
+            "Save launch output and Proton diagnostic logs in the cache."))
+        so.addWidget(self._capture_logs_chk)
         bv.addWidget(sec_opts)
 
         # -- Deploy on run -----------------------------------------------------
@@ -327,6 +331,7 @@ class ExeSettingsView(QWidget):
         game, name = self._game, self._exe_path.name
         self._args_box.setPlainText(exe_launch.load_exe_args(game, name))
         self._options_edit.setText(exe_launch.load_launch_options(game, name))
+        self._capture_logs_chk.setChecked(exe_launch.load_capture_logs(game, name))
         # Script extenders stay on "Game default" whatever was saved before the
         # picker was gated (the launch path ignores it too).
         if self._proton_combo is not None and not self._is_framework:
@@ -387,6 +392,7 @@ class ExeSettingsView(QWidget):
             exe_launch.save_prefix_mode(game, name, self._selected_prefix_mode())
         exe_launch.save_launch_options(game, name,
                                        self._options_edit.text().strip())
+        exe_launch.save_capture_logs(game, self._capture_logs_chk.isChecked(), name)
         exe_launch.save_deploy_on_run(
             game, name, self._deploy_on_run_chk.isChecked())
         if self._winetricks_chk is not None:

@@ -355,12 +355,14 @@ def launch_runner(
                     {"launch_id": launch_id, "profile": profile_dir.name})
 
             from Utils.executables.launch import launch_game
+            from Utils.executables.logs import capture
             from Utils.processes import game as game_process
             from Utils.processes import report as launch_report
-            with game_process.bind(session):
+            with game_process.bind(session), capture(
+                    game, label=game.name, log_fn=launch_log) as log:
                 with launch_report.report(failed) as report:
                     check_cancelled()
-                    launch_game(game, log_fn=launch_log)
+                    launch_game(game, log_fn=log)
                     report.finish()
 
             if failures:
