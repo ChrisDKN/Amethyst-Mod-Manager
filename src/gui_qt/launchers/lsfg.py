@@ -59,13 +59,10 @@ class LsfgSettingsOverlay(OverlayBase):
             f"color:{_c(p, 'TEXT_MAIN')}; font-weight:600; font-size:16px;")
         outer.addWidget(title)
 
-        hint = QLabel(self.tr(
-            "Settings apply when Amethyst launches the game. Backend, DLL and "
+        title.setToolTip(self.tr(
+            "Settings apply when Amethyst launches the game. Backend, model, DLL and "
             "compatibility changes require a restart; generation controls can "
             "update during gameplay."))
-        hint.setWordWrap(True)
-        hint.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')}; font-size:13px;")
-        outer.addWidget(hint)
         self._restart_status = QLabel()
         self._restart_status.setWordWrap(True)
         self._restart_status.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')}; font-size:12px;")
@@ -79,7 +76,6 @@ class LsfgSettingsOverlay(OverlayBase):
         no_wheel(self._backend)
         backend_form = QFormLayout()
         backend_form.addRow(self.tr("Backend (restart)"), self._backend)
-        outer.addLayout(backend_form)
 
         setup_row = QHBoxLayout()
         setup_row.setContentsMargins(0, 0, 0, 0)
@@ -93,7 +89,6 @@ class LsfgSettingsOverlay(OverlayBase):
         self._setup_button.setCursor(Qt.PointingHandCursor)
         self._setup_button.clicked.connect(self._confirm_setup)
         setup_row.addWidget(self._setup_button)
-        outer.addLayout(setup_row)
         self._sync_setup_status()
 
         scroll = QScrollArea()
@@ -140,9 +135,13 @@ class LsfgSettingsOverlay(OverlayBase):
         body_v.setContentsMargins(0, 0, 8, 0)
         body_v.setSpacing(10)
 
-        self._enabled = QCheckBox(self.tr("Use selected backend on next launch"))
+        backend_card, backend_layout = self._section(self.tr("Backend"))
+        body_v.addWidget(backend_card)
+        self._enabled = QCheckBox(self.tr("Enable on launch"))
         self._enabled.setChecked(bool(self._values.get("enabled", False)))
-        body_v.addWidget(self._enabled)
+        backend_layout.addWidget(self._enabled)
+        backend_layout.addLayout(backend_form)
+        backend_layout.addLayout(setup_row)
 
         self._maintenance = QWidget()
         maintenance_layout = QVBoxLayout(self._maintenance)
@@ -164,7 +163,12 @@ class LsfgSettingsOverlay(OverlayBase):
         self._maintenance_status.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self._maintenance_status.hide()
         maintenance_layout.addWidget(self._maintenance_status)
-        body_v.addWidget(self._maintenance)
+        backend_layout.addWidget(self._maintenance)
+
+        generation_card, generation_layout = self._section(self.tr("Frame generation"))
+        body_v.addWidget(generation_card)
+        pacing_card, pacing_layout = self._section(self.tr("Frame pacing"))
+        body_v.addWidget(pacing_card)
 
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
@@ -187,7 +191,8 @@ class LsfgSettingsOverlay(OverlayBase):
         dll_browse.setObjectName("FormButton")
         dll_browse.clicked.connect(self._browse_dll)
         dll_row.addWidget(dll_browse)
-        form.addRow(self.tr("DLL location (restart)"), dll_row)
+        form.addRow(self.tr("DLL path (restart)"), dll_row)
+        self._dll_row = dll_row
 
         multiplier_label = self.tr("Multiplier")
         multiplier_tip = self.tr(
@@ -212,13 +217,17 @@ class LsfgSettingsOverlay(OverlayBase):
             (self._flow_scale, flow_controls[1], flow_controls[2]),
         ]
 
+        pacing_form = QFormLayout()
+        pacing_form.setContentsMargins(0, 0, 0, 0)
+        pacing_form.setHorizontalSpacing(10)
+        pacing_form.setVerticalSpacing(8)
         self._pacing = QComboBox()
         self._pacing.addItem(self.tr("VSync"), "vsync")
         pacing = str(self._values.get("pacing_mode", "vsync"))
         index = self._pacing.findData(pacing)
         self._pacing.setCurrentIndex(max(0, index))
         no_wheel(self._pacing)
-        form.addRow(self.tr("Pacing mode"), self._pacing)
+        pacing_form.addRow(self.tr("Pacing mode"), self._pacing)
 
         self._legacy_present = QComboBox()
         self._legacy_present.addItem(self.tr("VSync/FIFO (Default)"), "fifo")
@@ -230,24 +239,50 @@ class LsfgSettingsOverlay(OverlayBase):
         self._legacy_present.setToolTip(self.tr(
             "Compatibility setting for LSFG-VK 1.x installations."))
         no_wheel(self._legacy_present)
-        form.addRow(self.tr("Legacy present mode"), self._legacy_present)
+        pacing_form.addRow(self.tr("Legacy present mode"), self._legacy_present)
+        pacing_layout.addLayout(pacing_form)
+        self._lsfg_pacing_form = pacing_form
 
-        body_v.addLayout(form)
         self._form = form
-        self._lsfg_rows = (multiplier_row, self._pacing, self._legacy_present)
+        self._lsfg_rows = (multiplier_row,)
 
         self._mako_box = QWidget()
         mako_form = QFormLayout(self._mako_box)
         mako_form.setContentsMargins(0, 0, 0, 0)
-        mako_hint = QLabel(self.tr(
-            "Requires Lossless Scaling's default Steam branch. This integration "
-            "supports host games in SDR, including the MangoHud controls. Launcher Flatpaks "
+        self._mako_box.setToolTip(self.tr(
+            "MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's "
+            "default Steam branch. This integration supports host games in SDR. Launcher Flatpaks "
             "need MAKO's separate Flatpak setup."))
-        mako_hint.setWordWrap(True)
-        mako_form.addRow(mako_hint)
+        self._mako_model = QComboBox()
+        self._mako_model.addItem("MAKO FG", "mako-fg")
+        self._mako_model.addItem("Lossless Scaling", "lossless-scaling")
+        self._mako_model.setCurrentIndex(
+            self._mako_model.findData(self._values["mako_frame_generation_model"]))
+        no_wheel(self._mako_model)
+        mako_form.addRow(self.tr("Model (restart)"), self._mako_model)
+        self._mako_fg_mode = QComboBox()
+        for value, label in (("quality", self.tr("Quality")),
+                             ("balanced", self.tr("Balanced")),
+                             ("performance", self.tr("Performance")),
+                             ("extra-performance", self.tr("Extra Performance"))):
+            self._mako_fg_mode.addItem(label, value)
+        self._mako_fg_mode.setCurrentIndex(
+            self._mako_fg_mode.findData(self._values["mako_fg_mode"]))
+        no_wheel(self._mako_fg_mode)
+        mako_form.addRow(self.tr("MAKO FG mode"), self._mako_fg_mode)
         self._mako_generation = QCheckBox(self.tr("Frame generation (live)"))
         self._mako_generation.setChecked(self._values["mako_frame_generation"])
         mako_form.addRow(self._mako_generation)
+        self._mako_model_form = mako_form
+        generation_layout.addWidget(self._mako_box)
+        generation_layout.addLayout(form)
+
+        self._mako_pacing_box = QWidget()
+        mako_form = QFormLayout(self._mako_pacing_box)
+        mako_form.setContentsMargins(0, 0, 0, 0)
+        mako_form.setHorizontalSpacing(10)
+        mako_form.setVerticalSpacing(8)
+        pacing_layout.addWidget(self._mako_pacing_box)
         self._mako_adaptive = QCheckBox(self.tr("Adaptive frame generation"))
         self._mako_adaptive.setToolTip(self.tr(
             "Aims for the target FPS within the selected multiplier ceiling "
@@ -313,24 +348,21 @@ class LsfgSettingsOverlay(OverlayBase):
             self.tr("Time between native cadence checks, from 0.1 to 3 seconds."))
         mako_form.addRow(self.tr("Recovery interval"), probe_row)
         self._mako_probe_row = probe_row
-        self._recovery_hint = QLabel(self.tr(
+        self._mako_recovery.setToolTip(self._mako_recovery.toolTip() + "\n" + self.tr(
             "Recovery clears Steady Base Cap, real frame priority and the manual base cap. "
             "Check any separate in-game, MangoHud or Gamescope FPS limit too."))
-        self._recovery_hint.setWordWrap(True)
-        mako_form.addRow(self._recovery_hint)
         self._mako_form = mako_form
         self._mako_target_row = target_row
         self._step_pairs.append((self._mako_target, target_controls[1], target_controls[2]))
         self._step_pairs.append((self._mako_base_cap, base_controls[1], base_controls[2]))
         self._step_pairs.append((self._mako_probe, probe_controls[1], probe_controls[2]))
-        body_v.addWidget(self._mako_box)
 
         self._performance = QCheckBox(self.tr("Performance mode"))
         self._performance.setChecked(bool(
             self._values.get("performance_mode", False)))
         self._performance.setToolTip(self.tr(
             "Uses a faster model with a small quality reduction."))
-        body_v.addWidget(self._performance)
+        generation_layout.addWidget(self._performance)
 
         self._live_status = QLabel()
         self._live_status.setWordWrap(True)
@@ -339,18 +371,20 @@ class LsfgSettingsOverlay(OverlayBase):
         self._live_status.hide()
         body_v.addWidget(self._live_status)
 
-        self._allow_fp16 = QCheckBox(self.tr("Allow half-precision (FP16, restart)"))
+        compatibility_card, compatibility_layout = self._section(self.tr("Compatibility"))
+        body_v.addWidget(compatibility_card)
+        self._allow_fp16 = QCheckBox(self.tr("Allow FP16 (restart)"))
         self._allow_fp16.setChecked(bool(
             self._values.get("allow_fp16", True)))
         self._allow_fp16.setToolTip(self.tr(
             "Recommended for AMD GPUs. Older NVIDIA GPUs may be slower."))
-        body_v.addWidget(self._allow_fp16)
+        compatibility_layout.addWidget(self._allow_fp16)
 
         self._override_present = QCheckBox(self.tr(
             "Override present mode for frame pacing"))
         self._override_present.setChecked(bool(
             self._values.get("override_present_mode", True)))
-        body_v.addWidget(self._override_present)
+        compatibility_layout.addWidget(self._override_present)
 
         self._preserve_images = QCheckBox(self.tr(
             "Preserve swapchain image count (restart)"))
@@ -358,17 +392,15 @@ class LsfgSettingsOverlay(OverlayBase):
             self._values.get("preserve_swapchain_image_count", False)))
         self._preserve_images.setToolTip(self.tr(
             "May prevent crashes in some Vulkan games, but can cause stutter."))
-        body_v.addWidget(self._preserve_images)
+        compatibility_layout.addWidget(self._preserve_images)
 
         self._legacy_hdr = QCheckBox(self.tr("HDR mode (LSFG-VK 1.x)"))
         self._legacy_hdr.setChecked(bool(
             self._values.get("legacy_hdr_mode", False)))
-        body_v.addWidget(self._legacy_hdr)
+        compatibility_layout.addWidget(self._legacy_hdr)
 
-        advanced = QLabel(self.tr("Logging"))
-        advanced.setStyleSheet(
-            f"color:{_c(p, 'TEXT_MAIN')}; font-weight:600; margin-top:6px;")
-        body_v.addWidget(advanced)
+        self._logging_card, logging_layout = self._section(self.tr("Logging"))
+        body_v.addWidget(self._logging_card)
 
         log_form = QFormLayout()
         log_form.setContentsMargins(0, 0, 0, 0)
@@ -398,9 +430,9 @@ class LsfgSettingsOverlay(OverlayBase):
         log_browse.clicked.connect(self._browse_log)
         log_row.addWidget(log_browse)
         log_form.addRow(self.tr("Log file"), log_row)
-        body_v.addLayout(log_form)
+        logging_layout.addLayout(log_form)
         self._log_form = log_form
-        self._lsfg_only = (self._override_present, self._legacy_hdr, advanced)
+        self._lsfg_only = (self._override_present, self._legacy_hdr, self._logging_card)
         body_v.addStretch(1)
 
         self._controlled = [
@@ -408,7 +440,7 @@ class LsfgSettingsOverlay(OverlayBase):
             self._pacing, self._legacy_present, self._performance,
             self._allow_fp16, self._override_present, self._preserve_images,
             self._legacy_hdr, self._log_level, self._log_file, log_browse,
-            self._mako_box,
+            self._mako_box, self._mako_pacing_box,
         ]
         self._enabled.toggled.connect(self._sync_enabled)
         self._sync_enabled(self._enabled.isChecked())
@@ -420,6 +452,10 @@ class LsfgSettingsOverlay(OverlayBase):
         self._multiplier.valueChanged.connect(self._schedule_live_update)
         self._flow_scale.valueChanged.connect(self._schedule_live_update)
         self._performance.toggled.connect(self._schedule_live_update)
+        self._mako_model.currentIndexChanged.connect(self._sync_mako_model)
+        self._mako_model.currentIndexChanged.connect(self._sync_restart_status)
+        self._mako_model.currentIndexChanged.connect(self._schedule_live_update)
+        self._mako_fg_mode.currentIndexChanged.connect(self._schedule_live_update)
         for widget in (self._mako_generation, self._mako_adaptive,
                        self._mako_steady, self._mako_smooth, self._mako_recovery):
             widget.toggled.connect(self._schedule_live_update)
@@ -462,6 +498,21 @@ class LsfgSettingsOverlay(OverlayBase):
 
         self._present()
 
+    def _section(self, title: str) -> tuple[QFrame, QVBoxLayout]:
+        p = active_palette()
+        card = QFrame()
+        card.setObjectName("LsfgSection")
+        card.setStyleSheet(
+            f"QFrame#LsfgSection {{ background:{_c(p, 'BG_HEADER')};"
+            f" border:1px solid {_c(p, 'BORDER')}; border-radius:6px; }}")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(8)
+        label = QLabel(title)
+        label.setStyleSheet(f"color:{_c(p, 'TEXT_MAIN')}; font-weight:600;")
+        layout.addWidget(label)
+        return card, layout
+
     @classmethod
     def show_over(cls, host, *, settings, on_done, game_name=""):
         top = host.window() if host is not None else None
@@ -493,18 +544,24 @@ class LsfgSettingsOverlay(OverlayBase):
             self._mako_base_row, not recovery and not (adaptive and (
                 steady or self._mako_priority.currentData() != "auto")))
         self._mako_form.setRowVisible(self._mako_probe_row, recovery)
-        self._mako_form.setRowVisible(self._recovery_hint, recovery)
+
+    def _sync_mako_model(self, *_args):
+        native = (self._backend.currentData() == "mako"
+                  and self._mako_model.currentData() == "mako-fg")
+        self._form.setRowVisible(self._dll_row, not native)
+        self._performance.setVisible(not native)
+        self._mako_model_form.setRowVisible(self._mako_fg_mode, native)
 
     def _sync_restart_status(self, *_args):
         if not hasattr(self, "_restart_baseline"):
             return
         current = self._current_settings()
         keys = ("enabled", "backend", "allow_fp16", "preserve_swapchain_image_count",
+                "mako_frame_generation_model",
                 "mako_dll_path" if current["backend"] == "mako" else "dll_path")
         changed = any(current[key] != self._restart_baseline[key] for key in keys)
         self._restart_status.setText(self.tr(
-            "Restart required: launch, DLL or compatibility settings have changed. "
-            "They take effect on the next game launch."))
+            "Changes apply after restarting the game."))
         self._restart_status.setVisible(changed)
 
     def _sync_backend(self, *_args):
@@ -526,12 +583,16 @@ class LsfgSettingsOverlay(OverlayBase):
             self.tr("Optional path to lsfg-vk.dll or Lossless.dll"))
         for row in self._lsfg_rows:
             self._form.setRowVisible(row, not mako)
+        for row in range(self._lsfg_pacing_form.rowCount()):
+            self._lsfg_pacing_form.setRowVisible(row, not mako)
         for widget in self._lsfg_only:
             widget.setVisible(not mako)
         for row in range(self._log_form.rowCount()):
             self._log_form.setRowVisible(row, not mako)
         self._mako_box.setVisible(mako)
+        self._mako_pacing_box.setVisible(mako)
         self._maintenance.setVisible(mako)
+        self._sync_mako_model()
         self._sync_mako_mode()
         self._sync_setup_status()
 
@@ -780,6 +841,8 @@ class LsfgSettingsOverlay(OverlayBase):
             "dll_path": dlls["lsfg"],
             "mako_dll_path": dlls["mako"],
             "mako_frame_generation": self._mako_generation.isChecked(),
+            "mako_frame_generation_model": self._mako_model.currentData(),
+            "mako_fg_mode": self._mako_fg_mode.currentData(),
             "mako_multiplier": self._mako_multiplier.currentData(),
             "mako_adaptive": self._mako_adaptive.isChecked(),
             "mako_target_fps": self._mako_target.value(),

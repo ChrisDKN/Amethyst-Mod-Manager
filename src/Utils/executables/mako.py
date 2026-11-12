@@ -11,8 +11,8 @@ import uuid
 from pathlib import Path
 
 # Update the release and checksum together after validating its launch/config contract.
-VERSION = "4.6.0"
-_SHA256 = "66224414e2d94f7cb019226735b3b6d26b9be7103c5334250522f7260213be56"
+VERSION = "5.0.0"
+_SHA256 = "c59eda9681aab614474fc74a99194fe6445190fcea500eed89367e09b299fb9f"
 _URL = (f"https://github.com/eugeniosegala/MAKO/releases/download/render-v{VERSION}/"
         f"MAKO-Renderer-v{VERSION}-linux.tar.xz")
 ENV_KEYS = ("MAKO_CONFIG", "MAKO_PROFILE", "MAKO_ENV", "MAKO_LAUNCH_CONFIG",
@@ -45,6 +45,13 @@ def _validate_payload(prefix: Path) -> None:
     for name in ("mako-launch", "mako-cli", "mako-vrr-lease"):
         if not os.access(prefix / "bin" / name, os.X_OK):
             raise RuntimeError(f"MAKO executable is not runnable: {name}")
+    if int((prefix / "MAKO-Renderer-version.txt").read_text().strip().split(".")[0]) >= 5:
+        for relative in ("version.json", "mako-fg-host", "model/weights.bin",
+                         "model/ops.spv", "model/transport.spv", "model/mixture.spv"):
+            if not (prefix / "lib/mako-fg" / relative).is_file():
+                raise RuntimeError(f"MAKO release is missing lib/mako-fg/{relative}")
+        if not os.access(prefix / "lib/mako-fg/mako-fg-host", os.X_OK):
+            raise RuntimeError("MAKO FG runtime is not runnable")
 
 
 def _selection() -> dict:
@@ -193,6 +200,8 @@ def _config_text(settings: dict) -> str:
     profile = {
         "frame_generation_provisioned": True,
         "frame_generation_enabled": values["mako_frame_generation"],
+        "frame_generation_model": values["mako_frame_generation_model"],
+        "mako_fg_mode": values["mako_fg_mode"],
         "multiplier": values["mako_multiplier"],
         "adaptive": values["mako_adaptive"],
         "target_fps": values["mako_target_fps"],
@@ -238,13 +247,21 @@ def check_setup(settings: dict) -> list[tuple[str, bool, str]]:
     results = []
     prefix = installed_prefix()
     results.append(("renderer", prefix is not None, installed_version() if prefix else ""))
-    dll = values["mako_dll_path"] or detect_lsfg_dll(mako=True)
-    dll = os.path.expandvars(os.path.expanduser(dll))
-    try:
-        exists = bool(dll) and _host_file(Path(dll), 2) == b"MZ"
-    except (OSError, subprocess.SubprocessError):
-        exists = False
-    results.append(("dll", exists, dll))
+    needs_dll = values["mako_frame_generation_model"] == "lossless-scaling"
+    dll = ""
+    exists = False
+    if needs_dll:
+        dll = values["mako_dll_path"] or detect_lsfg_dll(mako=True)
+        dll = os.path.expandvars(os.path.expanduser(dll))
+        try:
+            exists = bool(dll) and _host_file(Path(dll), 2) == b"MZ"
+        except (OSError, subprocess.SubprocessError):
+            pass
+        results.append(("dll", exists, dll))
+    else:
+        supported = prefix is not None and _installed_at_least((5, 0, 0))
+        results.append(("models", supported,
+                        "MAKO FG" if supported else "MAKO FG requires MAKO 5.0 or newer."))
     if prefix:
         try:
             with tempfile.TemporaryDirectory(prefix=".check-", dir=_root()) as tmp:

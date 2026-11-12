@@ -512,6 +512,8 @@ _LSFG_DEFAULTS = {
     "backend": "lsfg",
     "mako_dll_path": "",
     "mako_frame_generation": True,
+    "mako_frame_generation_model": "mako-fg",
+    "mako_fg_mode": "balanced",
     "mako_multiplier": 2,
     "mako_adaptive": True,
     "mako_target_fps": 60,
@@ -552,6 +554,12 @@ def _normalize_lsfg_settings(settings) -> dict:
         result[key] = value if isinstance(value, bool) else str(value).lower() \
             in ("1", "true", "yes", "on")
     result["backend"] = "mako" if raw.get("backend") == "mako" else "lsfg"
+    model = raw.get("mako_frame_generation_model")
+    if model in ("mako-fg", "lossless-scaling"):
+        result["mako_frame_generation_model"] = model
+    mode = raw.get("mako_fg_mode")
+    if mode in ("quality", "balanced", "performance", "extra-performance"):
+        result["mako_fg_mode"] = mode
     priority = raw.get("mako_real_frame_priority", "auto")
     if priority in ("auto", "low", "medium", "high", "very-high"):
         result["mako_real_frame_priority"] = priority
