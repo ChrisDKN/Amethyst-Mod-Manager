@@ -243,7 +243,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Repositories…</source>
-      <translation type="unfinished">Repositories…</translation>
+      <translation/>
     </message>
     <message>
       <source>Syncing game handlers…</source>
@@ -3779,9 +3779,7 @@ Flatpak在下一次发射时应用了新的文件系统访问. 现在重新开�
       <source>Restore the previous deployment of {0} using its saved locations?
 
 Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</source>
-      <translation type="unfinished">Restore the previous deployment of {0} using its saved locations?
-
-Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</translation>
+      <translation/>
     </message>
     <message>
       <source>Restoring previous deployment…</source>
@@ -6069,8 +6067,7 @@ Please restart the wizard and install {1} first.</source>
     <message>
       <source>{0} is running.
 Close the tool when generation finishes; its output will then be imported.</source>
-      <translation type="unfinished">{0} is running.
-Close the tool when generation finishes; its output will then be imported.</translation>
+      <translation/>
     </message>
   </context>
   <context>
@@ -11629,7 +11626,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Downloading Thunderstore profile…</source>
-      <translation type="unfinished">Downloading Thunderstore profile…</translation>
+      <translation/>
     </message>
     <message>
       <source>Wabbajack</source>
