@@ -283,7 +283,9 @@ class MulderLoadDowngraderView(WizardViewBase):
 
         def worker():
             from Utils.ca_bundle import download_file
-            from Utils.wizards.archives import fetch_newest_github_asset
+            from Utils.wizards.archives import (
+                fetch_newest_github_asset_checked, verify_github_download,
+            )
 
             try:
                 if game_root is None or not Path(game_root).is_dir():
@@ -292,7 +294,7 @@ class MulderLoadDowngraderView(WizardViewBase):
                 safe_emit(
                     self._download_status_sig,
                     self.tr("Searching MulderLoad releases…"), "")
-                tag, url = fetch_newest_github_asset(
+                tag, url, sha256 = fetch_newest_github_asset_checked(
                     _GITHUB_RELEASES_API, [exe_name], extensions={".exe"})
                 target = Path(game_root) / exe_name
                 safe_emit(
@@ -302,6 +304,9 @@ class MulderLoadDowngraderView(WizardViewBase):
                     f"{display_name} Wizard: downloading {tag} "
                     f"from {url} → {target}")
                 download_file(url, target)
+                verify_github_download(
+                    target, sha256,
+                    log_fn=lambda m: self._log(f"{display_name} Wizard: {m}"))
                 if not target.is_file():
                     raise RuntimeError(self.tr(
                         "The downgrader download did not create {0}.").format(

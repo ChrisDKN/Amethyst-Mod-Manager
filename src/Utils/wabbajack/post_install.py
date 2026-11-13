@@ -83,7 +83,7 @@ def prepare_smapi(request, store, desired, stop, progress, log=None):
     from Nexus.nexus_meta import NexusModMeta, write_meta
     from Utils.wizards.smapi import (
         LINUX_MOD_NAME, download_smapi, extract_payload, extract_smapi_payload,
-        fetch_latest_smapi_asset, stage_smapi_payload,
+        fetch_latest_smapi_asset_checked, stage_smapi_payload,
     )
     prefix = f"root/mods/{LINUX_MOD_NAME}/"
     if any(key.casefold().startswith(prefix.casefold()) for key in desired):
@@ -116,8 +116,9 @@ def prepare_smapi(request, store, desired, stop, progress, log=None):
     else:
         saved = store.get("smapi_linux_download", {})
         if saved.get("package") != request.package.identity:
-            tag, url = fetch_latest_smapi_asset()
-            saved = {"package": request.package.identity, "version": tag, "url": url}
+            tag, url, sha256 = fetch_latest_smapi_asset_checked()
+            saved = {"package": request.package.identity, "version": tag, "url": url,
+                     "sha256": sha256}
             store.set("smapi_linux_download", saved)
         check_stop()
         asset_key = hashlib.sha256(saved["url"].encode()).hexdigest()[:16]
@@ -127,7 +128,8 @@ def prepare_smapi(request, store, desired, stop, progress, log=None):
                 check_stop()
                 progress("Downloading Linux SMAPI", min(blocks * block_size, max(0, total)),
                          max(0, total), str(saved["version"]))
-            download_smapi(saved["url"], archive, reporthook=downloaded)
+            download_smapi(saved["url"], archive, reporthook=downloaded,
+                           sha256=saved.get("sha256", ""))
         extract_smapi_payload(archive, dest, log_fn=log or (lambda _: None), work_dir=stage)
     check_stop()
     stage_smapi_payload(game_dir, dest, log_fn=log or (lambda _: None))

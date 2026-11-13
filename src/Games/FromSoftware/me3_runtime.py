@@ -198,8 +198,12 @@ def installed_tag() -> str:
     return _read_state().get("tag", "") if find_me3() is not None else ""
 
 
-def _fetch_latest(log: LogFn) -> "tuple[str, str] | None":
-    """Return (tag, tarball_url) for the newest release, or None."""
+def _fetch_latest(log: LogFn) -> "tuple[str, str, str] | None":
+    """Return (tag, tarball_url, sha256) for the newest release, or None.
+
+    sha256 is the digest GitHub publishes for the tarball, or "".
+    """
+    from Utils.wizards.archives import github_asset_sha256
     from Utils.ca_bundle import get_ssl_context
     try:
         req = urllib.request.Request(
@@ -216,7 +220,7 @@ def _fetch_latest(log: LogFn) -> "tuple[str, str] | None":
         if asset.get("name") == _TARBALL_NAME:
             url = asset.get("browser_download_url") or ""
             if tag and url:
-                return tag, url
+                return tag, url, github_asset_sha256(asset)
     log(f"no {_TARBALL_NAME} in the latest me3 release.")
     return None
 
@@ -281,7 +285,7 @@ def install_me3(log_fn: "LogFn | None" = None) -> bool:
     latest = _fetch_latest(log)
     if latest is None:
         return False
-    tag, url = latest
+    tag, url, sha256 = latest
 
     log(f"downloading me3 {tag} ...")
     from Utils.ca_bundle import get_ssl_context
@@ -294,6 +298,15 @@ def install_me3(log_fn: "LogFn | None" = None) -> bool:
     except Exception as exc:
         log(f"me3 download failed: {exc}")
         return False
+    if sha256:
+        import hashlib
+        actual = hashlib.sha256(payload).hexdigest()
+        if actual != sha256:
+            log(f"me3 download failed its checksum (expected {sha256}, got {actual}).")
+            return False
+        log(f"SHA-256 verified ({sha256}).")
+    else:
+        log("GitHub publishes no SHA-256 for this asset - not verified.")
 
     import io
     try:

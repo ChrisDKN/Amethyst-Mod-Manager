@@ -111,18 +111,22 @@ class AutoSeasonsView(WizardViewBase):
         def worker():
             from Utils.bethesda.autoseasons import install_autoseasons
             from Utils.ca_bundle import download_file
-            from Utils.wizards.archives import fetch_latest_github_asset
+            from Utils.wizards.archives import (
+                fetch_latest_github_asset_checked, verify_github_download,
+            )
 
             log = lambda msg: self._log(f"AutoSeasons Wizard: {msg}")
             try:
                 safe_emit(self._install_status_sig,
                           self.tr("Fetching latest release from GitHub…"), "")
-                tag, url = fetch_latest_github_asset(GITHUB_API_URL, ["autoseasons"])
+                tag, url, sha256 = fetch_latest_github_asset_checked(
+                    GITHUB_API_URL, ["autoseasons"])
                 with tempfile.TemporaryDirectory(prefix="amm-autoseasons-") as temp:
                     archive = Path(temp) / Path(url).name
                     safe_emit(self._install_status_sig,
                               self.tr("Downloading {0}…").format(tag), "")
                     download_file(url, archive)
+                    verify_github_download(archive, sha256, log_fn=log)
                     safe_emit(self._install_status_sig,
                               self.tr("Installing AutoSeasons as a mod…"), "")
                     self._exe = install_autoseasons(game, archive, profile, log_fn=log)
