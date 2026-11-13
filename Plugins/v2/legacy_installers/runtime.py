@@ -424,25 +424,15 @@ def _prepare_prefix(runner, helper, work, environment, log, cancel):
     log("Using an isolated copy of the clean Wine prefix.")
 
 
-def _command(game, work, request, log, cancel=None):
+def _command(game, work, request, log, cancel=None, *, runner_override=""):
     helper = helper_path()
     if os.name == "nt":
         return [str(helper), str(request)], os.environ.copy()
-    from Utils.launchers.steam import find_any_installed_proton
+    from .runners import select_runner
     from Utils.wine.paths import to_wine_path
-    from Utils.wine.proton import resolve_proton_env
     from Utils.wine.protontricks import strip_appimage_env
-    runner, environment = resolve_proton_env(game, log, read_only=True)
+    runner, environment = select_runner(game, runner_override, log)
     environment = strip_appimage_env((environment or os.environ).copy())
-    runner = Path(runner) if runner else find_any_installed_proton()
-    if runner is not None:
-        runner = Path(runner)
-        if runner.name not in {"wine", "wine64"}:
-            runner = next((runner.parent / folder / name for folder in ("files/bin", "dist/bin")
-                           for name in ("wine64", "wine") if (runner.parent / folder / name).is_file()), None)
-    runner = runner or shutil.which("wine64") or shutil.which("wine")
-    if runner is None:
-        raise RuntimeError("Install Wine or Proton to run legacy mod installers.")
     if not _inside_flatpak() and shutil.which("bwrap") is None:
         raise RuntimeError("Legacy installers require bubblewrap (bwrap) on Linux.")
     prefix = work / "prefix"
@@ -464,17 +454,24 @@ def _command(game, work, request, log, cancel=None):
                        DOTNET_EnableWriteXorExecute="0", DOTNET_SYSTEM_GLOBALIZATION_USENLS="1",
                        HOME=str(work / "home"), TMPDIR=str(work / "tmp"),
                        XDG_CACHE_HOME=str(work / "cache"), XDG_RUNTIME_DIR=str(work / "runtime"))
-    _prepare_prefix(runner, helper, work, environment, log, cancel)
+    try:
+        _prepare_prefix(runner, helper, work, environment, log, cancel)
+    except RuntimeError as exc:
+        if "ld-linux.so.2" in str(exc):
+            raise RuntimeError(f"Wine runner {runner} requires the host's 32-bit loader (ld-linux.so.2). "
+                               "Install the host's 32-bit runtime libraries or choose a compatible Wine / Proton override "
+                               "in the Legacy Scripted Installers settings.") from exc
+        raise
     command = _sandbox(runner, helper, work, environment, [runner, helper, to_wine_path(request)],
                        source=work.parent)
     return command, os.environ.copy() if _inside_flatpak() else environment
 
 
-def run_installer(prepared, *, log, cancel=None, work=None):
+def run_installer(prepared, *, log, cancel=None, work=None, runner_override=""):
     work = work or prepared.extract_dir / ".plugin-install"
     work.mkdir(exist_ok=True)
     if not _inside_flatpak() or (_host_visible(prepared.extract_dir) and _host_visible(work)):
-        return _run_installer(prepared, log=log, cancel=cancel, work=work)
+        return _run_installer(prepared, log=log, cancel=cancel, work=work, runner_override=runner_override)
     cache = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "AmethystModManager/legacy-installers/sessions"
     cache.mkdir(parents=True, exist_ok=True, mode=0o700)
     if not _host_visible(cache):
@@ -496,7 +493,8 @@ def run_installer(prepared, *, log, cancel=None, work=None):
                                      for path in getattr(prepared, "legacy_packages", ())]
         shared_work = source_root / ".plugin-install"
         try:
-            output, files, edits, plugins, reader = _run_installer(relocated, log=log, cancel=cancel, work=shared_work)
+            output, files, edits, plugins, reader = _run_installer(
+                relocated, log=log, cancel=cancel, work=shared_work, runner_override=runner_override)
             shutil.copytree(output, work / "output")
             reader.work = work
             return work / "output", files, edits, plugins, reader
@@ -507,7 +505,7 @@ def run_installer(prepared, *, log, cancel=None, work=None):
                     shutil.copy2(path, work / name)
 
 
-def _run_installer(prepared, *, log, cancel=None, work=None):
+def _run_installer(prepared, *, log, cancel=None, work=None, runner_override=""):
     from Utils.operations import OperationCancelled
     from Utils.wine.paths import to_wine_path
     work = work or prepared.extract_dir / ".plugin-install"
@@ -538,7 +536,7 @@ def _run_installer(prepared, *, log, cancel=None, work=None):
                 raise ValueError("OMOD package must be a file inside the extracted archive without links.")
             payload["packages"].append({"source": wine_path(path), "label": path.relative_to(parent).as_posix()})
     request.write_text(json.dumps(payload), encoding="utf-8")
-    command, env = _command(prepared.game, work, request, log, cancel)
+    command, env = _command(prepared.game, work, request, log, cancel, runner_override=runner_override)
     log(f"Legacy installer preparation: {time.monotonic() - started:.2f}s.")
     with _runner_lock, (work / "runner.log").open("wb") as errors:
         log(f"Opening {kind.upper()} legacy installer for {prepared.mod_name}…")

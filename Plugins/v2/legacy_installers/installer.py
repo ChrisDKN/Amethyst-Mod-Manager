@@ -37,7 +37,8 @@ def run_install(context, state):
         legacy_installer=(state["kind"], source, root / state["script"] if state["script"] else None))
     prepared.legacy_packages = [root / path for path in state.get("packages", [])]
     result = run_installer(prepared, log=context["log"], cancel=context["cancel"],
-                           work=Path(context["work_dir"]))
+                           work=Path(context["work_dir"]),
+                           runner_override=context.get("settings", {}).get("runner_path", ""))
     state["runtime"] = result
     state["prepared"] = prepared
     return {"files": [{"source": source, "destination": destination} for source, destination, _folder in result[1]]}

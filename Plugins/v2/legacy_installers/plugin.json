@@ -2,7 +2,7 @@
   "api_version": 1,
   "id": "amethyst.legacy_installers",
   "name": "Legacy Scripted Installers",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "author": "ChrisDKN",
   "min_manager_version": "2.6.0",
   "description": "Experimental desktop installation of C# FOMOD and OMOD packages using their original installers.",
@@ -10,6 +10,15 @@
   "ui": "stdio",
   "methods": [],
   "show_in_menu": false,
+  "settings": [
+    {
+      "key": "runner_path",
+      "label": "Wine / Proton override",
+      "type": "file",
+      "default": "",
+      "description": "Leave blank to use the configured game's runner. Select a proton script or Wine executable to override it for legacy installers only. A Proton build directory can also be entered."
+    }
+  ],
   "installers": [
     {
       "id": "legacy_scripts",
