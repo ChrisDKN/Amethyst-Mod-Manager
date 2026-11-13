@@ -9285,15 +9285,15 @@ Verwaltetes Verzeichnis: {2}</translation>
     </message>
     <message>
       <source>Performance</source>
-      <translation type="unfinished">Performance</translation>
+      <translation>Leistung</translation>
     </message>
     <message>
       <source>Extra Performance</source>
-      <translation type="unfinished">Extra Performance</translation>
+      <translation>Zusätzliche Leistung</translation>
     </message>
     <message>
       <source>Allow FP16 (restart)</source>
-      <translation type="unfinished">Allow FP16 (restart)</translation>
+      <translation>FP16 erlauben (Neustart)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
