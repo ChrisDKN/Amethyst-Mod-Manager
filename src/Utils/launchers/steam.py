@@ -486,7 +486,11 @@ def find_steam_runtime_entry_point(proton_script: "Path") -> "Path | None":
     None when the tool declares no runtime or it isn't installed - the caller
     then keeps the bare Proton call.
     """
-    appid = _require_tool_appid(proton_script)
+    return find_steam_runtime_by_appid(_require_tool_appid(proton_script))
+
+
+def find_steam_runtime_by_appid(appid: str) -> Path | None:
+    """Locate an installed Steam Linux Runtime by its app ID."""
     if not appid:
         return None
     names: list[str] = []
@@ -508,6 +512,32 @@ def find_steam_runtime_entry_point(proton_script: "Path") -> "Path | None":
             if os.access(entry, os.X_OK):
                 return entry
     return None
+
+
+def native_steam_runtime_command(appid: str, command: list[str], *,
+                                 env: dict, cwd: Path) -> list[str]:
+    """Run a native game in its declared Steam Linux Runtime."""
+    if os.environ.get("AMM_STEAM_RUNTIME") == "0":
+        return list(command)
+    entry = find_steam_runtime_by_appid(appid)
+    if entry is None:
+        raise RuntimeError(
+            f"This native game requires Steam Linux Runtime (app ID {appid}). "
+            "Install it from Steam's Library > Tools, then try again. "
+            f"Steam install link: steam://install/{appid}")
+    runtime_path = _host_tool_path(entry.parent)
+    tool_paths = [p for p in env.get("STEAM_COMPAT_TOOL_PATHS", "").split(":") if p]
+    if runtime_path not in tool_paths:
+        tool_paths.append(runtime_path)
+    env["STEAM_COMPAT_TOOL_PATHS"] = ":".join(tool_paths)
+    base = wrap_nixos_command(
+        [_host_tool_path(entry), "--verb=waitforexitandrun", "--",
+         *[_host_tool_path(part) for part in command]], env=env)
+    if _in_flatpak_sandbox():
+        from Utils.flatpak.env import flatpak_forward_env_args
+        return ["flatpak-spawn", "--host", f"--directory={_host_tool_path(cwd)}",
+                *flatpak_forward_env_args(env), *base]
+    return base
 
 
 def _wrap_in_steam_runtime(cmd: list[str], proton_script: "Path",

@@ -1404,6 +1404,16 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
     try:
         apply_lsfg_launch_setting(game, env, log_fn=log_fn)
         apply_mangohud_launch_setting(game, env, log_fn=log_fn)
+        runtime_appid = getattr(game, "native_steam_runtime_appid", "")
+        if runtime_appid:
+            from Utils.launchers.steam import native_steam_runtime_command
+            env.update(steam_compat_mounts(game, exe_path, env=env))
+            game_path = game.get_game_path()
+            if game_path is not None:
+                env["STEAM_COMPAT_INSTALL_PATH"] = str(game_path)
+            command = native_steam_runtime_command(
+                runtime_appid, command, env=env, cwd=exe_path.parent)
+            log_fn(f"Play: prepared native Steam Linux Runtime (app ID {runtime_appid}).")
         command = wrap_command(command, env, log_fn=log_fn)
     except (OSError, RuntimeError) as exc:
         log_fn(f"Play: {exc}")

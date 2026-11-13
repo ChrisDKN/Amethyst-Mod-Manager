@@ -314,6 +314,10 @@ class BaldursGate3(BaseGame):
         return "bin/bg3" if self._runtime_mode == "native" else ""
 
     @property
+    def native_steam_runtime_appid(self) -> str:
+        return "1628350" if self._runtime_mode == "native" else ""
+
+    @property
     def steam_id(self) -> str:
         return "1086940"
 

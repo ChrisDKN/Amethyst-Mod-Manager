@@ -267,6 +267,7 @@ class BaseGame(ABC):
     # The direct native Play path uses this opt-in to start/wait for Steam
     # without asking Steam to launch the physical game outside a profile VFS.
     native_steam_client_required: bool = False
+    native_steam_runtime_appid: str = ""
 
     # A preferred executable which the store launcher does not invoke itself.
     preferred_launch_requires_direct: bool = False
