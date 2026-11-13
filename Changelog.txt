@@ -1,6 +1,8 @@
 - v2.6.4
 - Fixed mods whose names differ only by casing sharing file listings and deployment ownership.
 - Fixed video files not playing correctly from the mod files tab
+- Proton/UMU launch logs are now optional (Default off)
+- Updated Mako integration to v5
 
 ---
 
