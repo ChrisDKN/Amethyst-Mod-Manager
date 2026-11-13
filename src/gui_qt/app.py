@@ -57,6 +57,7 @@ from gui_qt.i18n import (profile_display, is_reserved_profile_name,
                          DEFAULT_PROFILE)
 from gui_qt.plugins.panel_controls import PluginPanelControls
 from gui_qt.widgets.flow_layout import FlowLayout
+from gui_qt.widgets.panel_splitter import PanelSplitter
 from gui_qt.game_state import GameState
 from gui_qt.widgets.detachable_tabs import DetachableTabWidget
 from gui_qt.support.notification_center import (
@@ -1485,15 +1486,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             self._build_modlist_area(startup_timing=startup_timing))
 
         phase_started = _startup_time.perf_counter()
-        split = QSplitter(Qt.Horizontal)
-        split.addWidget(self._modlist_panel_stack)
-        split.addWidget(right_col)
-        split.setStretchFactor(0, 5)
-        split.setStretchFactor(1, 4)
-        # Wider handle so a panel collapsed to one edge still has an easy-to-grab
-        # grip (the default 1px line is nearly invisible / hard to click).
-        split.setHandleWidth(8)
-        split.setChildrenCollapsible(True)
+        split = PanelSplitter(self._modlist_panel_stack, right_col)
         # Last-session splitter position, else the default split. Saved sizes
         # are absolute pixels at the saved window size; QSplitter rescales them
         # proportionally when the restored window size differs.
@@ -1503,7 +1496,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             saved_sizes = load_qt_window_state().get("body_split")
         except Exception:
             saved_sizes = None
-        split.setSizes(saved_sizes or [620, 480])
+        split.setSizes(saved_sizes or PanelSplitter.DEFAULT_SIZES)
         split.splitterMoved.connect(
             lambda *_: self._schedule_window_state_save())
         self._body_split = split

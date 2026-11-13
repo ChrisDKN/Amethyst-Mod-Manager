@@ -11,6 +11,7 @@ py.install_sources(
   'help_marker.py',
   'marker_strip.py',
   'menus.py',
+  'panel_splitter.py',
   'path_tree.py',
   'selector_button.py',
   'tooltips.py',
