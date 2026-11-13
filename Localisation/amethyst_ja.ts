@@ -8852,8 +8852,8 @@ Managed directory: {2}</source>
       <translation>バックエンド（再起動）</translation>
     </message>
     <message>
-      <source>Use selected backend on next launch</source>
-      <translation>次回起動時に選択したバックエンドを使用</translation>
+      <source>Enable on launch</source>
+      <translation>起動時に有効にする</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8864,8 +8864,8 @@ Managed directory: {2}</source>
       <translation>フロースケール</translation>
     </message>
     <message>
-      <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation>Amethystがゲームを起動したときに設定が適用されます。バックエンド、DLL、互換性の変更には再起動が必要です。生成コントロールはゲームプレイ中に更新できます。</translation>
+      <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+      <translation>Amethystがゲームを起動したときに設定が適用されます。バックエンド、モデル、DLLおよび互換性の変更には再起動が必要です。生成コントロールはゲームプレイ中に更新できます。</translation>
     </message>
     <message>
       <source>Check setup</source>
@@ -8880,8 +8880,8 @@ Managed directory: {2}</source>
       <translation>ロールバック</translation>
     </message>
     <message>
-      <source>DLL location (restart)</source>
-      <translation>DLL の場所（再起動）</translation>
+      <source>DLL path (restart)</source>
+      <translation>DLL パス (再起動)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -9088,8 +9088,8 @@ Managed directory: {2}</source>
       <translation>OK</translation>
     </message>
     <message>
-      <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation>再起動が必要です: 起動、DLL または互換性設定が変更されました。次回のゲーム起動時に有効になります。</translation>
+      <source>Changes apply after restarting the game.</source>
+      <translation>変更はゲームを再起動した後に適用されます。</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
@@ -9248,12 +9248,52 @@ Managed directory: {2}</source>
       <translation>不明なエラー</translation>
     </message>
     <message>
-      <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation>Lossless ScalingのデフォルトのSteamブランチが必要です。この統合はMangoHudコントロールを含むSDRのホストゲームをサポートしています。ランチャーFlatpaksはMAKOの個別のFlatpakセットアップを必要とします。</translation>
+      <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+      <translation>MAKO FGがバンドルされています。ロスレススケーリングモデルにはロスレススケーリングのデフォルトのSteamブランチが必要です。 この統合は、SDRでホストゲームをサポートします。ランチャーのFlatpaksはMAKOの個別のFlatpakセットアップを必要とします。</translation>
     </message>
     <message>
-      <source>Allow half-precision (FP16, restart)</source>
-      <translation>半精度を許可 (FP16、再起動)</translation>
+      <source>Model (restart)</source>
+      <translation>モデル (再起動)</translation>
+    </message>
+    <message>
+      <source>Backend</source>
+      <translation>バックエンド</translation>
+    </message>
+    <message>
+      <source>Frame generation</source>
+      <translation>フレームの生成</translation>
+    </message>
+    <message>
+      <source>Frame pacing</source>
+      <translation>フレームペーシング</translation>
+    </message>
+    <message>
+      <source>Compatibility</source>
+      <translation>互換性</translation>
+    </message>
+    <message>
+      <source>MAKO FG mode</source>
+      <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+      <source>Quality</source>
+      <translation>品質</translation>
+    </message>
+    <message>
+      <source>Balanced</source>
+      <translation>バランス</translation>
+    </message>
+    <message>
+      <source>Performance</source>
+      <translation>パフォーマンス</translation>
+    </message>
+    <message>
+      <source>Extra Performance</source>
+      <translation>追加パフォーマンス</translation>
+    </message>
+    <message>
+      <source>Allow FP16 (restart)</source>
+      <translation>FP16を許可 (再起動)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
