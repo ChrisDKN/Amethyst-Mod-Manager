@@ -9285,15 +9285,15 @@ Spravovaný adresář: {2}</translation>
     </message>
     <message>
       <source>Performance</source>
-      <translation type="unfinished">Performance</translation>
+      <translation>Výkon</translation>
     </message>
     <message>
       <source>Extra Performance</source>
-      <translation type="unfinished">Extra Performance</translation>
+      <translation>Extra výkon</translation>
     </message>
     <message>
       <source>Allow FP16 (restart)</source>
-      <translation type="unfinished">Allow FP16 (restart)</translation>
+      <translation>Povolit FP16 (restart)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
