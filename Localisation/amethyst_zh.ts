@@ -8850,8 +8850,8 @@ Managed directory: {2}</source>
       <translation>后端(重启)</translation>
     </message>
     <message>
-      <source>Use selected backend on next launch</source>
-      <translation>下次启动时使用选中的后端</translation>
+      <source>Enable on launch</source>
+      <translation>启动时</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8862,8 +8862,8 @@ Managed directory: {2}</source>
       <translation>流量比例</translation>
     </message>
     <message>
-      <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation>当Amethyst启动游戏时应用设置。后端、DLL和兼容性更改需要重启；生成控制可以在游戏中更新。</translation>
+      <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+      <translation>当Amethyst启动游戏时应用设置。后端、模型、DLL和兼容性更改需要重启；生成控制可以在游戏中更新。</translation>
     </message>
     <message>
       <source>Check setup</source>
@@ -8878,8 +8878,8 @@ Managed directory: {2}</source>
       <translation>反转</translation>
     </message>
     <message>
-      <source>DLL location (restart)</source>
-      <translation>DLL 位置(重启)</translation>
+      <source>DLL path (restart)</source>
+      <translation>DLL 路径 (重启)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -9086,8 +9086,8 @@ Managed directory: {2}</source>
       <translation>好的</translation>
     </message>
     <message>
-      <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation>需要重启：启动、 DLL 或兼容性设置已更改。它们在下次游戏启动时生效。</translation>
+      <source>Changes apply after restarting the game.</source>
+      <translation>重启游戏后应用更改。</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
@@ -9246,12 +9246,52 @@ Managed directory: {2}</source>
       <translation>未知错误</translation>
     </message>
     <message>
-      <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation>需要无损Scaling的默认Steam分支。这种整合支持SDR中的主机游戏，包括Mangohud 控制。Launcher Flatpaks 需要 MAKO单独的 Flatpak 设置。</translation>
+      <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+      <translation>MAKO FG 被捆绑。无损比例模型需要无损比例的默认Steam分支。 这种整合支持SDR中的主机游戏。Launcher Flatpaks 需要 MAKO单独的 Flatpak 设置。</translation>
     </message>
     <message>
-      <source>Allow half-precision (FP16, restart)</source>
-      <translation>允许半精度 (FP16, 重启)</translation>
+      <source>Model (restart)</source>
+      <translation>模型(重启)</translation>
+    </message>
+    <message>
+      <source>Backend</source>
+      <translation>后端</translation>
+    </message>
+    <message>
+      <source>Frame generation</source>
+      <translation>框架生成</translation>
+    </message>
+    <message>
+      <source>Frame pacing</source>
+      <translation>帧速度</translation>
+    </message>
+    <message>
+      <source>Compatibility</source>
+      <translation>兼容性</translation>
+    </message>
+    <message>
+      <source>MAKO FG mode</source>
+      <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+      <source>Quality</source>
+      <translation>质量</translation>
+    </message>
+    <message>
+      <source>Balanced</source>
+      <translation>平衡</translation>
+    </message>
+    <message>
+      <source>Performance</source>
+      <translation>业绩</translation>
+    </message>
+    <message>
+      <source>Extra Performance</source>
+      <translation>额外性能</translation>
+    </message>
+    <message>
+      <source>Allow FP16 (restart)</source>
+      <translation>允许 FP16 (重启)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>

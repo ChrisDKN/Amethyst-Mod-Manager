@@ -8852,8 +8852,8 @@ Directory gestita: {2}</translation>
       <translation>Backend (riavvio)</translation>
     </message>
     <message>
-      <source>Use selected backend on next launch</source>
-      <translation>Usa il backend selezionato al prossimo avvio</translation>
+      <source>Enable on launch</source>
+      <translation>Abilita all'avvio</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8864,8 +8864,8 @@ Directory gestita: {2}</translation>
       <translation>Scala di flusso</translation>
     </message>
     <message>
-      <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation>Le impostazioni si applicano quando Amethyst lancia il gioco. Backend, DLL e le modifiche di compatibilità richiedono un riavvio; i controlli di generazione possono essere aggiornati durante il gameplay.</translation>
+      <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+      <translation>Le impostazioni si applicano quando Amethyst avvia il gioco. Backend, modello, DLL e le modifiche di compatibilità richiedono un riavvio; i controlli di generazione possono essere aggiornati durante il gameplay.</translation>
     </message>
     <message>
       <source>Check setup</source>
@@ -8880,8 +8880,8 @@ Directory gestita: {2}</translation>
       <translation>Ritorna indietro</translation>
     </message>
     <message>
-      <source>DLL location (restart)</source>
-      <translation>Posizione DLL (riavvio)</translation>
+      <source>DLL path (restart)</source>
+      <translation>Percorso DLL (riavvio)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -9088,8 +9088,8 @@ Directory gestita: {2}</translation>
       <translation>OK</translation>
     </message>
     <message>
-      <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation>Richiesto riavvio: il lancio, DLL o le impostazioni di compatibilità sono cambiate. Hanno effetto sul prossimo avvio del gioco.</translation>
+      <source>Changes apply after restarting the game.</source>
+      <translation>Le modifiche si applicano dopo il riavvio della partita.</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
@@ -9248,12 +9248,52 @@ Directory gestita: {2}</translation>
       <translation>Errore sconosciuto</translation>
     </message>
     <message>
-      <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation>Richiede il ramo Steam predefinito di Lossless Scaling. Questa integrazione supporta i giochi host in SDR, inclusi i controlli MangoHud. Launcher Flatpaks ha bisogno della configurazione Flatpak separata di MAKO.</translation>
+      <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+      <translation>MAKO FG è impacchettato. I modelli di scala senza perdita richiedono il ramo Steam predefinito della scala senza perdite. Questa integrazione supporta i giochi host in SDR. Launcher Flatpaks hanno bisogno della configurazione Flatpak separata di MAKO.</translation>
     </message>
     <message>
-      <source>Allow half-precision (FP16, restart)</source>
-      <translation>Permetti metà precisione (FP16, riavvio)</translation>
+      <source>Model (restart)</source>
+      <translation>Modello (riavvio)</translation>
+    </message>
+    <message>
+      <source>Backend</source>
+      <translation>Backend</translation>
+    </message>
+    <message>
+      <source>Frame generation</source>
+      <translation>Generazione frame</translation>
+    </message>
+    <message>
+      <source>Frame pacing</source>
+      <translation>Ritaglio frame</translation>
+    </message>
+    <message>
+      <source>Compatibility</source>
+      <translation>Compatibilità</translation>
+    </message>
+    <message>
+      <source>MAKO FG mode</source>
+      <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+      <source>Quality</source>
+      <translation>Qualità</translation>
+    </message>
+    <message>
+      <source>Balanced</source>
+      <translation>Bilanciato</translation>
+    </message>
+    <message>
+      <source>Performance</source>
+      <translation type="unfinished">Performance</translation>
+    </message>
+    <message>
+      <source>Extra Performance</source>
+      <translation type="unfinished">Extra Performance</translation>
+    </message>
+    <message>
+      <source>Allow FP16 (restart)</source>
+      <translation type="unfinished">Allow FP16 (restart)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
