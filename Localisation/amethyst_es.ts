@@ -9285,15 +9285,15 @@ Directorio gestionado: {2}</translation>
     </message>
     <message>
       <source>Performance</source>
-      <translation type="unfinished">Performance</translation>
+      <translation>Rendimiento</translation>
     </message>
     <message>
       <source>Extra Performance</source>
-      <translation type="unfinished">Extra Performance</translation>
+      <translation>Rendimiento extra</translation>
     </message>
     <message>
       <source>Allow FP16 (restart)</source>
-      <translation type="unfinished">Allow FP16 (restart)</translation>
+      <translation>Permitir FP16 (reiniciar)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
