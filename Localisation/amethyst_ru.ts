@@ -8852,8 +8852,8 @@ Managed directory: {2}</source>
       <translation>Бэкенд (перезапуск)</translation>
     </message>
     <message>
-      <source>Use selected backend on next launch</source>
-      <translation>Использовать выбранный бэкэнд при следующем запуске</translation>
+      <source>Enable on launch</source>
+      <translation>Включить при запуске</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8864,8 +8864,8 @@ Managed directory: {2}</source>
       <translation>Масштаб потока</translation>
     </message>
     <message>
-      <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation>Настройки применяются, когда Amethyst запускает игру. Backend, DLL и совместимость требуют перезапуска; элементы генерации могут обновляться во время игры.</translation>
+      <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+      <translation>Когда Amethyst запускает игру. Backend, модель, DLL и совместимость требуют перезапуска; элементы генерации могут обновляться во время игры.</translation>
     </message>
     <message>
       <source>Check setup</source>
@@ -8880,8 +8880,8 @@ Managed directory: {2}</source>
       <translation>Откат</translation>
     </message>
     <message>
-      <source>DLL location (restart)</source>
-      <translation>Расположение DLL (перезапуск)</translation>
+      <source>DLL path (restart)</source>
+      <translation>Путь DLL (перезапуск)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -9088,8 +9088,8 @@ Managed directory: {2}</source>
       <translation>ОК</translation>
     </message>
     <message>
-      <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation>Необходим перезапуск: изменились настройки запуска, DLL или совместимости. Они вступят в силу при следующем запуске игры.</translation>
+      <source>Changes apply after restarting the game.</source>
+      <translation>Изменения вступят в силу после перезапуска игры.</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
@@ -9248,12 +9248,52 @@ Managed directory: {2}</source>
       <translation>Неизвестная ошибка</translation>
     </message>
     <message>
-      <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation>Требуется ветка Steam без потерь масштабирования по умолчанию. Эта интеграция поддерживает хост-игры в SDR, включая управление MangoHud. Запуск Flatpaks требует отдельной установки Flatpak MAKO.</translation>
+      <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+      <translation>Пакет MAKO FG. Модели масштабирования без потерь требуют стандартной ветки Steam Lossless масштабирования. Эта интеграция поддерживает хост-игры в SDR. Лаунчер Flatpaks требует установки MAKO в Flatpak.</translation>
     </message>
     <message>
-      <source>Allow half-precision (FP16, restart)</source>
-      <translation>Разрешить полуточность (FP16, перезапуск)</translation>
+      <source>Model (restart)</source>
+      <translation>Модель (перезапуск)</translation>
+    </message>
+    <message>
+      <source>Backend</source>
+      <translation>Бэкенд</translation>
+    </message>
+    <message>
+      <source>Frame generation</source>
+      <translation>Генерация кадров</translation>
+    </message>
+    <message>
+      <source>Frame pacing</source>
+      <translation>Фрейм</translation>
+    </message>
+    <message>
+      <source>Compatibility</source>
+      <translation>Совместимость</translation>
+    </message>
+    <message>
+      <source>MAKO FG mode</source>
+      <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+      <source>Quality</source>
+      <translation>Качество</translation>
+    </message>
+    <message>
+      <source>Balanced</source>
+      <translation>Сбалансированный</translation>
+    </message>
+    <message>
+      <source>Performance</source>
+      <translation>Производительность</translation>
+    </message>
+    <message>
+      <source>Extra Performance</source>
+      <translation>Дополнительная производительность</translation>
+    </message>
+    <message>
+      <source>Allow FP16 (restart)</source>
+      <translation>Разрешить FP16 (перезапуск)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
@@ -21527,6 +21567,30 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
       <source>Check for updates</source>
       <translation>Проверить обновления</translation>
+    </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>Имя установки Nexus по умолчанию</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Выберите имя папки по умолчанию для установки Nexus mod. Имя файла использует отображаемое имя файла Nexus; оригинальное имя файла использует имя архива без его расширения. Отсутствующие имена Nexus возвращаются к имени файла или имени очищенного архива.</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>Имя файла</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Имя мода Nexus</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Имя мода Nexus и имя файла</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>Исходное имя файла</translation>
     </message>
   </context>
   <context>

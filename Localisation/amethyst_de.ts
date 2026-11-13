@@ -5,19 +5,19 @@
     <name>ACMOSView</name>
     <message>
       <source>Run ACMOS Road Generator - {0}</source>
-      <translation>ACMOS Straßengenerator laufen - {0}</translation>
+      <translation>ACMOS Road Generator ausführen - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download ACMOS Road Generator</source>
-      <translation>Schritt 1: Laden Sie den ACMOS Road Generator herunter</translation>
+      <translation>Schritt 1: ACMOS Road Generator herunterladen</translation>
     </message>
     <message>
       <source>Click the button below to open ACMOS Road Generator on Nexus Mods.
 
 Download the archive manually (do NOT use the Mod Manager download button), then click Next.</source>
-      <translation>Klicken Sie auf die Schaltfläche unten, um den ACMOS Road Generator für Nexus Mods zu öffnen.
+      <translation>Klicken Sie auf die Schaltfläche unten, um ACMOS Road Generator auf Nexus Mods zu öffnen.
 
-Laden Sie das Archiv manuell herunter (verwenden Sie NICHT den Download-Button Mod Manager), und klicken Sie dann auf Weiter.</translation>
+Laden Sie das Archiv manuell herunter (verwenden Sie NICHT den Mod Manager Download-Knopf ), und klicken Sie dann auf Weiter.</translation>
     </message>
     <message>
       <source>Step 2: Locate the Archive</source>
@@ -8852,8 +8852,8 @@ Verwaltetes Verzeichnis: {2}</translation>
       <translation>Backend (Neustart)</translation>
     </message>
     <message>
-      <source>Use selected backend on next launch</source>
-      <translation>Ausgewähltes Backend beim nächsten Start verwenden</translation>
+      <source>Enable on launch</source>
+      <translation>Beim Start aktivieren</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8864,8 +8864,8 @@ Verwaltetes Verzeichnis: {2}</translation>
       <translation>Flow-Skala</translation>
     </message>
     <message>
-      <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation>Die Einstellungen gelten wenn Amethyst das Spiel startet. Hintergrund, DLL und Kompatibilitätsänderungen erfordern einen Neustart und die Generierungssteuerung können während des Spiels aktualisiert werden.</translation>
+      <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+      <translation>Die Einstellungen gelten wenn Amethyst das Spiel startet. Backend, Modell, DLL und Kompatibilitätsänderungen erfordern einen Neustart und die Generierungssteuerung können während des Spiels aktualisiert werden.</translation>
     </message>
     <message>
       <source>Check setup</source>
@@ -8880,8 +8880,8 @@ Verwaltetes Verzeichnis: {2}</translation>
       <translation>Rückrollen</translation>
     </message>
     <message>
-      <source>DLL location (restart)</source>
-      <translation>DLL-Position (Neustart)</translation>
+      <source>DLL path (restart)</source>
+      <translation>DLL-Pfad (Neustart)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -9088,8 +9088,8 @@ Verwaltetes Verzeichnis: {2}</translation>
       <translation>Ok</translation>
     </message>
     <message>
-      <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation>Neustart erforderlich: Start, DLL oder Kompatibilitätseinstellungen haben sich geändert. Sie werden beim nächsten Spielstart wirksam.</translation>
+      <source>Changes apply after restarting the game.</source>
+      <translation>Änderungen gelten nach dem Neustart des Spiels.</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
@@ -9248,12 +9248,52 @@ Verwaltetes Verzeichnis: {2}</translation>
       <translation>Unbekannter Fehler</translation>
     </message>
     <message>
-      <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation>Benötigt Lossless Scalings Standard Steam Branch. Diese Integration unterstützt Host-Spiele in SDR, einschließlich der MangoHud Steuerelemente. Launcher Flatpaks benötigen MAKO's separates Flatpak Setup.</translation>
+      <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+      <translation>MAKO FG ist gebündelt. Verlustfreie Skalierungsmodelle erfordern einen verlustfreien Skalierungszweig. Diese Integration unterstützt Host-Spiele in SDR. Launcher Flatpaks benötigen MAKO's separates Flatpak Setup.</translation>
     </message>
     <message>
-      <source>Allow half-precision (FP16, restart)</source>
-      <translation>Erlaube Halb-Genauigkeit (FP16, Neustart)</translation>
+      <source>Model (restart)</source>
+      <translation>Modell (Neustart)</translation>
+    </message>
+    <message>
+      <source>Backend</source>
+      <translation>Backend</translation>
+    </message>
+    <message>
+      <source>Frame generation</source>
+      <translation>Rahmengenerierung</translation>
+    </message>
+    <message>
+      <source>Frame pacing</source>
+      <translation>Frame Tempo</translation>
+    </message>
+    <message>
+      <source>Compatibility</source>
+      <translation>Kompatibilität</translation>
+    </message>
+    <message>
+      <source>MAKO FG mode</source>
+      <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+      <source>Quality</source>
+      <translation>Qualität</translation>
+    </message>
+    <message>
+      <source>Balanced</source>
+      <translation>Ausgewogen</translation>
+    </message>
+    <message>
+      <source>Performance</source>
+      <translation>Leistung</translation>
+    </message>
+    <message>
+      <source>Extra Performance</source>
+      <translation>Zusätzliche Leistung</translation>
+    </message>
+    <message>
+      <source>Allow FP16 (restart)</source>
+      <translation>FP16 erlauben (Neustart)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
@@ -21528,6 +21568,30 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
       <source>Check for updates</source>
       <translation>Nach Updates suchen</translation>
     </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>Standard Nexus Installationsname</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Wählen Sie den Standard-Ordnernamen für Nexus Mod-Installationen. Dateiname verwendet den Anzeigenamen der Nexus-Datei; der ursprüngliche Dateiname verwendet den Namen des Archivs ohne dessen Erweiterung. Fehlende Nexus-Namen fallen auf den Dateinamen oder den bereinigten Archivnamen zurück. Explizite Update- und Sammlungsnamen haben Priorität.</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>Dateiname</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Nexus Mod Name</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Nexus Mod Name und Dateiname</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>Ursprünglicher Dateiname</translation>
+    </message>
   </context>
   <context>
     <name>SetupOptions</name>
@@ -27398,7 +27462,7 @@ Das Veröffentlichen macht diese Revision zu dem, den Benutzer installieren. Es 
     </message>
     <message>
       <source>Save current view…</source>
-      <translation type="unfinished">Save current view…</translation>
+      <translation>Aktuelle Ansicht speichern…</translation>
     </message>
   </context>
   <context>

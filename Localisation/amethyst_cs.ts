@@ -8852,8 +8852,8 @@ Spravovaný adresář: {2}</translation>
       <translation>Backend (restart)</translation>
     </message>
     <message>
-      <source>Use selected backend on next launch</source>
-      <translation>Použít vybranou backend při příštím spuštění</translation>
+      <source>Enable on launch</source>
+      <translation>Povolit při spuštění</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8864,8 +8864,8 @@ Spravovaný adresář: {2}</translation>
       <translation>Průtoková stupnice</translation>
     </message>
     <message>
-      <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation>Nastavení se použije, když Amethyst spustí hru. Backend, DLL a změny kompatibility vyžadují restart; generační ovladače se mohou aktualizovat během hry.</translation>
+      <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+      <translation>Nastavení se použijí, když Amethyst spustí hru. Backend, model, DLL a změny kompatibility vyžadují restart; generační ovladače se mohou aktualizovat během hry.</translation>
     </message>
     <message>
       <source>Check setup</source>
@@ -8880,8 +8880,8 @@ Spravovaný adresář: {2}</translation>
       <translation>Vrátit zpět</translation>
     </message>
     <message>
-      <source>DLL location (restart)</source>
-      <translation>Umístění DLL (restart)</translation>
+      <source>DLL path (restart)</source>
+      <translation>Cesta k DLL (restartování)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -9088,8 +9088,8 @@ Spravovaný adresář: {2}</translation>
       <translation>OK</translation>
     </message>
     <message>
-      <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation>Je vyžadován restart: spuštění, DLL nebo nastavení kompatibility se změnily. Účinky se projeví při příštím spuštění hry.</translation>
+      <source>Changes apply after restarting the game.</source>
+      <translation>Změny platí po restartu hry.</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
@@ -9248,12 +9248,52 @@ Spravovaný adresář: {2}</translation>
       <translation>Neznámá chyba</translation>
     </message>
     <message>
-      <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation>Vyžaduje standardní Steam větev Lossless Scalingu. Tato integrace podporuje hostitele her v SDR, včetně ovládání MangoHud. Launcher Flatpaks potřebuje samostatné nastavení FAKO.</translation>
+      <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+      <translation>MAKO FG je spojen. Modely škálování vyžadují Lossless Scaling's default Steam branch. Tato integrace podporuje hostování her v SDR. Launcher Flatpaks potřebuje samostatné nastavení Flatpak MAKO.</translation>
     </message>
     <message>
-      <source>Allow half-precision (FP16, restart)</source>
-      <translation>Povolit polopřesnost (FP16, restart)</translation>
+      <source>Model (restart)</source>
+      <translation>Vzor (restart)</translation>
+    </message>
+    <message>
+      <source>Backend</source>
+      <translation>Administrace</translation>
+    </message>
+    <message>
+      <source>Frame generation</source>
+      <translation>Vytváření snímků</translation>
+    </message>
+    <message>
+      <source>Frame pacing</source>
+      <translation>Pacing rámu</translation>
+    </message>
+    <message>
+      <source>Compatibility</source>
+      <translation>Slučitelnost s vnitřním trhem</translation>
+    </message>
+    <message>
+      <source>MAKO FG mode</source>
+      <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+      <source>Quality</source>
+      <translation>Kvalita</translation>
+    </message>
+    <message>
+      <source>Balanced</source>
+      <translation>Vyvážená</translation>
+    </message>
+    <message>
+      <source>Performance</source>
+      <translation>Výkon</translation>
+    </message>
+    <message>
+      <source>Extra Performance</source>
+      <translation>Extra výkon</translation>
+    </message>
+    <message>
+      <source>Allow FP16 (restart)</source>
+      <translation>Povolit FP16 (restart)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
@@ -21527,6 +21567,30 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Check for updates</source>
       <translation>Zkontrolovat aktualizace</translation>
+    </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>Výchozí název instalace Nexus</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Zvolte výchozí název složky pro instalaci Nexus modů. Název souboru používá zobrazovací název Nexus souboru; původní název souboru používá název archivu bez jeho přípony. Chybějící Nexus jména se vrátí k názvu souboru nebo k čistému názvu archivu. Přednost aktualizace a názvy kolekcí mají prioritu.</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>Název souboru</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Nexus název modu</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Nexus název modu a název souboru</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>Původní název souboru</translation>
     </message>
   </context>
   <context>

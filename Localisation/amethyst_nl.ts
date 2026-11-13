@@ -8852,8 +8852,8 @@ Beheerde map: {2}</translation>
       <translation>Backend (herstart)</translation>
     </message>
     <message>
-      <source>Use selected backend on next launch</source>
-      <translation>Geselecteerde backend gebruiken bij volgende start</translation>
+      <source>Enable on launch</source>
+      <translation>Inschakelen bij opstarten</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8864,8 +8864,8 @@ Beheerde map: {2}</translation>
       <translation>Stroom schaal</translation>
     </message>
     <message>
-      <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation>Instellingen gelden wanneer Amethyst het spel start. Backend, DLL en compatibiliteitswijzigingen vereisen een herstart; generatiebesturingselementen kunnen worden bijgewerkt tijdens het gameplay.</translation>
+      <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+      <translation>Instellingen gelden wanneer Amethyst het spel start. Backend, model, DLL en compatibiliteitswijzigingen vereisen een herstart; generatiebesturingselementen kunnen updaten tijdens gameplay.</translation>
     </message>
     <message>
       <source>Check setup</source>
@@ -8880,8 +8880,8 @@ Beheerde map: {2}</translation>
       <translation>Terugdraaien</translation>
     </message>
     <message>
-      <source>DLL location (restart)</source>
-      <translation>DLL locatie (herstart)</translation>
+      <source>DLL path (restart)</source>
+      <translation>DLL pad (herstart)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -9088,8 +9088,8 @@ Beheerde map: {2}</translation>
       <translation>Ok</translation>
     </message>
     <message>
-      <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation>Herstart vereist: launch, DLL of de compatibiliteitsinstellingen zijn gewijzigd. Ze zijn van kracht bij het volgende starten van het spel.</translation>
+      <source>Changes apply after restarting the game.</source>
+      <translation>Wijzigingen zijn van toepassing na het herstarten van het spel.</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
@@ -9248,12 +9248,52 @@ Beheerde map: {2}</translation>
       <translation>Onbekende fout.</translation>
     </message>
     <message>
-      <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation>Vereist Lossless Scaling's standaard Steam branch. Deze integratie ondersteunt host spellen in SDR, inclusief de MangoHud besturingen. Launcher Flatpaks hebben MAKO's afzonderlijke Flatpak set-up nodig.</translation>
+      <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+      <translation>MAKO FG is gebundeld. Lossless Scaling modellen vereisen de standaard Steam branch. Deze integratie ondersteunt host spellen in SDR. Launcher Flatpaks hebben MAKO's aparte Flatpak installatie nodig.</translation>
     </message>
     <message>
-      <source>Allow half-precision (FP16, restart)</source>
-      <translation>Halfnauwkeurigheid toestaan (FP16, herstart)</translation>
+      <source>Model (restart)</source>
+      <translation>Model (herstart)</translation>
+    </message>
+    <message>
+      <source>Backend</source>
+      <translation>Backend</translation>
+    </message>
+    <message>
+      <source>Frame generation</source>
+      <translation>Frame generatie</translation>
+    </message>
+    <message>
+      <source>Frame pacing</source>
+      <translation>Frame pacing</translation>
+    </message>
+    <message>
+      <source>Compatibility</source>
+      <translation>Compatibiliteit</translation>
+    </message>
+    <message>
+      <source>MAKO FG mode</source>
+      <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+      <source>Quality</source>
+      <translation>Kwaliteit</translation>
+    </message>
+    <message>
+      <source>Balanced</source>
+      <translation>Evenwichtig</translation>
+    </message>
+    <message>
+      <source>Performance</source>
+      <translation>Prestaties</translation>
+    </message>
+    <message>
+      <source>Extra Performance</source>
+      <translation>Extra prestaties</translation>
+    </message>
+    <message>
+      <source>Allow FP16 (restart)</source>
+      <translation>FP16 (herstart) toestaan</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
@@ -21527,6 +21567,30 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Check for updates</source>
       <translation>Op updates controleren</translation>
+    </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>Standaard Nexus installatienaam</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Kies de naam van de map voor Nexus mod installaties. Bestandsnaam gebruikt de weergavenaam van het Nexus bestand, originele bestandsnaam gebruikt de archiefnaam zonder de extensie. Ontbrekende Nexus namen vallen terug op de bestandsnaam of opgeschoond archief naam. Bijwerken en verzamelen namen hebben prioriteit.</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>Bestandsnaam is vereist</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Nexus mod naam</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Nexus mod naam en bestandsnaam</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>Oorspronkelijke bestandsnaam</translation>
     </message>
   </context>
   <context>

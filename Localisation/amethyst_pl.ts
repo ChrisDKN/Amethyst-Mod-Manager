@@ -8853,8 +8853,8 @@ Zarządzany katalog: {2}</translation>
       <translation>Backend (restart)</translation>
     </message>
     <message>
-      <source>Use selected backend on next launch</source>
-      <translation>Użyj wybranego backendu przy następnym uruchomieniu</translation>
+      <source>Enable on launch</source>
+      <translation>Włącz przy uruchomieniu</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8865,8 +8865,8 @@ Zarządzany katalog: {2}</translation>
       <translation>Skala połowów</translation>
     </message>
     <message>
-      <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation>Ustawienia mają zastosowanie, gdy Amethyst uruchamia grę. Zmiany Backend, DLL i kompatybilności wymagają restartu; ustawienia generowania mogą być aktualizowane podczas rozgrywki.</translation>
+      <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+      <translation>Ustawienia mają zastosowanie, gdy Amethyst uruchamia grę. Zmiany backendu, modelu, DLL i kompatybilności wymagają ponownego uruchomienia; ustawienia generowania mogą być aktualizowane podczas rozgrywki.</translation>
     </message>
     <message>
       <source>Check setup</source>
@@ -8881,8 +8881,8 @@ Zarządzany katalog: {2}</translation>
       <translation>Odwróć</translation>
     </message>
     <message>
-      <source>DLL location (restart)</source>
-      <translation>Lokalizacja DLL (restart)</translation>
+      <source>DLL path (restart)</source>
+      <translation>Ścieżka DLL (restart)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -9089,8 +9089,8 @@ Zarządzany katalog: {2}</translation>
       <translation>OK</translation>
     </message>
     <message>
-      <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation>Wymagane ponowne uruchomienie: ustawienia uruchomienia, DLL lub kompatybilności uległy zmianie. Zostały one zmienione przy następnym uruchomieniu gry.</translation>
+      <source>Changes apply after restarting the game.</source>
+      <translation>Zmiany mają zastosowanie po ponownym uruchomieniu gry.</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
@@ -9249,12 +9249,52 @@ Zarządzany katalog: {2}</translation>
       <translation>Nieznany błąd</translation>
     </message>
     <message>
-      <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation>Wymaga domyślnej gałęzi Steam bez straty. Ta integracja obsługuje gry hosta w SDR, w tym sterowanie MangoHudem. Launcher Flatpaks wymaga oddzielnej konfiguracji Flatpak MAKO.</translation>
+      <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+      <translation>MAKO FG jest połączony. Bezstratne modele skalowania wymagają domyślnej gałęzi Steam bez straty. Ta integracja obsługuje gry hosta w SDR. Launcher Flatpaks wymaga oddzielnej konfiguracji Flatpak MAKO.</translation>
     </message>
     <message>
-      <source>Allow half-precision (FP16, restart)</source>
-      <translation>Zezwalaj na połowę precyzji (FP16, restart)</translation>
+      <source>Model (restart)</source>
+      <translation>Model (restart)</translation>
+    </message>
+    <message>
+      <source>Backend</source>
+      <translation>Backend</translation>
+    </message>
+    <message>
+      <source>Frame generation</source>
+      <translation>Tworzenie ramek</translation>
+    </message>
+    <message>
+      <source>Frame pacing</source>
+      <translation>Pacing klatek</translation>
+    </message>
+    <message>
+      <source>Compatibility</source>
+      <translation>Zgodność z rynkiem wewnętrznym</translation>
+    </message>
+    <message>
+      <source>MAKO FG mode</source>
+      <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+      <source>Quality</source>
+      <translation>Jakość</translation>
+    </message>
+    <message>
+      <source>Balanced</source>
+      <translation>Zrównoważony</translation>
+    </message>
+    <message>
+      <source>Performance</source>
+      <translation>Efektywność</translation>
+    </message>
+    <message>
+      <source>Extra Performance</source>
+      <translation>Dodatkowa wydajność</translation>
+    </message>
+    <message>
+      <source>Allow FP16 (restart)</source>
+      <translation>Zezwalaj na FP16 (restart)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
@@ -13677,7 +13717,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Add separator below</source>
-      <translation>Dodaj poniżej znak oddzielający</translation>
+      <translation>Dodaj separator poniżej</translation>
     </message>
     <message>
       <source>Bundle options…</source>
@@ -21525,6 +21565,30 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     <message>
       <source>Check for updates</source>
       <translation>Sprawdź aktualizacje</translation>
+    </message>
+    <message>
+      <source>Default Nexus install name</source>
+      <translation>Domyślna nazwa instalacji Nexus</translation>
+    </message>
+    <message>
+      <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+      <translation>Wybierz domyślną nazwę folderu dla instalacji modów Nexus. Nazwa pliku używa wyświetlanej nazwy pliku Nexus; oryginalna nazwa pliku używa nazwy archiwum bez jego rozszerzenia. Brakujące nazwy Nexus wracają do nazwy pliku lub czystej nazwy archiwum. Wyraźne nazwy aktualizacji i kolekcji mają pierwszeństwo.</translation>
+    </message>
+    <message>
+      <source>File name</source>
+      <translation>Nazwa pliku</translation>
+    </message>
+    <message>
+      <source>Nexus mod name</source>
+      <translation>Nazwa modyfikacji Nexus</translation>
+    </message>
+    <message>
+      <source>Nexus mod name and file name</source>
+      <translation>Nazwa modyfikacji Nexus i nazwa pliku</translation>
+    </message>
+    <message>
+      <source>Original file name</source>
+      <translation>Oryginalna nazwa pliku</translation>
     </message>
   </context>
   <context>

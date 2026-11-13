@@ -8852,8 +8852,8 @@ Managed directory: {2}</translation>
         <translation>Backend (restart)</translation>
     </message>
     <message>
-        <source>Use selected backend on next launch</source>
-        <translation>Use selected backend on next launch</translation>
+        <source>Enable on launch</source>
+        <translation>Enable on launch</translation>
     </message>
     <message>
         <source>Lower values improve performance at the cost of quality.</source>
@@ -8864,8 +8864,8 @@ Managed directory: {2}</translation>
         <translation>Flow scale</translation>
     </message>
     <message>
-        <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-        <translation>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</translation>
+        <source>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+        <translation>Settings apply when Amethyst launches the game. Backend, model, DLL and compatibility changes require a restart; generation controls can update during gameplay.</translation>
     </message>
     <message>
         <source>Check setup</source>
@@ -8880,8 +8880,8 @@ Managed directory: {2}</translation>
         <translation>Roll back</translation>
     </message>
     <message>
-        <source>DLL location (restart)</source>
-        <translation>DLL location (restart)</translation>
+        <source>DLL path (restart)</source>
+        <translation>DLL path (restart)</translation>
     </message>
     <message>
         <source>VSync</source>
@@ -9088,8 +9088,8 @@ Managed directory: {2}</translation>
         <translation>OK</translation>
     </message>
     <message>
-        <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-        <translation>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</translation>
+        <source>Changes apply after restarting the game.</source>
+        <translation>Changes apply after restarting the game.</translation>
     </message>
     <message>
         <source>Optional path to Lossless.dll</source>
@@ -9248,12 +9248,52 @@ Managed directory: {2}</translation>
         <translation>Unknown error</translation>
     </message>
     <message>
-        <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-        <translation>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</translation>
+        <source>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+        <translation>MAKO FG is bundled. Lossless Scaling models require Lossless Scaling's default Steam branch. This integration supports host games in SDR. Launcher Flatpaks need MAKO's separate Flatpak setup.</translation>
     </message>
     <message>
-        <source>Allow half-precision (FP16, restart)</source>
-        <translation>Allow half-precision (FP16, restart)</translation>
+        <source>Model (restart)</source>
+        <translation>Model (restart)</translation>
+    </message>
+    <message>
+        <source>Backend</source>
+        <translation>Backend</translation>
+    </message>
+    <message>
+        <source>Frame generation</source>
+        <translation>Frame generation</translation>
+    </message>
+    <message>
+        <source>Frame pacing</source>
+        <translation>Frame pacing</translation>
+    </message>
+    <message>
+        <source>Compatibility</source>
+        <translation>Compatibility</translation>
+    </message>
+    <message>
+        <source>MAKO FG mode</source>
+        <translation>MAKO FG mode</translation>
+    </message>
+    <message>
+        <source>Quality</source>
+        <translation>Quality</translation>
+    </message>
+    <message>
+        <source>Balanced</source>
+        <translation>Balanced</translation>
+    </message>
+    <message>
+        <source>Performance</source>
+        <translation>Performance</translation>
+    </message>
+    <message>
+        <source>Extra Performance</source>
+        <translation>Extra Performance</translation>
+    </message>
+    <message>
+        <source>Allow FP16 (restart)</source>
+        <translation>Allow FP16 (restart)</translation>
     </message>
     <message>
         <source>Preserve swapchain image count (restart)</source>
@@ -21527,6 +21567,30 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Check for updates</source>
         <translation>Check for updates</translation>
+    </message>
+    <message>
+        <source>Default Nexus install name</source>
+        <translation>Default Nexus install name</translation>
+    </message>
+    <message>
+        <source>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</source>
+        <translation>Choose the default folder name for Nexus mod installs. File name uses the Nexus file's display name; original file name uses the archive name without its extension. Missing Nexus names fall back to the file name or cleaned archive name. Explicit update and collection names take priority.</translation>
+    </message>
+    <message>
+        <source>File name</source>
+        <translation>File name</translation>
+    </message>
+    <message>
+        <source>Nexus mod name</source>
+        <translation>Nexus mod name</translation>
+    </message>
+    <message>
+        <source>Nexus mod name and file name</source>
+        <translation>Nexus mod name and file name</translation>
+    </message>
+    <message>
+        <source>Original file name</source>
+        <translation>Original file name</translation>
     </message>
 </context>
 <context>
