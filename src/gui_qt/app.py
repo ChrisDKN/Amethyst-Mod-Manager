@@ -11021,8 +11021,12 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._missing_reqs_view = view
         view.prune_installed({key for key, providers in requirement_index.providers.items()
                               if providers})
-        view.destroyed.connect(
-            lambda *_: setattr(self, "_missing_reqs_view", None))
+
+        def forget_view(*_):
+            if self._missing_reqs_view is view:
+                self._missing_reqs_view = None
+
+        view.destroyed.connect(forget_view)
         self._tabs.open_scoped_tab(
             view, self.tr("Missing Requirements"), self._plugins_panel_stack,
             key="missing_reqs")
