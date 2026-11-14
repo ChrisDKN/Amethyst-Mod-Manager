@@ -3,6 +3,7 @@
 - Fixed video files not playing correctly from the mod files tab
 - Proton/UMU launch logs are now optional (Default off)
 - Updated Mako integration to v5
+- Fixed missing-source errors for legacy BSA filenames when installing Wabbajack lists
 
 ---
 
