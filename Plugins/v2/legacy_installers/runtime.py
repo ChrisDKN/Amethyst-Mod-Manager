@@ -299,6 +299,19 @@ def _copy_file(source, target):
         shutil.copyfile(source, target)
 
 
+def _system_links(flatpak):
+    paths = ("/bin", "/sbin", "/lib", "/lib32", "/lib64")
+    if not flatpak:
+        return {path: os.readlink(path) for path in paths if Path(path).is_symlink()}
+    script = ('for path do if [ -L "$path" ]; then target=$(readlink "$path") || exit; '
+              'printf "%s\\t%s\\n" "$path" "$target"; fi; done')
+    result = subprocess.run([*_host_launcher(), "/bin/sh", "-c", script, "sh", *paths],
+                            capture_output=True, text=True, timeout=10)
+    if result.returncode:
+        raise RuntimeError("Could not inspect host library links: " + result.stderr.strip()[-1000:])
+    return dict(line.split("\t", 1) for line in result.stdout.splitlines())
+
+
 def _sandbox(runner, helper, work, environment, arguments, *, source=None):
     flatpak = _inside_flatpak()
     if flatpak:
@@ -313,8 +326,11 @@ def _sandbox(runner, helper, work, environment, arguments, *, source=None):
                "--dev", "/dev", "--proc", "/proc", "--clearenv", "--chdir", str(work)]
     for key, value in environment.items():
         command += ["--setenv", key, value]
+    links = _system_links(flatpak)
     for path in ("/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64"):
-        if flatpak or Path(path).exists():
+        if path in links:
+            command += ["--symlink", links[path], path]
+        elif flatpak or Path(path).exists():
             command += ["--ro-bind-try" if flatpak else "--ro-bind", path, path]
     for path in ("/etc/ld.so.cache", "/etc/localtime", "/etc/passwd", "/etc/group",
                  "/etc/nsswitch.conf", "/etc/fonts", "/etc/alternatives", "/etc/vulkan",
@@ -458,9 +474,10 @@ def _command(game, work, request, log, cancel=None, *, runner_override=""):
         _prepare_prefix(runner, helper, work, environment, log, cancel)
     except RuntimeError as exc:
         if "ld-linux.so.2" in str(exc):
-            raise RuntimeError(f"Wine runner {runner} requires the host's 32-bit loader (ld-linux.so.2). "
-                               "Install the host's 32-bit runtime libraries or choose a compatible Wine / Proton override "
-                               "in the Legacy Scripted Installers settings.") from exc
+            raise RuntimeError(f"Wine runner {runner} could not access the 32-bit loader (ld-linux.so.2) "
+                               "inside the installer sandbox. Check the host's 32-bit runtime libraries and loader symlink target, "
+                               "or choose a compatible Wine / Proton override in the Legacy Scripted Installers settings.\n"
+                               f"{exc}") from exc
         raise
     command = _sandbox(runner, helper, work, environment, [runner, helper, to_wine_path(request)],
                        source=work.parent)

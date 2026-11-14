@@ -24,8 +24,10 @@ and set **Wine / Proton override** to that build's `proton` script or `wine`/`wi
 executable. A build directory can also be entered. Leave it blank to follow the
 game settings. This override applies only to legacy installers. An unavailable
 override or configured Lutris version reports an error instead of silently using
-a different version. Older Proton builds may require the host's 32-bit runtime
+a different version. Some Proton builds require the host's 32-bit runtime
 libraries even though the installer itself is 64-bit.
+The installer sandbox preserves the host's system directory symlinks, including
+`/lib -> usr/lib`, so relative loader links resolve as they do outside Amethyst.
 
 Linux requires Wine/Proton and bubblewrap (`bwrap`). Flatpak installations use
 these host tools through `flatpak-spawn`, with the installer's own sandbox kept
@@ -53,7 +55,7 @@ Disabling the plugin leaves installed mods in place.
 
 This plugin and linked helper are GPL-3.0-only. See LICENSE, NOTICE,
 THIRD-PARTY-NOTICES.txt and licenses/ for dependency notices.
-[Download the matching source and build instructions](../../Sources/legacy_installers/Legacy-Scripted-Installers-1.1.5-source.zip).
+[Download the matching source and build instructions](../../Sources/legacy_installers/Legacy-Scripted-Installers-1.1.6-source.zip).
 
 OBMM scripts support comma-separated arguments, quoted escapes, and the built-in
 `%NewLine%` and `%Tab%` variables, including selection descriptions.
