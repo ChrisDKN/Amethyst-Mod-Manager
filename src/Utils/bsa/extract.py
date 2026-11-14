@@ -184,7 +184,7 @@ def _decode_entry(f, info: dict, size_field: int, data_offset: int,
     return data
 
 
-def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
+def _parse_toc(f, *, name_aliases=None) -> tuple[dict, list[tuple[str, int, int]]]:
     """Walk the header + TOC, returning archive info and every file's
     ``(rel_path_lower, size_field, data_offset)`` in stored order."""
     magic = f.read(4)
@@ -207,6 +207,7 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
 
     if version not in (103, 104, 105):
         raise BsaExtractError(f"unsupported BSA version {version}")
+    utf8_aliases = name_aliases is not None and version == 104
 
     end = f.seek(0, 2)
     folder_rec_size = 24 if version == 105 else 16
@@ -242,6 +243,7 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
 
     # --- Folder name + file record blocks ---
     folder_names: list[str] = []
+    folder_aliases = []
     # Flat list of (size_field, data_offset) for every file, in TOC order.
     file_specs: list[tuple[int, int]] = []
     for count in folder_records:
@@ -254,6 +256,9 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
             raise BsaExtractError("truncated folder name")
         folder_name = decode_bsa_name(name_bytes.rstrip(b"\x00")).replace("\\", "/").lower()
         folder_names.append(folder_name)
+        if utf8_aliases:
+            folder_aliases.append(name_bytes.rstrip(b"\x00").decode("utf-8", "replace")
+                                  .replace("\\", "/").lower())
         for _ in range(count):
             rec = f.read(16)
             if len(rec) < 16:
@@ -280,6 +285,8 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
             f"name count {len(file_names)} != file record count {len(file_specs)}"
         )
     del file_names[len(file_specs):]
+    if utf8_aliases:
+        file_aliases = name_block.decode("utf-8", "replace").lower().split("\x00")
 
     # Pair files with their folder. file_specs is in the same order as
     # file_names - folder N's *count* file records, in turn.
@@ -292,6 +299,12 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
             sz, do = file_specs[idx]
             rel = f"{folder}/{fn}" if folder else fn
             flat.append((rel, sz, do))
+            if utf8_aliases:
+                alias_folder = folder_aliases[folder_idx]
+                alias = (f"{alias_folder}/{file_aliases[idx]}" if alias_folder
+                         else file_aliases[idx]).replace("\\", "/")
+                if alias.casefold() != rel.casefold():
+                    name_aliases.setdefault(alias.casefold(), []).append(rel)
             idx += 1
 
     # Sanity: flat length == file_count.

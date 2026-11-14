@@ -78,7 +78,7 @@ def records(path, file_states=None, *, mpi_paths=False, allow_case_variants=Fals
                 raise WabbajackError("Invalid BSA metadata sizes")
             stream.seek(0)
             if flags & 3 == 3:
-                info, rows = _parse_toc(stream)
+                info, rows = _parse_toc(stream, name_aliases=aliases)
             else:
                 if file_states is None and not allow_hash_only:
                     raise WabbajackError("BSA member paths are absent from this source archive")
@@ -209,15 +209,15 @@ def read_member(stream, record, write, stop=None):
 
 
 def select_bethesda(source, members=None, aliases=None):
-    ba2_aliases = {}
+    name_aliases = {}
     rows = records(source, allow_case_variants=True, mip_size_members=members,
-                   aliases=ba2_aliases)
+                   aliases=name_aliases)
     if aliases is not None:
-        for alias, names in ba2_aliases.items():
+        for alias, names in name_aliases.items():
             aliases.setdefault(alias, []).extend(names)
     if members is not None:
         members = members | {name.casefold() for alias in members
-                             for name in ba2_aliases.get(alias, ())}
+                             for name in name_aliases.get(alias, ())}
     with Path(source).open("rb") as stream:
         legacy_names = ((members is not None or aliases is not None)
                         and stream.read(8) == b"BSA\0\x67\0\0\0")
