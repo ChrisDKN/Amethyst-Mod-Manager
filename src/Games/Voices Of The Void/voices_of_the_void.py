@@ -57,7 +57,7 @@ _DEFINITION = {
 
 
 class VoicesOfTheVoid(Ue5CustomGame):
-    filegraph_routing_revision = 1
+    filegraph_routing_revision = 2
 
     def __init__(self) -> None:
         super().__init__(dict(_DEFINITION))
@@ -155,8 +155,12 @@ class VoicesOfTheVoid(Ue5CustomGame):
                 loader_head, loader_sep, loader_tail = loader_rel.partition("/")
                 if loader_sep and loader_head.casefold() == "mods":
                     dest, final = f"{_DEPLOYED_PROFILE}/shimloader/mod", loader_tail
-                elif loader_rel.casefold() in {"dwmapi.dll", "ue4ss.dll", "ue4ss-settings.ini"}:
+                elif norm.casefold() == "dwmapi.dll":
+                    dest, final = "Binaries/Win64", "dwmapi.dll"
+                elif loader_rel.casefold() in {"ue4ss.dll", "ue4ss-settings.ini"}:
                     dest, final = "Binaries/Win64", Path(loader_rel).name
+                    if loader_rel.casefold() == "ue4ss.dll":
+                        routed.append((staged_rel, mod_name, _DEPLOYED_PROFILE, final))
                 else:
                     dest, final = f"{_DEPLOYED_PROFILE}/shimloader/mod/{package_id}", norm
             elif sep and head.casefold() in {"mod", "pak", "cfg", "overlay"}:
