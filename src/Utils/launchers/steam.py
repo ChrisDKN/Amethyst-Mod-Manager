@@ -7,6 +7,7 @@ No UI, no game-specific knowledge.
 from __future__ import annotations
 
 import collections
+import configparser
 import errno
 import fnmatch
 import os
@@ -84,7 +85,9 @@ def _own_process_in_steam_flatpak() -> bool:
         info = Path("/.flatpak-info")
         if not info.is_file():
             return False
-        return _STEAM_FLATPAK_ID in info.read_text(encoding="utf-8", errors="replace")
+        metadata = configparser.ConfigParser(interpolation=None)
+        metadata.read_string(info.read_text(encoding="utf-8", errors="replace"))
+        return metadata.get("Application", "name", fallback="") == _STEAM_FLATPAK_ID
     except Exception:
         return False
 
