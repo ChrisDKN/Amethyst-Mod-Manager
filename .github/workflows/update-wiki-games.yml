@@ -37,6 +37,9 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Test the table rewrite
+        run: python -m unittest discover --start-directory .github/scripts
+
       - name: Install the app's bundled dependencies (handler discovery needs them, not PySide6)
         run: pip install --requirement src/requirements-vendor.txt
 

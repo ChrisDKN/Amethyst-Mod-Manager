@@ -5,8 +5,6 @@ import re
 import sys
 from pathlib import Path
 
-from Utils.games.discovery import discover_games, get_load_failures
-
 GAMES_TABLE = re.compile(r"(?P<before>^## Supported games\n(?:(?!^## ).)*?)<table>(?P<rows>.*?)</table>",
                          re.MULTILINE | re.DOTALL)
 GAME_AND_NOTE_CELLS = re.compile(r"<td>(?P<game>[^<]*)</td><td>(?P<note>[^<]*)</td>")
@@ -14,6 +12,9 @@ TABLE_HEADER = "<tr>\n  <th>Game</th><th>Notes</th>\n  <th>Game</th><th>Notes</t
 
 
 def collect_game_names(custom_handlers_dir: Path) -> list[str]:
+    # Imported here so the table code and its test run without the app's dependencies.
+    from Utils.games.discovery import discover_games, get_load_failures
+
     built_in_names = set(discover_games())
     if failures := get_load_failures():
         sys.exit(f"handlers failed to load: {failures}")
@@ -49,6 +50,16 @@ def render_table(game_names: list[str], notes: dict[str, str]) -> str:
     return f"<table>\n{TABLE_HEADER}\n{rows}\n</table>"
 
 
+def rewrite_games_table(page: str, game_names: list[str]) -> str:
+    games_table = GAMES_TABLE.search(page)
+    if not games_table:
+        raise ValueError('no <table> under "## Supported games"')
+    notes = read_notes(games_table["rows"])
+    warn_about_dropped_notes(notes, game_names)
+    new_table = games_table["before"] + render_table(game_names, notes)
+    return page[:games_table.start()] + new_table + page[games_table.end():]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='Rewrite the "Supported games" table in the wiki Home page.')
     parser.add_argument("custom_handlers_dir", type=Path, help='"Custom Handlers" folder of the Resources branch')
@@ -57,14 +68,10 @@ def main() -> None:
 
     game_names = collect_game_names(arguments.custom_handlers_dir)
     page = arguments.home_page.read_text(encoding="utf-8")
-    games_table = GAMES_TABLE.search(page)
-    if not games_table:
-        sys.exit(f'no <table> under "## Supported games" in {arguments.home_page}')
-
-    notes = read_notes(games_table["rows"])
-    warn_about_dropped_notes(notes, game_names)
-    new_table = games_table["before"] + render_table(game_names, notes)
-    new_page = page[:games_table.start()] + new_table + page[games_table.end():]
+    try:
+        new_page = rewrite_games_table(page, game_names)
+    except ValueError as error:
+        sys.exit(f"{error} in {arguments.home_page}")
     arguments.home_page.write_text(new_page, encoding="utf-8")
     print(f"{len(game_names)} games")
 
