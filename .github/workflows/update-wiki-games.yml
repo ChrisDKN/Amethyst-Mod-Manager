@@ -1,0 +1,62 @@
+name: Update wiki games list
+
+# Regenerates the "Supported games" table on the wiki's Home page from the
+# built-in handlers of the release and the custom handlers on Resources (see
+# .github/scripts/update_wiki_games.py). Runs on release tags only: beta tags
+# would list games that no stable build has yet.
+
+on:
+  push:
+    tags: ['v*', '!v*-*']
+  workflow_dispatch:
+
+concurrency:
+  group: update-wiki-games
+  cancel-in-progress: false
+
+# The wiki is a separate git repo (<repo>.wiki.git); GITHUB_TOKEN with
+# contents: write can push to the wiki of the repo the workflow runs in.
+permissions:
+  contents: write
+
+jobs:
+  update:
+    name: Update Home.md
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          ref: Resources
+          path: resources
+          sparse-checkout: Custom Handlers
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # Handler discovery imports the deployment code, which needs the vendored
+      # deps; PySide6 is not needed.
+      - run: pip install -r src/requirements-vendor.txt
+
+      - name: Rewrite the table and push
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python .github/scripts/update_wiki_games.py "resources/Custom Handlers" wiki/Home.md
+
+          cd wiki
+          if git diff --quiet -- Home.md; then
+            echo "games list unchanged"
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update supported games list for ${GITHUB_REF_NAME}" -- Home.md
+          git push
