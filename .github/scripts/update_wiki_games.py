@@ -27,12 +27,16 @@ names |= {json.loads(p.read_text(encoding="utf-8"))["name"] for p in handler_fil
 names = sorted(names, key=str.casefold)
 
 text = home.read_text(encoding="utf-8")
-section = re.compile(r"(^## Supported games\n).*?(?=^## )", re.M | re.S)
+# Only the first <table> under the heading is generated; text around it stays.
+section = re.compile(r"(^## Supported games\n(?:(?!^## ).)*?)<table>(.*?)</table>", re.M | re.S)
 match = section.search(text)
 if not match:
-    sys.exit(f'no "## Supported games" section followed by another "## " heading in {home}')
+    sys.exit(f'no <table> under "## Supported games" in {home}')
 notes = {html.unescape(game): html.unescape(note)
-         for game, note in re.findall(r"<td>([^<]*)</td><td>([^<]*)</td>", match[0])}
+         for game, note in re.findall(r"<td>([^<]*)</td><td>([^<]*)</td>", match[2])}
+for game in sorted(set(notes) - set(names)):
+    if notes[game]:
+        print(f'::warning::note for "{game}" dropped, no handler has that name: {notes[game]}')
 
 
 def cells(game: str) -> str:
@@ -44,6 +48,6 @@ half = (len(names) + 1) // 2
 rows = "\n".join(f"<tr>{cells(left)}{cells(right)}</tr>"
                  for left, right in zip(names[:half], names[half:] + [""]))
 table = ("<table>\n<tr>\n  <th>Game</th><th>Notes</th>\n  <th>Game</th><th>Notes</th>\n</tr>\n"
-         f"{rows}\n</table>\n")
-home.write_text(section.sub(lambda m: f"{m[1]}\n{table}\n\n", text, count=1), encoding="utf-8")
+         f"{rows}\n</table>")
+home.write_text(section.sub(lambda m: m[1] + table, text, count=1), encoding="utf-8")
 print(f"{len(names)} games")
