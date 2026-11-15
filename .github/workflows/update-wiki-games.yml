@@ -1,9 +1,6 @@
 name: Update wiki games list
 
-# Regenerates the "Supported games" table on the wiki's Home page from the
-# built-in handlers of the release and the custom handlers on Resources (see
-# .github/scripts/update_wiki_games.py). Runs on release tags only: beta tags
-# would list games that no stable build has yet.
+# Stable tags only: a beta tag would list games no stable build has yet.
 
 on:
   push:
@@ -14,8 +11,7 @@ concurrency:
   group: update-wiki-games
   cancel-in-progress: false
 
-# The wiki is a separate git repo (<repo>.wiki.git); GITHUB_TOKEN with
-# contents: write can push to the wiki of the repo the workflow runs in.
+# Same-repo wiki pushes work with GITHUB_TOKEN; another repo's wiki needs a PAT.
 permissions:
   contents: write
 
@@ -41,9 +37,8 @@ jobs:
         with:
           python-version: '3.13'
 
-      # Handler discovery imports the deployment code, which needs the vendored
-      # deps; PySide6 is not needed.
-      - run: pip install -r src/requirements-vendor.txt
+      - name: Install the app's bundled dependencies (handler discovery needs them, not PySide6)
+        run: pip install --requirement src/requirements-vendor.txt
 
       - name: Rewrite the table and push
         run: |
