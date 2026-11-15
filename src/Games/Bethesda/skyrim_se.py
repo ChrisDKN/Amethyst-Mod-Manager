@@ -153,9 +153,6 @@ class SkyrimSE(BethesdaBase):
                 rule_id='skyrim_se:e39e7c9da11d', dest='Data/SKSE/Plugins/CharGen/Presets',
                 extensions=['.jslot'], flatten=True,
             ),
-            CustomRule(
-                rule_id='skyrim_se:112bbe22ee8d', dest='', folders=['enbseries'], flatten=True,
-            ),
             self._saves_routing_rule([".ess"]),
         ]
 
