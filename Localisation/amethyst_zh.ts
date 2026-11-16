@@ -69,7 +69,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Step 5: Choose Proton Version</source>
-      <translation>第5步: 选择质子版本</translation>
+      <translation>第5步: 选择Proton版本</translation>
     </message>
     <message>
       <source>{0} was not found.
@@ -115,7 +115,7 @@ Please restart the wizard and install ACMOS Road Generator first.</source>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
-      <translation>找不到Proton '{0}' - 检查它是否安装在Steam, Heroic 或ProntonPlus上.</translation>
+      <translation>找不到Proton '{0}' - 检查它是否安装在Steam, Heroic 或ProtonPlus上.</translation>
     </message>
     <message>
       <source>ACMOS Road Generator exited with error (code {0}).</source>
@@ -379,7 +379,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Play</source>
-      <translation>播放</translation>
+      <translation>启动</translation>
     </message>
     <message>
       <source>Stop</source>
@@ -466,7 +466,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Step 2: Choose Proton Version</source>
-      <translation>步骤2：选择质子版本</translation>
+      <translation>步骤2：选择Proton版本</translation>
     </message>
     <message>
       <source>AutoBlend.exe was not found.</source>
@@ -478,7 +478,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Could not resolve the selected Proton prefix.</source>
-      <translation>无法解析选中的 Proton 前缀。</translation>
+      <translation>无法解析选中的 Proton prefix。</translation>
     </message>
     <message>
       <source>AutoBlend is running. Generate output in its window.</source>
@@ -545,7 +545,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Step 3: Choose Proton Version</source>
-      <translation>第 3 步：选择质子版本</translation>
+      <translation>第 3 步：选择Proton版本</translation>
     </message>
     <message>
       <source>AutoSeasons.exe was not found in installed mods.</source>
@@ -589,7 +589,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Could not resolve the selected Proton prefix.</source>
-      <translation>无法解析选中的 Proton 前缀。</translation>
+      <translation>无法解析选中的 Proton prefix。</translation>
     </message>
     <message>
       <source>AutoSeasons is running. Generate output in its window.</source>
@@ -1112,7 +1112,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Step 4: Choose Proton Version</source>
-      <translation>第4步:选择质子版本</translation>
+      <translation>第4步:选择Proton版本</translation>
     </message>
     <message>
       <source>'{0}' was not found.
@@ -1134,7 +1134,7 @@ Please restart the wizard and install BethINI Pie first.</source>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
-      <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
+      <translation>找不到Proton '{0}' - 检查它是否安装在Steam, Heroic 或ProtonPlus。</translation>
     </message>
     <message>
       <source>BethINI Pie is running.
@@ -1409,7 +1409,7 @@ No Proton prefix is used - the game, its Data folder and the output folder are p
     </message>
     <message>
       <source>Step 2: Deploy Modlist</source>
-      <translation>第2步:部署模块</translation>
+      <translation>第2步:部署模组列表</translation>
     </message>
     <message>
       <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
@@ -1485,7 +1485,7 @@ Close it when you are done, then click Done.</source>
     <name>BodySlideView</name>
     <message>
       <source>{0} - {1}</source>
-      <translation>{0} - {1} (英语)</translation>
+      <translation>{0} - {1} </translation>
     </message>
     <message>
       <source>Step 3: Run {0}</source>
@@ -1493,7 +1493,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Step 1: Deploy Modlist</source>
-      <translation>步骤 1：部署 Modlist</translation>
+      <translation>步骤 1：部署模组列表</translation>
     </message>
     <message>
       <source>{0} must be run from the deployed Data folder.
@@ -4497,7 +4497,7 @@ Nothing is published: the draft is only visible to you until you publish it from
     </message>
     <message>
       <source>Step 3: Deploy Modlist</source>
-      <translation>第 3 步：部署 Modlist</translation>
+      <translation>第 3 步：部署 模组列表</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -4646,7 +4646,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Install the {0} modlist</source>
-      <translation>安装 {0} 调制解调器</translation>
+      <translation>安装 {0} 模组列表</translation>
     </message>
     <message>
       <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
@@ -4686,7 +4686,7 @@ mods从Nexus Mods下载 - 登录到第一个(Nexus QQ登录到Nexus),如果你�
     </message>
     <message>
       <source>Step 1: Download the modlist profile</source>
-      <translation>第 1 步 : 下载 modlist 配置文件</translation>
+      <translation>步骤1：下载模组列表的配置文件</translation>
     </message>
     <message>
       <source>Downloading '{0}' from GitHub…</source>
@@ -4718,7 +4718,7 @@ mods从Nexus Mods下载 - 登录到第一个(Nexus QQ登录到Nexus),如果你�
     </message>
     <message>
       <source>Step 2: Install the modlist</source>
-      <translation>步骤2:安装调制解调器</translation>
+      <translation>步骤2：安装模组列表</translation>
     </message>
     <message>
       <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
@@ -5479,7 +5479,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>Pin to Modlist Panel</source>
-      <translation>固定到“Modlist”面板</translation>
+      <translation>固定到“模组列表”面板</translation>
     </message>
     <message>
       <source>Pin to Plugins Panel</source>
@@ -5757,7 +5757,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation>{0} / {1} (韩语)</translation>
+      <translation>{0} / {1} </translation>
     </message>
     <message>
       <source>Name</source>
@@ -5980,7 +5980,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Step 4: Deploy Modlist</source>
-      <translation>第 4 步：部署 Modlist</translation>
+      <translation>第 4 步：部署模组列表</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -6158,7 +6158,7 @@ Close the tool when generation finishes; its output will then be imported.</sour
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation>{0} / {1} (韩语)</translation>
+      <translation>{0} / {1} </translation>
     </message>
     <message>
       <source>No staged plugins were found. EET will open without a target; choose a file from inside the application.</source>
@@ -6932,7 +6932,7 @@ Changes take effect on the next launch. If a variable ever stops the app from st
     </message>
     <message>
       <source>Deploy the modlist before running this exe</source>
-      <translation>运行此 exe 之前先部署调用列表</translation>
+      <translation>运行此exe前请先部署模组列表</translation>
     </message>
     <message>
       <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
@@ -7466,7 +7466,7 @@ Click Done to clean up the extracted files and close.</source>
     </message>
     <message>
       <source>The modlist remains restored. Deploy when you are ready.</source>
-      <translation>模块列表仍然被还原。准备就绪后部署。</translation>
+      <translation>模组列表仍是还原状态。搞定后请部署。</translation>
     </message>
   </context>
   <context>
@@ -8040,15 +8040,15 @@ SHA-1: {1}
     </message>
     <message>
       <source>●  {0} present in modlist but not deployed</source>
-      <translation>* {0}在模块中,但没有部署</translation>
+      <translation>●  {0}在模组列表中但未部署</translation>
     </message>
     <message>
       <source>●  {0} present in modlist but not enabled</source>
-      <translation>* {0} 在调制列表中但无法使用</translation>
+      <translation>●  {0}在模组列表中但未启用</translation>
     </message>
     <message>
       <source>✘  {0} Not Present</source>
-      <translation>{0} 不存在</translation>
+      <translation>✘  {0} 不存在</translation>
     </message>
   </context>
   <context>
@@ -11634,7 +11634,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Browse Wabbajack modlists…</source>
-      <translation>浏览 Wabbajack 调用列表..</translation>
+      <translation>浏览 Wabbajack 模组列表..</translation>
     </message>
     <message>
       <source>Installed Lists</source>
@@ -11670,7 +11670,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source> ({0})</source>
-      <translation>({0}) (韩语)</translation>
+      <translation>({0}) </translation>
     </message>
     <message>
       <source>Handler not found in an enabled game repository.</source>
@@ -12054,7 +12054,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Could not add '{0}' to the modlist: {1}</source>
-      <translation>无法将 '{0}' 添加到modlist: {1}</translation>
+      <translation>无法添加 '{0}' 到模组列表：{1}</translation>
     </message>
     <message>
       <source>{0} has no conflicting mods.</source>
@@ -15672,7 +15672,7 @@ Daily: {1}</source>
     </message>
     <message>
       <source>Version: {0}</source>
-      <translation>版本: {0} (英语)</translation>
+      <translation>版本: {0} </translation>
     </message>
     <message>
       <source>Endorsements: {0}</source>
@@ -15704,7 +15704,7 @@ Daily: {1}</source>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation>{0} ({1}) (英语)</translation>
+      <translation>{0} ({1}) </translation>
     </message>
     <message>
       <source>{0} file(s)</source>
@@ -20090,7 +20090,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>{0}   ({1})</source>
-      <translation>{0} ({1}) (英语)</translation>
+      <translation>{0} ({1}) </translation>
     </message>
     <message>
       <source>File</source>
@@ -20146,7 +20146,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation>{0} ({1}) (英语)</translation>
+      <translation>{0} ({1}) </translation>
     </message>
     <message>
       <source>{0} (current)</source>
@@ -23331,7 +23331,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>INI profile</source>
-      <translation>INI 简介</translation>
+      <translation>INI 配置</translation>
     </message>
     <message>
       <source>Bundled (text)</source>
@@ -24196,15 +24196,15 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>●  SKSE present in modlist but not deployed</source>
-      <translation>* SKSE在调制列表中,但没有部署</translation>
+      <translation>●  SKSE在模组列表但未部署</translation>
     </message>
     <message>
       <source>●  SKSE present in modlist but not enabled</source>
-      <translation>* SKSE 在调制列表中存在,但没有启用</translation>
+      <translation>●  SKSE在模组列表但未启用</translation>
     </message>
     <message>
       <source>✘  SKSE Not Present</source>
-      <translation>SKSE不在场</translation>
+      <translation>✘  SKSE不存在</translation>
     </message>
     <message>
       <source>Cycle detected among pinned plugins</source>
@@ -24475,7 +24475,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>/ {0}</source>
-      <translation>/ {0} (韩语)</translation>
+      <translation>/ {0} </translation>
     </message>
     <message>
       <source>Loading…</source>
@@ -26780,7 +26780,7 @@ When you close it, your changes are restored automatically.</source>
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation>{0} / {1} (韩语)</translation>
+      <translation>{0} / {1} </translation>
     </message>
     <message>
       <source>No staged plugins were found. xTranslator will open without a target; choose a file inside the application.</source>
