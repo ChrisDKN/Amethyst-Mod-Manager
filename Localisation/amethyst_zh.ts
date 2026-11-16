@@ -115,7 +115,7 @@ Please restart the wizard and install ACMOS Road Generator first.</source>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
-      <translation>找不到质子 '{0}' - 检查它是否安装在Steam, Heroic 或质子Plus上.</translation>
+      <translation>找不到Proton '{0}' - 检查它是否安装在Steam, Heroic 或ProntonPlus上.</translation>
     </message>
     <message>
       <source>ACMOS Road Generator exited with error (code {0}).</source>
@@ -127,7 +127,7 @@ Please restart the wizard and install ACMOS Road Generator first.</source>
     </message>
     <message>
       <source>Launch error: {0}</source>
-      <translation>发射错误: {0}</translation>
+      <translation>启动报错: {0}</translation>
     </message>
     <message>
       <source>ACMOS Road Generator is running.
@@ -278,7 +278,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     <name>ArchiveModel</name>
     <message>
       <source>Unknown</source>
-      <translation>未知的</translation>
+      <translation>未知</translation>
     </message>
     <message>
       <source>Name</source>
@@ -383,7 +383,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Stop</source>
-      <translation>停下来</translation>
+      <translation>停止</translation>
     </message>
     <message>
       <source>Volume</source>
@@ -1130,7 +1130,7 @@ Please restart the wizard and install BethINI Pie first.</source>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>无法解决游戏自身前缀的质子版本——一次推出游戏,或者选择不同的前缀选项.</translation>
+      <translation>无法识别游戏自身 prefix 的 Proton 版本，请先运行一次游戏，或更换 prefix。</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -1325,7 +1325,7 @@ Configure your INI settings, then close it and click Done.</source>
     <name>BodySlideLinuxView</name>
     <message>
       <source>{0} (Linux) - {1}</source>
-      <translation>{0} (Linux) - {1} (英语)</translation>
+      <translation>{0} (Linux) - {1} </translation>
     </message>
     <message>
       <source>Step 3: Run {0}</source>
@@ -1977,7 +1977,7 @@ Press Try Again, or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Step 5: Choose Proton Version</source>
-      <translation>步骤5：选择质子版本</translation>
+      <translation>步骤5：选择Proton版本</translation>
     </message>
     <message>
       <source>{0} was not found. Reopen the wizard and install Cathedral Assets Optimizer first.</source>
@@ -3201,7 +3201,7 @@ md5缓存被保存. 档案将视需要重新下载。 缓存的应用程序工�
     </message>
     <message>
       <source>Saves</source>
-      <translation>救球</translation>
+      <translation>存档</translation>
     </message>
     <message>
       <source>Clear</source>
@@ -4346,7 +4346,7 @@ Available disk space: {1}</source>
     </message>
     <message>
       <source>Nexus Collection (*.7z)</source>
-      <translation>尼克萨斯收藏(*.7z)</translation>
+      <translation>Nexus Collection(*.7z)</translation>
     </message>
     <message>
       <source>All files</source>
@@ -4474,7 +4474,7 @@ Nothing is published: the draft is only visible to you until you publish it from
     </message>
     <message>
       <source>Waiting for Nexus…</source>
-      <translation>等待内克萨斯..</translation>
+      <translation>等待 Nexus..</translation>
     </message>
     <message>
       <source>Uploaded as a draft revision - publish it from Nexus ▸ Collections ▸ My collections.</source>
@@ -5023,7 +5023,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>d3dx10_43 (legacy DirectX 10 runtime)</source>
-      <translation>d3dx10 43 (legacy DirectX 10 runtime) (英语)</translation>
+      <translation>d3dx10 43 (legacy DirectX 10 runtime) </translation>
     </message>
     <message>
       <source>d3dx11_42 (legacy DirectX 11 runtime)</source>
@@ -5884,7 +5884,7 @@ Check the output above and the log.</source>
     <name>DynDOLODView</name>
     <message>
       <source>{0} - {1}</source>
-      <translation>{0} - {1} (英语)</translation>
+      <translation>{0} - {1} </translation>
     </message>
     <message>
       <source>Update Tool</source>
@@ -7715,7 +7715,7 @@ Click Done to clean up the extracted files and close.</source>
     </message>
     <message>
       <source>Profile</source>
-      <translation>简介</translation>
+      <translation>配置</translation>
     </message>
     <message>
       <source>Game folder</source>
@@ -7815,7 +7815,7 @@ The original exe is kept as {0}.</source>
 SHA-1: {1}
 It may already be modified. Verify game files in Steam/Heroic to get a clean exe, then try again.</source>
       <translation>未识别出{0}版本.
-SHA-1: {1} (英语).
+SHA-1: {1} 
 它可能已经修改。 在Steam/Heroic中验证游戏文件以获得干净的exe,然后再次尝试.</translation>
     </message>
     <message>
@@ -8048,7 +8048,7 @@ SHA-1: {1} (英语).
     </message>
     <message>
       <source>✘  {0} Not Present</source>
-      <translation>{0} 未出现</translation>
+      <translation>{0} 不存在</translation>
     </message>
   </context>
   <context>
@@ -9936,7 +9936,7 @@ NTFS 和 exFAT 驱动器在 Linux 上有很弱的写保证: 不干净的卸载, 
     </message>
     <message>
       <source>Profile: </source>
-      <translation>简介： </translation>
+      <translation>配置： </translation>
     </message>
     <message>
       <source>Add new profile…</source>
@@ -11666,7 +11666,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>VFS</source>
-      <translation>VFS 飞行器</translation>
+      <translation>VFS</translation>
     </message>
     <message>
       <source> ({0})</source>
@@ -12310,7 +12310,7 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     </message>
     <message>
       <source>Some plugins could not be loaded…</source>
-      <translation type="unfinished">Some plugins could not be loaded…</translation>
+      <translation>部分插件无法加载…</translation>
     </message>
     <message>
       <source>Browse plugins…</source>
@@ -18338,7 +18338,7 @@ Drag a plugin from the left pane to add a rule.</source>
     </message>
     <message>
       <source>{0} - {1}</source>
-      <translation>{0} - {1} (英语)</translation>
+      <translation>{0} - {1} </translation>
     </message>
     <message>
       <source>  (active)</source>
@@ -20038,7 +20038,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>Plugins ({0} · {1} ESL)</source>
-      <translation>插件 ({0} → {1} ESL) (英语)</translation>
+      <translation>插件 ({0} → {1} ESL) </translation>
     </message>
     <message>
       <source>Plugins ({0})</source>
@@ -20673,7 +20673,7 @@ Please restart the wizard and install Script Merger first.</source>
     <name>SelectorButton</name>
     <message>
       <source>{0}{1}{2}</source>
-      <translation>{0}{1}{2} (英语)</translation>
+      <translation>{0}{1}{2} </translation>
     </message>
     <message>
       <source>{0}   ✓ deployed</source>
@@ -24084,7 +24084,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Profiles</source>
-      <translation>简介</translation>
+      <translation>配置</translation>
     </message>
     <message>
       <source>Refresh</source>
@@ -24356,7 +24356,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>{0} toast</source>
-      <translation>{0} 土司(简体中文)</translation>
+      <translation>{0} toast</translation>
     </message>
     <message>
       <source>Progress bar</source>
@@ -24400,7 +24400,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>{0} ({1})</source>
-      <translation>{0} ({1}) (英语)</translation>
+      <translation>{0} ({1}) </translation>
     </message>
   </context>
   <context>
@@ -24423,7 +24423,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>NSFW</source>
-      <translation>NSFW (英语)</translation>
+      <translation>NSFW </translation>
     </message>
     <message>
       <source>Refresh</source>
@@ -25117,7 +25117,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>{0} / {1} ({2}%)</source>
-      <translation>{0} / {1} (XPH2+X) (英语)</translation>
+      <translation>{0} / {1} ({2}%)</translation>
     </message>
     <message>
       <source>{0} downloaded</source>
@@ -27071,7 +27071,7 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     </message>
     <message>
       <source>{0}   - {1}</source>
-      <translation>{0} - {1} (英语)</translation>
+      <translation>{0}   - {1}</translation>
     </message>
     <message>
       <source>Apply</source>
@@ -27120,7 +27120,7 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation>{0} / {1} (韩语)</translation>
+      <translation>{0} / {1} </translation>
     </message>
     <message>
       <source>Cancelling…</source>
@@ -27159,7 +27159,7 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
     <message>
       <source>{0}   - {1}</source>
-      <translation>{0} - {1} (英语)</translation>
+      <translation>{0} - {1} </translation>
     </message>
     <message>
       <source>Contains adult content</source>
@@ -27289,7 +27289,7 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
     <message>
       <source>{0}   - {1}</source>
-      <translation>{0} - {1} (英语)</translation>
+      <translation>{0} - {1} </translation>
     </message>
     <message>
       <source>Bundled files are distributed with the collection itself. Only bundle content you have the right to share - generated output (DynDOLOD, Synthesis), config files, or your own work.</source>
