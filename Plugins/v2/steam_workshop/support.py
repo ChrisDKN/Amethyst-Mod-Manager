@@ -1,4 +1,5 @@
 _ALIASES = {"499450": "292030"}
+KNOWN_WORKSHOP_APPS = {"2868840"}  # Slay the Spire 2 omits the Store Workshop category.
 INSTALL_EXCLUSIONS = {
     "1465460": "Workshop maps need routing outside BepInEx/plugins.",
     "703080": "Workshop blueprints need routing outside win64/ovldata.",

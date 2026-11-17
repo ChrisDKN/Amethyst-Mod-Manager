@@ -9,7 +9,7 @@ from Utils.games.registry import _GAMES
 from .client import WorkshopClient
 from .helper import helper_path
 from .preferences import preferences
-from .support import fetch_support, workshop_app_id
+from .support import KNOWN_WORKSHOP_APPS, fetch_support, workshop_app_id
 
 
 class WorkshopSupport(QObject):
@@ -58,11 +58,14 @@ class WorkshopSupport(QObject):
         if not app_id:
             self._publish(game_id, False)
             return
-        record = self.context.get('data', {}).get('workshop_support_checks', {}).get(game_id, {})
-        if record.get('app_id') == app_id and time.time() < record.get('expires', 0):
-            self._publish(game_id, record.get('supported') is True)
+        if app_id in KNOWN_WORKSHOP_APPS:
+            self._publish(game_id, True)
             return
-        self._publish(game_id, False)
+        record = preferences().get('workshop_support_checks', {}).get(game_id, {})
+        matching_app = record.get('app_id') == app_id
+        self._publish(game_id, matching_app and record.get('supported') is True)
+        if matching_app and time.time() < record.get('expires', 0):
+            return
         key = (game_id, app_id)
         if key in self.pending:
             return
@@ -92,8 +95,12 @@ class WorkshopSupport(QObject):
         game = next((game for game in _GAMES.values() if game.game_id == game_id), None)
         if workshop_app_id(game) != app_id:
             return
-        record = {'app_id': app_id, 'supported': supported is True,
-                  'expires': time.time() + (300 if supported is None else 86400)}
+        expires = time.time() + (300 if supported is None else 86400)
+        if supported is None:
+            previous = preferences().get('workshop_support_checks', {}).get(game_id, {})
+            if previous.get('app_id') == app_id:
+                supported = previous.get('supported')
+        record = {'app_id': app_id, 'supported': supported, 'expires': expires}
         self._publish(game_id, supported is True, record)
         if error and error not in self.reported:
             self.reported.add(error)
