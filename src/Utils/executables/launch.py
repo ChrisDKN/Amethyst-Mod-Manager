@@ -911,6 +911,7 @@ def parse_launch_options(opts: str, command: list,
     If ``%command%`` is present it is replaced by the actual *command* list
     (wrappers before it are prepended; tokens after it are appended).
     If ``%command%`` is absent the remaining tokens are appended as a suffix.
+    An existing Flatpak host portal stays outside the wrapped command.
 
     *split_fn* tokenises each side; pass ``split_preserving_backslash`` when the
     options carry Windows paths (jar launches) so backslashes aren't eaten.
@@ -918,6 +919,19 @@ def parse_launch_options(opts: str, command: list,
     opts = (opts or "").strip()
     if not opts:
         return {}, list(command)
+
+    if (len(command) >= 2
+            and Path(command[0]).name == "flatpak-spawn"
+            and command[1] == "--host"):
+        index = 2
+        while index < len(command) and command[index].startswith("--"):
+            token = command[index]
+            index += 1
+            if token == "--":
+                break
+        env_vars, wrapped = parse_launch_options(
+            opts, command[index:], split_fn=split_fn)
+        return env_vars, [*command[:index], *wrapped]
 
     env_vars: dict = {}
 
