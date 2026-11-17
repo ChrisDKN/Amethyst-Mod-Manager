@@ -281,7 +281,6 @@ class DownloadsView(QWidget):
         label.adjustSize()
         self._archive_drag_label = label
         self._archive_drag_paths = [str(p) for p in paths]
-        QApplication.setOverrideCursor(Qt.ClosedHandCursor)
         QApplication.instance().installEventFilter(self)
         self._move_archive_drag(pos)
         label.show()
@@ -315,7 +314,6 @@ class DownloadsView(QWidget):
         from PySide6.QtWidgets import QApplication
         self._archive_drag_paths = []
         QApplication.instance().removeEventFilter(self)
-        QApplication.restoreOverrideCursor()
         self._archive_drag_label.hide()
         self._archive_drag_label.deleteLater()
         self._archive_drag_label = None

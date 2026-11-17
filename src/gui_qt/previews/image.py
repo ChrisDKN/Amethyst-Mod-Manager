@@ -143,7 +143,6 @@ class _ImageCanvas(QLabel):
         if e.button() == Qt.LeftButton and self._pm is not None:
             self._drag_from = e.position()
             self._drag_offset0 = QPointF(self._offset)
-            self.setCursor(Qt.ClosedHandCursor)
 
     def mouseMoveEvent(self, e):
         if self._drag_from is not None:
@@ -155,7 +154,6 @@ class _ImageCanvas(QLabel):
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton and self._drag_from is not None:
             self._drag_from = None
-            self.setCursor(Qt.OpenHandCursor)
 
     def mouseDoubleClickEvent(self, e):
         self._fitting = True

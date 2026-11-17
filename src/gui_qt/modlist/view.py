@@ -1356,7 +1356,6 @@ class ModListView(QTreeView):
         self._press_pos = None
         self._separator_control_press = None
         self._sync_group_end_markers()
-        self.unsetCursor()
         self.viewport().update()
 
     def hideEvent(self, event):
@@ -1612,7 +1611,6 @@ class ModListView(QTreeView):
             self._drag_rows = block
             self._sync_group_end_markers()
             self.viewport().unsetCursor()
-            self.setCursor(Qt.ClosedHandCursor)
         # Live drag: track cursor, compute drop slot, run autoscroll.
         if self.modlist_drag is not None:
             self.modlist_drag.move(self, event.globalPosition().toPoint())

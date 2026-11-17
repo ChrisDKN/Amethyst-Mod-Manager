@@ -1141,9 +1141,8 @@ class PluginView(QTreeView):
             self._drag_rows = block
             self._drag_bounds = m.drop_bounds(block)
             self._freeze_anchor = None
-            # The viewport cursor (flag hover) would otherwise mask the drag one.
+            # Clear any flag-hover cursor while dragging.
             self.viewport().unsetCursor()
-            self.setCursor(Qt.ClosedHandCursor)
         self._last_mouse_y = event.position().toPoint().y()
         self._update_drop_slot(self._last_mouse_y)
         if not self._scroll_timer.isActive():
@@ -1160,7 +1159,6 @@ class PluginView(QTreeView):
             self._drag_bounds = None
             self._freeze_anchor = None
             self._drop_slot = -1
-            self.unsetCursor()
             self.viewport().update()
             self._press_row = -1
             return
