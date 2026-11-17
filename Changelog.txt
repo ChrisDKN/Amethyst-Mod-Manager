@@ -4,6 +4,7 @@
 - Proton/UMU launch logs are now optional (Default off)
 - Updated Mako integration to v5
 - Fixed missing-source errors for legacy BSA filenames when installing Wabbajack lists
+- Fixed gamescope, MangoHud and GameMode launch options failing during direct Flatpak launches.
 
 ---
 
