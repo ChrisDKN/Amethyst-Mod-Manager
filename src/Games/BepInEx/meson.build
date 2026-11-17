@@ -16,5 +16,6 @@ py.install_sources(
   'valheim.py',
   'nivalis_nights.py',
   'graveyard_keeper_2.py',
+  'v_rising.py',
   subdir: 'Games' / 'BepInEx',
 )

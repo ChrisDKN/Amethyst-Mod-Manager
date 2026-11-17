@@ -71,5 +71,6 @@ py.install_sources(
   'nivalis_nights.png',
   'Prey_2017.png',
   'graveyard_keeper_2.png',
+  'v_rising.png',
   subdir: 'icons' / 'games',
 )
