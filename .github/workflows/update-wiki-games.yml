@@ -1,0 +1,60 @@
+name: Update wiki games list
+
+# Stable tags only: a beta tag would list games no stable build has yet.
+
+on:
+  push:
+    tags: ['v*', '!v*-*']
+  workflow_dispatch:
+
+concurrency:
+  group: update-wiki-games
+  cancel-in-progress: false
+
+# Same-repo wiki pushes work with GITHUB_TOKEN; another repo's wiki needs a PAT.
+permissions:
+  contents: write
+
+jobs:
+  update:
+    name: Update Home.md
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          ref: Resources
+          path: resources
+          sparse-checkout: Custom Handlers
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Test the table rewrite
+        run: python -m unittest discover --start-directory .github/scripts
+
+      - name: Install the app's bundled dependencies (handler discovery needs them, not PySide6)
+        run: pip install --requirement src/requirements-vendor.txt
+
+      - name: Rewrite the table and push
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python .github/scripts/update_wiki_games.py "resources/Custom Handlers" wiki/Home.md
+
+          cd wiki
+          if git diff --quiet -- Home.md; then
+            echo "games list unchanged"
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update supported games list for ${GITHUB_REF_NAME}" -- Home.md
+          git push
