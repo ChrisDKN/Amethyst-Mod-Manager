@@ -11,6 +11,7 @@ py.install_sources(
   'list_picker.py',
   'loading.py',
   'note_editor.py',
+  'source_link.py',
   'text_input.py',
   subdir: 'gui_qt/dialogs',
 )

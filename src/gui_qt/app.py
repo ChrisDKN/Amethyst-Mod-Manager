@@ -479,6 +479,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
     _ts_updates_ready = Signal(object)
     # Manifest-identify worker → UI thread: (results|None, toast).
     _ts_identify_ready = Signal(object)
+    # Batch installed-source identify worker → UI thread: (rows|None, toast, origin).
+    _batch_identify_ready = Signal(object)
     # Post-install auto-identify → UI thread: [(mod_name, package_id, version)].
     _ts_auto_identified = Signal(object)
 
@@ -988,6 +990,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._modl_download_done.connect(self._on_modl_download_done)
         self._ts_updates_ready.connect(self._on_thunderstore_updates_ready)
         self._ts_identify_ready.connect(self._on_thunderstore_identify_ready)
+        self._batch_identify_ready.connect(self._on_batch_identify_ready)
         self._ts_auto_identified.connect(self._on_thunderstore_auto_identified)
         self._handle_nxm_argv()
         self._handle_ror2mm_argv()
@@ -2721,6 +2724,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 (self.tr("Login to Nexus"), lambda: self._open_connections("nexus")),
                 (self._nxm_menu_label(), self._nexus_toggle_nxm),
                 (self.tr("Nexus link forwarding…"), self._nexus_link_forwarding),
+                (self.tr("Identify installed mods from supported sources"),
+                 self._identify_installed_sources),
                 (self.tr("Collections"), [
                     (self.tr("Browse collections…"), self._open_collections_tab),
                     (self.tr("Installed Collections"), self._open_installed_collections_tab),
@@ -2748,6 +2753,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 None,
                 (self.tr("Identify installed mods"),
                  self._identify_thunderstore_mods),
+                (self.tr("Identify installed mods from supported sources"),
+                 self._identify_installed_sources),
             ]),
             ("Hexium", self.tr("Hexium"), "Hexium.png", [
                 (self.tr("Browse Hexium"), self._open_hexium_browser_tab),
@@ -2756,6 +2763,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 (self.tr("Import share code…"), lambda: self._import_thunderstore_share_code(source="hexium")),
                 None,
                 (self.tr("Identify installed mods"), lambda: self._identify_thunderstore_mods(source="hexium")),
+                (self.tr("Identify installed mods from supported sources"),
+                 self._identify_installed_sources),
             ]),
             ("Wabbajack", self.tr("Wabbajack"), "Wabbajack.png", [
                 (self.tr("Browse Wabbajack modlists…"), self._open_wabbajack_tab),
@@ -6018,6 +6027,72 @@ class MainWindow(QMainWindow, PluginPanelControls):
         threading.Thread(target=_worker, daemon=True,
                          name="ts-auto-identify").start()
 
+    def _open_link_source_overlay(self, mod):
+        """Right-click "Link to source…" on one mod."""
+        if self._gs.game is None:
+            return
+        from gui_qt.dialogs.source_link import SourceLinkOverlay
+        SourceLinkOverlay.show_over(
+            self, game=self._gs.game, profile=self._gs.profile_dir(),
+            staging=self._gs.staging_dir(), mod=mod, api=self._nexus_api,
+            on_done=self._on_source_link_done,
+            origin_provider=lambda: (
+                self._gs.game_name, str(self._gs.profile_dir() or "")))
+
+    def _on_source_link_done(self, result):
+        """UI thread: the source-link overlay finished (LinkResult or None)."""
+        if result is None:
+            return
+        if result.message:
+            self._append_log(f"[source_link] {result.message}")
+            self._notify(result.message, "warning")
+        self._refresh_modlist_flags([result.mod])
+
+        if result.missing_thunderstore:
+            # The linked mod is already on disk; only its missing dependencies
+            # are offered, through the same opt-out modal a ror2mm install uses.
+            root = _InstalledRoot(result.name or result.display_name)
+
+            def _decided(chosen):
+                if chosen is None:
+                    return
+                picked = [p for p in chosen if not isinstance(p, _InstalledRoot)]
+                if not picked:
+                    return
+                first = picked[0]
+                # Hexium packages are repository links, never ror2mm ones. Use
+                # the selected dependency's source/community to build the link.
+                from Thunderstore.repositories import make_link
+                source = getattr(first, "source", None) or result.provider
+                if source not in ("thunderstore", "hexium"):
+                    source = "thunderstore"
+                community = (getattr(first, "community", "")
+                             or getattr(result, "community", "") or "")
+                self._start_ror2mm_downloads(
+                    make_link(first.namespace, first.name, first.version,
+                              community, source=source), picked)
+
+            from gui_qt.thunderstore.dependencies import ThunderstoreDepsOverlay
+            ThunderstoreDepsOverlay.show_over(
+                self, root=root, dependencies=result.missing_thunderstore,
+                conflicts=[], on_done=_decided)
+
+        if result.missing_plugin:
+            def _label(item):
+                artifact = item.get("artifact", {}) if isinstance(item, dict) else {}
+                if isinstance(artifact, dict):
+                    return (artifact.get("file_name") or artifact.get("identity")
+                            or str(artifact))
+                return str(artifact)
+
+            for item in result.missing_plugin:
+                self._append_log(
+                    f"[source_link] missing provider dependency: {item}")
+            self._notify(
+                self.tr("This mod's provider dependencies are missing: {0}").format(
+                    ", ".join(_label(item) for item in result.missing_plugin)),
+                "warning")
+
     def _on_thunderstore_auto_identified(self, payload):
         """UI thread: an install was recognised as a Thunderstore package.
 
@@ -6043,7 +6118,6 @@ class MainWindow(QMainWindow, PluginPanelControls):
         # already on disk, so only the dependencies get checkboxes.
         root_label = ", ".join(p for _n, p, _v in done) or self.tr("this mod")
         root = _InstalledRoot(root_label)
-        from Thunderstore.ror2mm_handler import Ror2mmLink
 
         def _decided(chosen):
             if chosen is None:
@@ -6058,10 +6132,17 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 "dependenc" + ("y" if len(picked) == 1 else "ies"))
             # `picked` is non-empty, so the link is only a fallback for the
             # empty case - point it at the first package for a sane log line.
+            # Preserve the selected package's source: a Hexium dependency must
+            # be downloaded through a repository link, not a ror2mm link.
+            from Thunderstore.repositories import make_link
             first = picked[0]
+            source = getattr(first, "source", "thunderstore")
+            if source not in ("thunderstore", "hexium"):
+                source = "thunderstore"
             self._start_ror2mm_downloads(
-                Ror2mmLink(namespace=first.namespace, name=first.name,
-                           version=first.version), picked)
+                make_link(first.namespace, first.name, first.version,
+                          getattr(first, "community", "") or "", source=source),
+                picked)
 
         from gui_qt.thunderstore.dependencies import ThunderstoreDepsOverlay
         ThunderstoreDepsOverlay.show_over(
@@ -6154,6 +6235,73 @@ class MainWindow(QMainWindow, PluginPanelControls):
         else:
             _finish(self.tr("Could not identify any of the {0} mod(s) found.")
                     .format(len(results)), "warning")
+
+    def _identify_installed_sources(self):
+        """Best-effort pass that stamps installed mods whose files already carry
+        an identity (Thunderstore/Hexium manifests, BG3 mod.io paks). Nexus and
+        plugin mods are reported as needing a manual link - never guessed.
+        """
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("No configured game selected."), "warning")
+            return
+        profile = Path(self._gs.profile_dir() or "")
+        staging = self._thunderstore_staging()
+        if staging is None or not staging.is_dir():
+            self._notify(self.tr("No mod staging folder for this profile."), "warning")
+            return
+
+        toast = self._notify(self.tr("Identifying installed mods…"),
+                             "info", sticky=True)
+        origin = (self._gs.game_name, str(self._gs.profile_dir() or ""))
+        import threading
+
+        def _worker():
+            from Utils.mods.source_link import identify_installed_sources
+            from gui_qt.runtime.safe_emit import safe_emit
+            try:
+                rows = identify_installed_sources(
+                    game, profile,
+                    progress=lambda message: self._append_log(f"[source-link] {message}"))
+            except Exception as exc:
+                self._append_log(f"[source-link] identify failed: {exc}")
+                rows = None
+            safe_emit(self._batch_identify_ready, (rows, toast, origin))
+
+        threading.Thread(target=_worker, daemon=True,
+                         name="batch-identify").start()
+
+    def _on_batch_identify_ready(self, payload):
+        """UI thread: the batch identification pass finished."""
+        rows, toast, origin = payload
+
+        def _finish(text, state):
+            if toast is not None:
+                toast.dismiss(text, state=state)
+            else:
+                self._notify(text, state)
+
+        if origin != (self._gs.game_name, str(self._gs.profile_dir() or "")):
+            _finish(self.tr("Game or profile changed. Start identification again."), "warning")
+            return
+        if rows is None:
+            _finish(self.tr("Identifying mods failed - see the log."), "error")
+            return
+
+        matched = [row for row in rows if row.matched]
+        skipped = [row for row in rows if not row.matched]
+        for row in rows:
+            if row.matched:
+                self._append_log(f"[source-link] '{row.mod}' → {row.provider}")
+            else:
+                self._append_log(
+                    f"[source-link] '{row.mod}' skipped "
+                    f"({row.provider or 'unknown'}): {row.reason}")
+        if matched:
+            self._refresh_modlist_flags()
+        text = self.tr("Identified {0} mod(s); skipped {1}.").format(
+            len(matched), len(skipped))
+        _finish(text, "success" if matched else "info")
 
     def _open_hexium_browser_tab(self):
         game = self._gs.game
@@ -20136,6 +20284,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
         self._modlist_view.on_change_version = self._open_change_version_tab
         self._modlist_view.on_provider_versions = self._open_provider_versions
         self._modlist_view.on_provider_quick_update = self._open_provider_quick_update
+        # Link to source: right-click item on a single mod.
+        self._modlist_view.on_link_source = self._open_link_source_overlay
         self._modlist_view.on_ignore_updates_changed = self._on_ignore_updates_changed
         self._modlist_view.on_bundle_options = self._open_bundle_tab
         # Thunderstore Actions submenu (its own store, so its own callbacks).

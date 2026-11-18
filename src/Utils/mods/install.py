@@ -3909,6 +3909,13 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
         log_fn(f"Nexus flag check after install skipped ({exc}).")
 
 
+def check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
+                                    profile_dir: "Path | None" = None) -> None:
+    """Public entry point for the Nexus post-link requirement/endorsement stamp."""
+    return _check_nexus_flags_after_install(game, mod_names, log_fn,
+                                            profile_dir=profile_dir)
+
+
 @time_phase("indexing")
 def _update_indexes(game, profile_dir: Path, mod_name: str, dest_root: Path,
                     log_fn: LogFn) -> bool:
