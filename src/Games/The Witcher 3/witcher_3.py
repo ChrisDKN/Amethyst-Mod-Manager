@@ -739,7 +739,9 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
 
         game_path     = self._game_path
         manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST
+        from Utils.deployment.missing_installation import archive_if_missing, current_recovery
         from Utils.witcher3.load_order import restore_mod_settings
+        recovering = current_recovery.get() is not None
         restore_mod_settings(self, log_fn=_log)
         self._remove_profile_ini_symlinks("", _log)
 
@@ -800,6 +802,8 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
                 # Absolute paths are custom-dir files; relative paths are game-root-relative
                 is_abs = Path(rel).is_absolute()
                 target = Path(rel) if is_abs else game_path / rel
+                if recovering and archive_if_missing(target):
+                    continue
                 if not is_abs:
                     p = target.parent
                     while p != game_path and p.is_relative_to(game_path):
@@ -817,7 +821,7 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
             # Restore vanilla files that were displaced during deploy
             vanilla_backup_dir = game_path / _VANILLA_BACKUP_DIR
             restored_vanilla = 0
-            if vanilla_backup_dir.is_dir():
+            if not archive_if_missing(game_path) and vanilla_backup_dir.is_dir():
                 for backup_file in vanilla_backup_dir.rglob("*"):
                     if not backup_file.is_file():
                         continue
@@ -842,12 +846,17 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
                 except OSError:
                     pass
 
-            manifest_path.unlink(missing_ok=True)
+            if not archive_if_missing(game_path, manifest_path):
+                manifest_path.unlink(missing_ok=True)
             vanilla_msg = (
                 f", {restored_vanilla} vanilla file(s) restored"
                 if restored_vanilla else ""
             )
             _log(f"Restore complete. {removed} file(s) removed{vanilla_msg}.")
+
+        snapshot_path = self.get_profile_root() / _FILEMAP_SNAPSHOT_NAME
+        if archive_if_missing(game_path, snapshot_path):
+            return
 
         # Physical Script Merger runs use the same preservation path.
         self._rescue_merged_files(game_path, log_fn=_log)
@@ -855,7 +864,6 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         # Move runtime-generated files to overwrite/ so they persist across
         # redeploys.  Runs after _MergedFiles preservation so those folders
         # are already gone from the game root and won't be duplicated.
-        snapshot_path = self.get_profile_root() / _FILEMAP_SNAPSHOT_NAME
         if snapshot_path.is_file():
             overwrite_dir = self.get_effective_mod_staging_path().parent / "overwrite"
             _log("  Scanning game root for runtime-generated files ...")

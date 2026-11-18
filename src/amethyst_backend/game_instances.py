@@ -112,6 +112,7 @@ def create_instance(game, game_path, prefix_path, staging_path, deploy_mode,
 def remove_instance(game, log):
     from Utils.config_paths import remove_game_download_cache_link
     from Utils.deployment.locking import game_mutation_lock
+    from Utils.deployment.missing_installation import RECOVERY_DIR
     from Utils.deployment.pipeline import run_restore_pipeline
     from Utils.operations import acquire_game_operation
 
@@ -129,7 +130,8 @@ def remove_instance(game, log):
                 from Utils.games.instances import reserve_retained_storage
                 reserve_retained_storage(game._instance_record, root)
             for child in root.iterdir() if root.is_dir() else ():
-                if child.name in {"mods", "profiles", "overwrite", "Applications", ".amethyst-operation.lock"}:
+                if child.name in {"mods", "profiles", "overwrite", "Applications",
+                                  ".amethyst-operation.lock", RECOVERY_DIR}:
                     continue
                 if child.is_dir() and not child.is_symlink():
                     shutil.rmtree(child)

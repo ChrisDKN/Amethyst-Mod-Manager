@@ -373,6 +373,11 @@ class Mewgenics(BaseGame):
         resources_gpak = game_root / _RESOURCES_GPAK
         unpack_dir = game_root / _UNPACKED_DIR
 
+        from Utils.deployment.missing_installation import archive_if_missing
+
+        if archive_if_missing(game_root, self.get_profile_root() / _VANILLA_BACKUP_DIR):
+            cleanup_custom_deploy_dirs(self._active_profile_dir, (), log_fn=_log, game=self)
+            return
         if not resources_gpak.is_file():
             raise RuntimeError(
                 f"'{_RESOURCES_GPAK}' not found in game root: {game_root}"

@@ -2221,6 +2221,10 @@ class BaseGame(ABC):
         snap = self.get_effective_filemap_path().parent / _FILEMAP_SNAPSHOT_NAME
         if not (gp and snap.is_file()):
             return 0
+        from Utils.deployment.missing_installation import archive_if_missing
+
+        if archive_if_missing(gp, snap):
+            return 0
         if exclude_dirs is None:
             exclude_dirs = self.runtime_snapshot_exclude_dirs()
         moved = _move_runtime_files(
@@ -2304,11 +2308,13 @@ class BaseGame(ABC):
         if deploy_mode is not None:
             data["last_deploy_mode"] = deploy_mode
         profile_dir = self.get_profile_root() / "profiles" / profile_name
+        configured_game_path = getattr(self, "_game_path", None)
         context = {
             "profile_dir": str(profile_dir),
             "filemap_path": str(self.get_effective_filemap_path()),
             "staging_root": _root_record(self.get_profile_root()),
             "game_root": _root_record(self.get_game_path()),
+            "configured_game_path": str(configured_game_path) if configured_game_path else None,
             "prefix_root": _root_record(self.get_prefix_path()),
             "profile_state": read_profile_state(profile_dir, read_only=True),
             "instance_write_targets": self.get_instance_write_targets(),

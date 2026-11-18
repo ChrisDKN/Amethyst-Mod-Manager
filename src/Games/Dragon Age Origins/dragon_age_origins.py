@@ -386,6 +386,10 @@ class DragonAgeOrigins(BaseGame):
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
+        from Utils.deployment.missing_installation import archive_if_missing
+
+        if archive_if_missing(data_root):
+            return
 
         # Filemap-driven cleanup. DAO mods deploy as bare, mod-relative paths
         # under the data root (e.g. "50 Tactics Slots/exptable.gda"), so we

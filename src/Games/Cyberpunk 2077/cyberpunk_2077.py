@@ -790,9 +790,17 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
 
         filemap   = self.get_effective_filemap_path()
         game_root = self._game_path
+        from Utils.deployment.missing_installation import archive_if_missing, current_recovery
 
         _log("Restore: removing custom-routed .archive files ...")
-        restore_custom_rules(filemap, game_root, rules=[], log_fn=_log, prefix_root=self.get_prefix_path())
+        restore_custom_rules(
+            filemap, game_root, rules=[], log_fn=_log, prefix_root=self.get_prefix_path())
+
+        recovering = current_recovery.get() is not None
+        if recovering:
+            from Utils.deployment import cleanup_custom_deploy_dirs
+
+            cleanup_custom_deploy_dirs(self._active_profile_dir, (), log_fn=_log)
 
         # Restore follows the state that actually exists rather than the
         # current toggle. A user can turn VFS off after deploying, and an older
@@ -815,13 +823,16 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                 (filemap.parent / "archive_modlist.state").is_file(),
                 (filemap.parent / "archive_modlist_backup.txt").is_file(),
             ))
-            if not physical_state:
+            if not physical_state and not recovering:
                 _log("Restore complete.")
                 return
-            _log("Restore: a physical deployment also remains; restoring it now ...")
+            if physical_state:
+                _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log("Restore: removing mod files and restoring vanilla files ...")
-        self._cleanup_archive_modlist(filemap, game_root, log_fn=_log)
+        if not archive_if_missing(game_root, filemap.parent / "archive_modlist.state",
+                                  filemap.parent / "archive_modlist_backup.txt"):
+            self._cleanup_archive_modlist(filemap, game_root, log_fn=_log)
         removed = restore_filemap_from_root(
             filemap, game_root, log_fn=_log,
             restore_whitelist=self.restore_whitelist_matcher())

@@ -967,10 +967,12 @@ def effective_shadow_root(game) -> Path:
     resolved deployment. Keep manifest parsing and path validation here so a
     handler never has to trust a raw JSON path or reach into VFS internals.
     """
+    from Utils.deployment.missing_installation import current_recovery
+
     payload = _load_manifest(game)
     state = manifest_path(game).parent
     view, _view_data, _data_rel, *_rest = _validated_shadow_paths(
-        game, payload, state)
+        game, payload, state, use_recorded_roots=current_recovery.get() is not None)
     if not view.is_dir():
         raise RuntimeError(f"The profile VFS shadow view is missing: {view}")
     return view

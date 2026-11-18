@@ -12,12 +12,16 @@ _STATE = ".vortex-routing"
 
 
 def _journals(game):
+    from Utils.deployment.missing_installation import current_recovery
+
+    recovery = current_recovery.get()
+    data_root = recovery.mod_data_path if recovery else None
     metadata = game.get_effective_filemap_path().parent / _STATE
     if metadata.is_symlink():
         raise RuntimeError(f"Vortex routing journal must not be a symlink: {metadata}")
     for name, root, prefix in (
         ("game", game.get_game_path() or game.get_prefix_path(), game.get_prefix_path()),
-        ("data", game.get_mod_data_path(), None),
+        ("data", data_root or game.get_mod_data_path(), None),
     ):
         folder = metadata / name
         if folder.is_symlink():

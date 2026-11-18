@@ -442,6 +442,8 @@ class REEngineInvalidationBase(ProfileVFSGameMixin, BaseGame):
     def _restore_pak_backups(self, patch_dirs, *, log_fn=None) -> int:
         """Restore PAK journals from the supplied profile directories."""
         _log = log_fn or (lambda _: None)
+        from Utils.deployment.missing_installation import archive_if_missing
+
         restored_entries = 0
         for patches_dir in patch_dirs:
             if not patches_dir.is_dir():
@@ -454,8 +456,9 @@ class REEngineInvalidationBase(ProfileVFSGameMixin, BaseGame):
                 except (json.JSONDecodeError, KeyError, OSError):
                     backup_file.unlink(missing_ok=True)
                     continue
-                restored_entries += restore_pak_file(
-                    pak_path, backup_file, log_fn=_log)
+                if not archive_if_missing(pak_path, backup_file):
+                    restored_entries += restore_pak_file(
+                        pak_path, backup_file, log_fn=_log)
             try:
                 patches_dir.rmdir()
             except OSError:

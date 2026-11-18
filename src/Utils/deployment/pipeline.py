@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import traceback
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -21,6 +22,9 @@ from Utils.deployment import (
     deploy_root_flagged_mods,
     load_per_mod_strip_prefixes,
     restore_root_folder_for_game,
+)
+from Utils.deployment.missing_installation import (
+    MissingInstallation, archive_if_missing, path_is_missing,
 )
 from Utils.deployment.shared import RestoreIncompleteError, _FILEMAP_SNAPSHOT_NAME
 from Utils.profiles.backup import create_backup
@@ -70,7 +74,7 @@ class _DeployTimeline:
             pass
 
 
-def check_paths_mounted(game) -> "str | None":
+def check_paths_mounted(game, *, check_game=True) -> "str | None":
     """Return an error message if the game or staging drive looks unmounted.
 
     Guards against deploying into (or restoring under) a dead mountpoint:
@@ -79,7 +83,7 @@ def check_paths_mounted(game) -> "str | None":
     """
     import os
 
-    game_root = _safe(game.get_game_path)
+    game_root = _safe(game.get_game_path) if check_game else None
     if game_root:
         p = Path(game_root)
         if not p.is_dir():
@@ -108,7 +112,7 @@ def check_paths_mounted(game) -> "str | None":
     return None
 
 
-def _recover_restore_profile(profile_dir, context, staging, log_fn):
+def _recover_restore_profile(profile_dir, context, staging, log_fn, *, missing_game_path=None):
     from Utils.atomic_write import write_atomic_text
     from Utils.deployment.custom_rules import _root_identity_matches
     from Utils.profiles.state import (
@@ -133,6 +137,10 @@ def _recover_restore_profile(profile_dir, context, staging, log_fn):
         root = Path(record["path"]) if isinstance(record, dict) and record.get("path") else None
         if key == "staging_root":
             root = staging
+        elif (missing_game_path is not None
+              and (key == "prefix_root" or root == missing_game_path)
+              and path_is_missing(root)):
+            continue
         if root is None or not root.is_dir() or not _root_identity_matches(record, root):
             raise RestoreIncompleteError(
                 f"Restore cannot recover the deleted profile until its original "
@@ -253,7 +261,27 @@ def repair_deleted_profile(game, repair: dict, *, log_fn: LogFn) -> int:
         return removed
 
 
-def _apply_recorded_restore_paths(game):
+def missing_restore_game_path(game) -> Path | None:
+    if not callable(getattr(game, "restore", None)) or not game.get_deploy_active():
+        return None
+    from copy import copy
+
+    try:
+        context = game.get_deployment_context()
+        if context:
+            path = Path(context["game_root"]["path"])
+        else:
+            game = copy(game)
+            game.set_active_profile_dir(game.get_profile_root() / "profiles"
+                                        / game.get_last_deployed_profile())
+            game.load_paths(read_only=True, prefix_fallback=False)
+            path = game.get_game_path()
+        return path if path_is_missing(path) else None
+    except (KeyError, TypeError, ValueError, OSError):
+        return None
+
+
+def _apply_recorded_restore_paths(game, *, missing_game_path=None):
     from Utils.deployment.custom_rules import _root_identity_matches
 
     context = game.get_deployment_context()
@@ -270,6 +298,11 @@ def _apply_recorded_restore_paths(game):
             continue
         raw = record.get("path") if isinstance(record, dict) else None
         root = Path(raw) if isinstance(raw, str) and raw else None
+        if (missing_game_path is not None
+                and (key == "prefix_root" or (key == "game_root" and root == missing_game_path))
+                and path_is_missing(root)):
+            roots[attr] = root
+            continue
         if root is None or not root.is_absolute() or not root.is_dir():
             raise RestoreIncompleteError(
                 f"Restore needs the original {label}: {raw or '(not recorded)'}. "
@@ -288,14 +321,14 @@ def _apply_recorded_restore_paths(game):
 
 def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
                             path_load_options=None, fallback_profile="default",
-                            use_recorded_paths=False) -> Path:
+                            use_recorded_paths=False, missing_game_path=None) -> Path:
     from Utils.deployment.custom_rules import _root_identity_matches
     from Utils.profiles.state import read_profile_settings
 
     get_context = getattr(game, "get_deployment_context", None)
     context = get_context() if callable(get_context) else {}
     if use_recorded_paths:
-        _apply_recorded_restore_paths(game)
+        _apply_recorded_restore_paths(game, missing_game_path=missing_game_path)
     staging = game.get_profile_root()
 
     def matches(record, current):
@@ -331,7 +364,8 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
 
     profile_dir = Path(profile_dir)
     if context and not profile_dir.is_dir():
-        _recover_restore_profile(profile_dir, context, staging, log_fn)
+        _recover_restore_profile(profile_dir, context, staging, log_fn,
+                                 missing_game_path=missing_game_path)
     if (context or game.get_deploy_active()) and not profile_dir.is_dir():
         raise RestoreIncompleteError(
             f"Restore needs the deployed profile folder: {profile_dir}. "
@@ -343,7 +377,7 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
     game.set_active_profile_dir(profile_dir)
     game.load_paths(**(path_load_options or {}))
     if use_recorded_paths:
-        _apply_recorded_restore_paths(game)
+        _apply_recorded_restore_paths(game, missing_game_path=missing_game_path)
     if context:
         expected_filemap = staging / Path(context["filemap_path"]).relative_to(saved_staging)
         settings = read_profile_settings(profile_dir, read_only=True)
@@ -352,14 +386,16 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
                 game.get_effective_filemap_path().resolve() != expected_filemap.resolve()
                 or not matches(context.get("game_root"), game.get_game_path())
                 or not matches(context.get("prefix_root"), game.get_prefix_path())):
-            _recover_restore_profile(profile_dir, context, staging, log_fn)
+            _recover_restore_profile(profile_dir, context, staging, log_fn,
+                                     missing_game_path=missing_game_path)
             game.load_paths(**(path_load_options or {}))
             if use_recorded_paths:
-                _apply_recorded_restore_paths(game)
+                _apply_recorded_restore_paths(game, missing_game_path=missing_game_path)
         require_root("game folder", context.get("game_root"), game.get_game_path())
         require_root("prefix", context.get("prefix_root"), game.get_prefix_path())
         prefix = game.get_prefix_path()
-        if prefix is not None and not prefix.is_dir():
+        if (prefix is not None and not prefix.is_dir()
+                and not (missing_game_path is not None and path_is_missing(prefix))):
             raise RestoreIncompleteError(
                 f"Restore prefix not found: {prefix}. Check that its drive is mounted."
             )
@@ -368,11 +404,15 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
                 f"Restore needs the original mod storage at {expected_filemap.parent}. "
                 "Restore the profile's original mod-storage setting and try again."
             )
-    error = check_paths_mounted(game)
+    if missing_game_path is not None and (
+            game.get_game_path() != missing_game_path or not path_is_missing(missing_game_path)):
+        raise RestoreIncompleteError("The missing game location changed. Run Restore again.")
+    error = check_paths_mounted(game, check_game=missing_game_path is None)
     if error:
         raise RestoreIncompleteError(f"Restore aborted: {error}")
     from Utils.deployment.vortex_deploy import validate_restore
-    validate_restore(game, log_fn)
+    if missing_game_path is None:
+        validate_restore(game, log_fn)
     log_fn(f"  Game path: {game.get_game_path()}")
     log_fn(f"  Prefix: {game.get_prefix_path() or '(not configured)'}")
     log_fn(f"  Recovery journal folder: {game.get_effective_filemap_path().parent}")
@@ -1400,6 +1440,7 @@ def _run_restore_pipeline(
     recovery_profile_dir: Path | None = None,
     path_load_options=None,
     use_recorded_paths: bool = False,
+    missing_game_path: Path | None = None,
 ) -> bool:
     started = time.perf_counter()
     ok = False
@@ -1412,27 +1453,33 @@ def _run_restore_pipeline(
         recovery_profile_dir = prepare_restore_profile(
             game, profile_dir=recovery_profile_dir, log_fn=log_fn,
             path_load_options=path_load_options, fallback_profile=profile,
-            use_recorded_paths=use_recorded_paths)
+            use_recorded_paths=use_recorded_paths, missing_game_path=missing_game_path)
         game_root = game.get_game_path()
-        if progress_fn is not None:
-            restored = restore(log_fn=log_fn, progress_fn=progress_fn)
-        else:
-            restored = restore(log_fn=log_fn)
-        if restored is False:
-            raise RuntimeError("The game's restore operation did not complete.")
+        missing_installation = (
+            MissingInstallation(game, missing_game_path, log_fn)
+            if missing_game_path is not None else None)
+        with missing_installation.activate() if missing_installation is not None else nullcontext():
+            options = {"progress_fn": progress_fn} if progress_fn is not None else {}
+            if restore(log_fn=log_fn, **options) is False:
+                raise RuntimeError("The game's restore operation did not complete.")
 
-        root_folder_dir = game.get_effective_root_folder_path()
-        if root_folder_dir.is_dir() and game_root:
-            restore_root_folder_for_game(
-                game,
-                root_folder_dir=root_folder_dir,
-                game_root=game_root,
-                log_fn=log_fn,
-            )
+            if missing_installation is not None:
+                from Utils.vfs import cleanup_deployment, has_deployment_state
+
+                if has_deployment_state(game):
+                    cleanup_deployment(game, preserve_upper=True, log_fn=log_fn)
+                archive_if_missing(game_root, game.get_effective_filemap_path().parent
+                                   / _FILEMAP_SNAPSHOT_NAME)
+            root_folder_dir = game.get_effective_root_folder_path()
+            if game_root and (root_folder_dir.is_dir() or missing_installation is not None):
+                restore_root_folder_for_game(
+                    game, root_folder_dir=root_folder_dir, game_root=game_root, log_fn=log_fn)
         finalize_filegraph_recovery(
             game, recovery_profile_dir, log_fn=log_fn)
         clear_deploy_active = getattr(game, "clear_deploy_active", None)
-        if callable(clear_deploy_active):
+        if missing_installation is not None:
+            missing_installation.finish()
+        elif callable(clear_deploy_active):
             clear_deploy_active()
         ok = True
     except Exception as exc:
@@ -1466,15 +1513,21 @@ def run_restore_pipeline(
     operation_owner: "str | None" = None,
     raise_busy: bool = False,
     use_recorded_paths: bool = False,
+    missing_game_path: Path | None = None,
 ) -> bool:
     """Run the standard restore under the shared operation lock."""
     from Utils.operations import OperationBusy, acquire_game_operation
 
+    if missing_game_path is not None:
+        if missing_restore_game_path(game) != missing_game_path:
+            log_fn("Restore aborted: the missing game location changed. Run Restore again.")
+            return False
+        use_recorded_paths = True
     try:
         if use_recorded_paths:
             from copy import copy
             game = copy(game)
-            _apply_recorded_restore_paths(game)
+            _apply_recorded_restore_paths(game, missing_game_path=missing_game_path)
         lease = acquire_game_operation(
             game, "restore", owner=operation_owner or "restore")
         lease.acquire()
@@ -1496,6 +1549,7 @@ def run_restore_pipeline(
             game, profile, log_fn=log_fn, progress_fn=progress_fn,
             recovery_profile_dir=recovery_profile_dir,
             use_recorded_paths=use_recorded_paths,
+            missing_game_path=missing_game_path,
             path_load_options={"read_only": True, "prefix_fallback": False}
             if use_recorded_paths else None)
     finally:

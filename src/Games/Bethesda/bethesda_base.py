@@ -1424,11 +1424,13 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
 
         data_dir = self._game_path / "Data"
 
+        from Utils.deployment.missing_installation import archive_if_missing
+
         default_game_path = self.get_global_game_path()
         if default_game_path is None:
             _log("  WARN: Default-profile game path is not configured; "
                  "Bethesda registry path was not restored.")
-        else:
+        elif not (archive_if_missing(default_game_path) or archive_if_missing(self.get_prefix_path())):
             from Utils.bethesda.registry import repair_game_registry_path
             if not repair_game_registry_path(self, default_game_path, _log):
                 _log("  WARN: Bethesda registry game path could not be restored "

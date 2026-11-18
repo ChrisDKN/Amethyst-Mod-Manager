@@ -160,6 +160,11 @@ def _record_generated_modsettings(profile_dir: Path, modsettings: Path) -> None:
 
 
 def _restore_modsettings(profile_dir: Path, fallback: Path | None, log_fn) -> bool:
+    from Utils.deployment.missing_installation import archive_if_missing
+
+    if archive_if_missing(fallback, profile_dir / _MODSETTINGS_STATE,
+                          profile_dir / _MODSETTINGS_BACKUP):
+        return True
     state = _read_modsettings_state(profile_dir)
     if state is None:
         if (profile_dir / _MODSETTINGS_STATE).exists():

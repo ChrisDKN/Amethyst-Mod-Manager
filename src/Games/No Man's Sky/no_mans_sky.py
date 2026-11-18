@@ -131,6 +131,11 @@ def _record_generated_settings(profile_dir: Path, settings: Path) -> None:
 
 
 def _restore_settings(profile_dir: Path, fallback: Path | None, log_fn) -> bool:
+    from Utils.deployment.missing_installation import archive_if_missing
+
+    if archive_if_missing(fallback, profile_dir / _SETTINGS_STATE,
+                          profile_dir / _SETTINGS_BACKUP):
+        return True
     state = _read_settings_state(profile_dir)
     if state is None:
         if (profile_dir / _SETTINGS_STATE).exists():

@@ -280,6 +280,9 @@ def cleanup_custom_deploy_dirs(
 
     Returns the number of files removed.
     """
+    from Utils.deployment.missing_installation import current_recovery
+
+    missing_installation = current_recovery.get()
     _log = _safe_log(log_fn)
 
     if profile_dir is None:
@@ -350,6 +353,8 @@ def cleanup_custom_deploy_dirs(
                 retry_entries.append(abs_str)
             continue
         target = Path(abs_str)
+        if missing_installation is not None and missing_installation.contains(target):
+            continue
         try:
             tgt_stat = os.lstat(abs_str)
         except FileNotFoundError:
@@ -592,8 +597,14 @@ def _restore_backup_dir(
 
     Returns the number of files restored.
     """
+    from Utils.deployment.missing_installation import current_recovery
+
+    missing_installation = current_recovery.get()
     _log = _safe_log(log_fn)
     if not backup_dir.is_dir():
+        return 0
+    if missing_installation is not None and missing_installation.contains(target_root):
+        missing_installation.archive(backup_dir)
         return 0
 
     tag = label if label is not None else f"{backup_dir.name}/"
@@ -629,6 +640,9 @@ def _restore_backup_dir(
             restore_failed = True
             continue
         try:
+            if missing_installation is not None and missing_installation.contains(orig):
+                missing_installation.archive(bak_src)
+                continue
             _move_crash_safe(bak_src, orig)
             restored += 1
             _log(f"  Restored {rel} from {tag}")

@@ -604,6 +604,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         self, log_fn, profile: str | None = None,
     ) -> None:
         """Restore prefix routes using the paths captured at VFS deploy."""
+        from Utils.deployment.missing_installation import current_recovery
+
         context_path = self._vfs_prefix_context_path(profile)
         filemap = self.get_effective_filemap_path()
         prefix_root = self.get_prefix_path()
@@ -626,7 +628,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             metadata / "custom_rules_prefix_backup",
             metadata / "custom_rules_roots.json",
         )
-        if artifacts[0].is_file():
+        if artifacts[0].is_file() or (current_recovery.get() is not None
+                                      and any(path.exists() for path in artifacts)):
             restore_custom_rules(
                 Path(filemap),
                 Path(self.get_vfs_game_root() or self._game_path),
@@ -2408,6 +2411,11 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         partial manifest so a later retry cannot delete a restored vanilla
         file.
         """
+        from Utils.deployment.missing_installation import archive_if_missing, current_recovery
+        from Utils.deployment.shared import _restore_backup_dir
+
+        recovery = current_recovery.get()
+        recovering = recovery is not None
         manifest_path = Path(
             manifest_path or self._vfs_external_manifest_path())
         # A process can stop while copying an original, before the completed
@@ -2454,25 +2462,29 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
 
         for line in lines:
             target = Path(line)
+            rel_abs = target.relative_to(target.anchor)
+            backup_file = backup_dir / rel_abs
+            if recovering and archive_if_missing(target):
+                continue
             was_directory_link = target.is_symlink() and target.is_dir()
             if not was_directory_link:
                 dirs_to_check.add(target.parent)
-            rel_abs = target.relative_to(target.anchor)
-            backup_file = backup_dir / rel_abs
             if backup_file.is_file():
                 handled_backups.add(backup_file)
             try:
-                if target.is_file() or target.is_symlink():
+                if recovering or target.is_file() or target.is_symlink():
                     target.unlink()
                     removed += 1
                 elif target.exists():
                     raise OSError("target is not a regular file")
             except OSError as exc:
+                if recovering and isinstance(exc, FileNotFoundError):
+                    continue
                 unresolved.append(line)
                 log_fn(f"  WARN: could not remove external target {line}: {exc}")
                 continue
 
-            if backup_file.is_file():
+            if not recovering and backup_file.is_file():
                 try:
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(backup_file), target)
@@ -2486,7 +2498,10 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         # A process can stop after moving an original aside but before the
         # deploy manifest is written. The empty VFS marker plus the mirrored
         # backup still gives us enough information to restore that original.
-        if backup_dir.is_dir():
+        if recovery is not None and not unresolved:
+            recovery.retire_journal(manifest_path)
+            restored = _restore_backup_dir(backup_dir, Path("/"), log_fn)
+        elif not recovering and backup_dir.is_dir():
             for backup_file in list(backup_dir.rglob("*")):
                 if not backup_file.is_file():
                     continue
@@ -2551,7 +2566,11 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         if game_path is None:
             raise RuntimeError("Game path is not configured.")
 
+        from Utils.deployment.missing_installation import archive_if_missing, current_recovery
+        from Utils.deployment.shared import _restore_backup_dir
         from Utils.vfs import cleanup_deployment, has_deployment_state
+        recovery = current_recovery.get()
+        recovering = recovery is not None
         external_manifest = self._vfs_external_manifest_path()
         prefix_context = self._vfs_prefix_context_path()
         if (has_deployment_state(self)
@@ -2571,11 +2590,13 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                 )
             if not self._ue5_deployed_manifest_path().is_file():
                 _log(f"Restore complete{detail}.")
-                return
-            _log(
-                f"VFS restore complete{detail}; a physical UE deployment "
-                "also remains and will be restored now."
-            )
+                if not recovering:
+                    return
+            else:
+                _log(
+                    f"VFS restore complete{detail}; a physical UE deployment "
+                    "also remains and will be restored now."
+                )
 
         filemap = self.get_effective_filemap_path()
         _log("Restore: removing prefix-routed files ...")
@@ -2586,13 +2607,17 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         )
 
         manifest_path = self._ue5_deployed_manifest_path()
+        snapshot_path = self._ue5_runtime_snapshot_path()
+        custom_vanilla_backup_dir = self.get_profile_root() / _CUSTOM_VANILLA_BACKUP_DIR
+        missing_game = archive_if_missing(game_path, snapshot_path)
         if not manifest_path.is_file():
+            if recovering:
+                _restore_backup_dir(custom_vanilla_backup_dir, Path("/"), _log)
             _log("Restore: no deployed manifest found - nothing to remove.")
             return
 
         # Move runtime-generated files (saves, shader cache, etc.) to overwrite/
         # before removing deployed files, using the snapshot taken at deploy time.
-        snapshot_path = self._ue5_runtime_snapshot_path()
         overwrite_dir = self.get_effective_overwrite_path()
         if snapshot_path.is_file():
             _log("  Scanning game root for runtime-generated files ...")
@@ -2616,8 +2641,10 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             # Absolute paths are custom-dir files; relative paths are game-root-relative
             is_abs = Path(rel).is_absolute()
             target = Path(rel) if is_abs else game_path / rel
+            if recovering and archive_if_missing(target):
+                continue
             was_directory_link = target.is_symlink() and target.is_dir()
-            if target.is_file() or target.is_symlink():
+            if recovering or target.is_file() or target.is_symlink():
                 try:
                     target.unlink()
                     removed += 1
@@ -2630,11 +2657,15 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                             dirs_to_check.add(p)
                             p = p.parent
                 except OSError as exc:
+                    if recovering and isinstance(exc, FileNotFoundError):
+                        continue
+                    if recovering:
+                        raise
                     _log(f"  WARN: could not remove {rel}: {exc}")
 
         # Strip our managed UE4SS mods.txt entries - leaves user sentinels intact,
         # or removes the file entirely if nothing else is left.
-        ue4ss_dest = self._resolve_ue4ss_mods_dest()
+        ue4ss_dest = None if missing_game else self._resolve_ue4ss_mods_dest()
         if ue4ss_dest is not None:
             try:
                 self._update_ue4ss_mods_txt(set(), log_fn=_log)
@@ -2648,7 +2679,7 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         # Restore any vanilla files that were displaced during deploy
         vanilla_backup_dir = (self._game_path or game_path) / _VANILLA_BACKUP_DIR
         restored_vanilla = 0
-        if vanilla_backup_dir.is_dir():
+        if not missing_game and vanilla_backup_dir.is_dir():
             for backup_file in vanilla_backup_dir.rglob("*"):
                 if not backup_file.is_file():
                     continue
@@ -2668,8 +2699,10 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
 
         # Restore custom-dir vanilla files (e.g. engine.ini deployed to a
         # custom separator location outside the game root).
-        custom_vanilla_backup_dir = self.get_profile_root() / _CUSTOM_VANILLA_BACKUP_DIR
-        if custom_vanilla_backup_dir.is_dir():
+        if recovery is not None:
+            recovery.retire_journal(manifest_path)
+            restored_vanilla += _restore_backup_dir(custom_vanilla_backup_dir, Path("/"), _log)
+        elif custom_vanilla_backup_dir.is_dir():
             for backup_file in custom_vanilla_backup_dir.rglob("*"):
                 if not backup_file.is_file():
                     continue

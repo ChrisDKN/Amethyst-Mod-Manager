@@ -126,6 +126,10 @@ def write_order(game, mods_dir: Path, profile_dir: Path, log_fn, *, physical: bo
 
 def remove_generated_order(mods_dir: Path, profile_dir: Path, log_fn) -> None:
     state_path = profile_dir / STATE_FILE
+    from Utils.deployment.missing_installation import archive_if_missing
+
+    if archive_if_missing(mods_dir, state_path):
+        return
     if not state_path.exists():
         return
     state = json.loads(state_path.read_text(encoding="utf-8"))

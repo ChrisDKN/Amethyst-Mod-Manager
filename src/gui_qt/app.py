@@ -12632,6 +12632,19 @@ class MainWindow(QMainWindow, PluginPanelControls):
                     return
                 self._on_add_game_add(name)
 
+            if game.get_deploy_active():
+                ConfirmOverlay.show_over(
+                    self, self.tr("Game unavailable"),
+                    self.tr(
+                        "{0} is unavailable and still has an active deployment. "
+                        "Reconnect its drive if it is disconnected. To change its "
+                        "location or remove it, open Reconfigure game and select "
+                        "Restore previous deployment."
+                    ).format(name),
+                    lambda ok: _reconfigure() if ok else None,
+                    confirm_label=self.tr("Reconfigure game"), danger=False)
+                return
+
             ConfirmOverlay.show_over(
                 self, self.tr("Game unavailable"),
                 self.tr(
@@ -14796,7 +14809,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
 
     def _on_restore(self, *, recovery_profile_dir=None):
         game = self._gs.game
-        if game is None or not game.is_configured():
+        if game is None:
             self._notify(self.tr("No configured game selected."), "warning")
             return
         if self._deploy_running:
@@ -14811,6 +14824,13 @@ class MainWindow(QMainWindow, PluginPanelControls):
             self._notify(self.tr("{0} is running - restore again when it "
                                  "finishes.").format(self._tool_busy_label()),
                          "warning")
+            return
+        if not game.is_configured():
+            from Utils.deployment.pipeline import missing_restore_game_path
+            if missing_restore_game_path(game) is not None:
+                self._open_configure_game_tab(game)
+            else:
+                self._notify(self.tr("No configured game selected."), "warning")
             return
         # Defer behind a detached-wizard staging job (shared game mutation) - it
         # re-runs once the staged queue drains (_on_wizard_finish_done). Coalesce

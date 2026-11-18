@@ -155,6 +155,7 @@ def restore_mod_settings(game, log_fn=None) -> None:
     journal = game.get_profile_root() / _JOURNAL
     if not journal.is_file():
         return
+    from Utils.deployment.missing_installation import archive_if_missing
     from Utils.deployment.shared import RestoreIncompleteError
 
     try:
@@ -162,6 +163,8 @@ def restore_mod_settings(game, log_fn=None) -> None:
         target = Path(state["path"])
         if not target.is_absolute():
             raise ValueError("Invalid Witcher mod-settings journal path")
+        if archive_if_missing(target, journal):
+            return
         original = bytes.fromhex(state["original"])
         written = bytes.fromhex(state["written"])
         current = target.read_bytes() if target.exists() else None

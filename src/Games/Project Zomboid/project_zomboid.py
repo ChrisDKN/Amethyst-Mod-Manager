@@ -422,7 +422,15 @@ class ProjectZomboid(BaseGame):
         _log = log_fn or (lambda _: None)
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
-        mods_dir = self.get_mod_data_path()
+        from Utils.deployment.missing_installation import archive_if_missing, current_recovery
+
+        recovery = current_recovery.get()
+        mods_dir = recovery.mod_data_path if recovery else None
+        prefix = self.get_prefix_path()
+        if mods_dir is None and archive_if_missing(prefix):
+            mods_dir = self._prefix_zomboid_dir(prefix) / self.mods_dir
+        if mods_dir is None:
+            mods_dir = self.get_mod_data_path()
         if mods_dir is None:
             raise RuntimeError("Could not resolve the Zomboid cache directory.")
         core_dir = mods_dir.parent / _CORE_DIR_NAME
@@ -432,6 +440,8 @@ class ProjectZomboid(BaseGame):
         profile_dir = self._active_profile_dir
         if profile_dir is not None:
             mods_log_path = profile_dir / _MODS_DEPLOY_LOG
+            if archive_if_missing(mods_dir, mods_log_path):
+                return
             deployed_map = _read_mods_deploy_log(mods_log_path)
         overwrite_dir = self.get_effective_overwrite_path()
 

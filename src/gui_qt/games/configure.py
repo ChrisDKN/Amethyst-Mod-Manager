@@ -2939,6 +2939,23 @@ class ConfigureGameView(QWidget):
     def _on_restore(self):
         if self._destructive_busy or not self._game.get_deploy_active():
             return
+        from Utils.deployment.pipeline import missing_restore_game_path
+        missing_path = missing_restore_game_path(self._game)
+        if missing_path is not None:
+            from gui_qt.dialogs.confirm import ConfirmOverlay
+            ConfirmOverlay.show_over(
+                self, self.tr("Restore without the original installation?"),
+                self.tr(
+                    "Amethyst could not find the previous game folder at {0}.\n\n"
+                    "If the drive is temporarily disconnected, reconnect it before "
+                    "restoring. If the installation is gone, continue to recover "
+                    "the previous deployment. Amethyst will restore files at "
+                    "available locations and keep backups for missing locations "
+                    "in staging."
+                ).format(missing_path),
+                lambda ok: self._do_restore(missing_game_path=missing_path) if ok else None,
+                confirm_label=self.tr("Restore"), card_h=330)
+            return
         self._confirm(
             self.tr("Restore previous deployment"),
             self.tr(
@@ -2948,7 +2965,7 @@ class ConfigureGameView(QWidget):
                 "adding or reconfiguring the game.").format(self._game.name),
             self._do_restore)
 
-    def _do_restore(self):
+    def _do_restore(self, *, missing_game_path=None):
         if self._destructive_busy:
             return
         self._destructive_busy = True
@@ -2973,7 +2990,7 @@ class ConfigureGameView(QWidget):
                 ok = run_restore_pipeline(
                     game, profile, log_fn=log,
                     operation_owner="desktop:configure-restore",
-                    use_recorded_paths=True)
+                    use_recorded_paths=True, missing_game_path=missing_game_path)
                 return ok, "\n".join(messages[-3:]) if not ok else ""
             except Exception as exc:
                 app_log(f"Restore failed: {exc}")

@@ -507,7 +507,9 @@ class EldenRing(BaseGame):
         """Remove exactly the files _deploy_proxy_loader recorded."""
         manifest = self._eml_manifest_path()
         exe_dir = self.get_exe_dir()
-        if not manifest.is_file() or exe_dir is None:
+        from Utils.deployment.missing_installation import archive_if_missing
+
+        if not manifest.is_file() or exe_dir is None or archive_if_missing(exe_dir, manifest):
             return
         try:
             rels = [line.strip() for line in
@@ -613,6 +615,10 @@ class EldenRing(BaseGame):
             self.get_effective_filemap_path().parent / _FILEMAP_SNAPSHOT_NAME
         )
         if game_root is None or not snapshot.is_file():
+            return 0
+        from Utils.deployment.missing_installation import archive_if_missing
+
+        if archive_if_missing(game_root, snapshot):
             return 0
         moved = _move_runtime_files(
             Path(game_root), snapshot, self.get_effective_overwrite_path(),

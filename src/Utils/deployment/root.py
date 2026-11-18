@@ -493,7 +493,11 @@ def restore_root_folder(
     backup_dir = root_folder_dir.parent / _ROOT_BACKUP_NAME
     identity_path = root_folder_dir.parent / _ROOT_IDENTITY_NAME
 
-    if not log_path.is_file():
+    from Utils.deployment.missing_installation import archive_if_missing, current_recovery
+
+    recovering = current_recovery.get() is not None
+    has_log = log_path.is_file()
+    if not has_log and not recovering:
         return 0
 
     if identity_path.is_file():
@@ -505,6 +509,11 @@ def restore_root_folder(
             if not isinstance(recorded_root, str) or not Path(recorded_root).is_absolute():
                 raise RuntimeError("Invalid recorded root deployment path")
             game_root = Path(recorded_root)
+
+    if archive_if_missing(game_root, log_path, backup_dir, identity_path) or not has_log:
+        return 0
+    if recovering and not game_root.is_dir():
+        raise RuntimeError(f"Root Folder deployment belongs to {game_root}.")
 
     # Parse log: files section and optional ---dirs--- section.
     content = log_path.read_text(encoding="utf-8", errors="surrogateescape")

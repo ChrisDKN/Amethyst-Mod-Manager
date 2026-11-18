@@ -362,7 +362,9 @@ class Morrowind(BaseGame):
 
         _log("Restore: removing mod plugins from Morrowind.ini ...")
         from Games.Morrowind.morrowind_ini import restore_morrowind_ini
-        if self._game_path:
+        from Utils.deployment.missing_installation import archive_if_missing
+
+        if self._game_path and not archive_if_missing(self._game_path):
             restore_morrowind_ini(self._game_path / "Morrowind.ini", data_dir, log_fn=_log)
 
         _log("Restore: clearing 'Data Files/' and moving 'Data Files_Core/' back ...")

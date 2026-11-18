@@ -1560,6 +1560,10 @@ def restore_data_core(
     """
     _log = _safe_log(log_fn)
     core_dir = core_dir or _default_core(deploy_dir)
+    from Utils.deployment.missing_installation import archive_if_missing
+
+    if archive_if_missing(deploy_dir):
+        return 0
     sweep_deploy_trash(deploy_dir.parent, log_fn=log_fn)
 
     if not core_dir.is_dir():

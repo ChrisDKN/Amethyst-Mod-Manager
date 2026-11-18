@@ -1270,6 +1270,9 @@ def deploy_custom_rules(
 def _custom_rules_restore_plan(
     filemap_path: Path, game_root: Path, prefix_root: Path | None, _log,
 ) -> tuple[list[tuple[str, Path]], set[Path]]:
+    from Utils.deployment.missing_installation import current_recovery
+
+    missing_installation = current_recovery.get()
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     roots_path = filemap_path.parent / _CUSTOM_RULES_ROOTS_NAME
     placed = list(dict.fromkeys(
@@ -1302,6 +1305,8 @@ def _custom_rules_restore_plan(
     safe_targets: list[tuple[str, Path]] = []
     for abs_str in placed:
         p = Path(abs_str)
+        if missing_installation is not None and missing_installation.contains(p):
+            continue
         # Allow paths under either game_root or prefix_root. Try the
         # unresolved path first so symlinks pointing outside the root are
         # not incorrectly blocked.
@@ -1378,6 +1383,8 @@ def validate_custom_rules_restore(
     filemap_path: Path, game_root: Path, prefix_root: Path | None = None,
     log_fn=None,
 ) -> None:
+    from Utils.deployment.missing_installation import archive_if_missing
+
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     if log_path.is_file():
         _custom_rules_restore_plan(filemap_path, game_root, prefix_root, _safe_log(log_fn))
@@ -1392,6 +1399,8 @@ def validate_custom_rules_restore(
             continue
         record = records.get(key)
         saved = record.get("path") if isinstance(record, dict) else None
+        if current is not None and saved and archive_if_missing(Path(saved)) and archive_if_missing(current):
+            continue
         if current is not None and (not saved or
                 Path(saved).resolve() == current.resolve() or
                 _root_identity_matches(record, current)):
@@ -1424,26 +1433,32 @@ def restore_custom_rules(
     ``custom_rules_prefix_backup``.
     """
     del rules  # unused - log file is the source of truth for what was placed
+    from Utils.deployment.missing_installation import current_recovery
+
+    missing_installation = current_recovery.get()
     _log = _safe_log(log_fn)
     log_path = filemap_path.parent / _CUSTOM_RULES_LOG_NAME
     backup_dir = filemap_path.parent / _CUSTOM_RULES_BACKUP_DIR
     prefix_backup_dir = filemap_path.parent / _CUSTOM_RULES_PREFIX_BACKUP_DIR
     roots_path = filemap_path.parent / _CUSTOM_RULES_ROOTS_NAME
 
+    def restore_originals():
+        restored = 0
+        for backup, root in ((backup_dir, game_root), (prefix_backup_dir, prefix_root)):
+            if root is not None:
+                restored += _restore_backup_dir(backup, root, _log)
+            elif backup.is_dir():
+                raise RestoreIncompleteError(
+                    "A prefix-routed original still needs restoring, but no "
+                    "Wine/Proton prefix is configured. Reconfigure the original "
+                    "prefix and run Restore again.")
+        return restored
+
     if not log_path.is_file():
         validate_custom_rules_restore(filemap_path, game_root, prefix_root)
         # An interruption during the backup phase can leave a recoverable
         # original before the pre-mutation destination journal exists.
-        restored = _restore_backup_dir(backup_dir, game_root, _log)
-        if prefix_root is not None:
-            restored += _restore_backup_dir(
-                prefix_backup_dir, prefix_root, _log)
-        elif prefix_backup_dir.is_dir():
-            raise RestoreIncompleteError(
-                "A prefix-routed original still needs restoring, but no "
-                "Wine/Proton prefix is configured. Reconfigure the original "
-                "prefix and run Restore again."
-            )
+        restored = restore_originals()
         if restored:
             _log(
                 "  Custom rules restore: recovered "
@@ -1454,6 +1469,11 @@ def restore_custom_rules(
 
     safe_targets, dirs_to_prune = _custom_rules_restore_plan(
         filemap_path, game_root, prefix_root, _log)
+    if missing_installation is not None:
+        safe_targets = [(original, path) for original, path in safe_targets
+                        if not missing_installation.contains(path)]
+        dirs_to_prune = {path for path in dirs_to_prune
+                         if not missing_installation.contains(path)}
     removed = 0
     retry_entries: list[str] = []
 
@@ -1557,15 +1577,7 @@ def restore_custom_rules(
     log_path.unlink()
 
     # Restore backed-up vanilla files
-    _restore_backup_dir(backup_dir, game_root, _log)
-    if prefix_root is not None:
-        _restore_backup_dir(prefix_backup_dir, prefix_root, _log)
-    elif prefix_backup_dir.is_dir():
-        raise RestoreIncompleteError(
-            "A prefix-routed original still needs restoring, but no "
-            "Wine/Proton prefix is configured. Reconfigure the original "
-            "prefix and run Restore again."
-        )
+    restore_originals()
 
     _remove_root_records(roots_path, _log)
 

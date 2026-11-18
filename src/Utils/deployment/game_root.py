@@ -351,6 +351,12 @@ def restore_filemap_from_root(
     log_path   = filemap_path.parent / _FILEMAP_LOG_NAME
     backup_dir = filemap_path.parent / _FILEMAP_BACKUP_DIR
 
+    from Utils.deployment.missing_installation import archive_if_missing
+
+    if archive_if_missing(game_root, log_path, backup_dir,
+                          filemap_path.parent / _FILEMAP_SNAPSHOT_NAME):
+        return 0
+
     if not log_path.is_file():
         _log("  No filemap_deployed.txt found - nothing to restore.")
         return 0
