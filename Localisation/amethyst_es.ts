@@ -1239,24 +1239,40 @@ Configure su configuración INI, luego cierre y haga clic en Done.</translation>
       <translation>Lista negra — {0}</translation>
     </message>
     <message>
-      <source>Applies to all profiles for this game. Matching files and folders are excluded from deployment and conflict tracking; files remain in staging. Changes apply on the next deploy, or automatically when auto-deploy is enabled.</source>
-      <translation>Se aplica a todos los perfiles de este juego. Los archivos y carpetas coincidentes están excluidos de la implementación y el seguimiento de conflictos, los archivos permanecen en escena. Los cambios se aplican en el siguiente despliegue o automáticamente cuando está habilitado el despliegue automático.</translation>
+      <source>Applies to all profiles for this game. Exclusions prevent deployment. Conflict-only rules keep files deployed and hide their conflicts. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Deployment exclusions take precedence.</source>
+      <translation>Se aplica a todos los perfiles de este juego. Las exclusiones impiden el despliegue. Las reglas de sólo conflicto mantienen los archivos desplegados y ocultan sus conflictos. Los cambios se aplican en el siguiente despliegue o automáticamente cuando el despliegue automático está habilitado. Las exclusiones de despliegue tienen prioridad.</translation>
     </message>
     <message>
-      <source>Files</source>
-      <translation>Archivos</translation>
+      <source>Exclude Files</source>
+      <translation>Excluir archivos</translation>
     </message>
     <message>
-      <source>Case-insensitive filename patterns, e.g. *.txt or readme*.</source>
-      <translation>Patrones de nombres de archivo insensibles para mayúsculas, por ejemplo, *.txt o readme*.</translation>
+      <source>Case-insensitive filename patterns excluded from deployment and conflict tracking, e.g. *.txt or readme*.</source>
+      <translation>Patrones de nombres de archivo insensibles para mayúsculas y minúsculas excluidos de la implementación y seguimiento de conflictos, por ejemplo, *.txt o readme*.</translation>
     </message>
     <message>
-      <source>Folders</source>
-      <translation>Carpetas</translation>
+      <source>Exclude Folders</source>
+      <translation>Excluir carpetas</translation>
     </message>
     <message>
-      <source>Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Matching folders exclude their entire contents.</source>
-      <translation>Patrones de nombre de carpeta insensibles en mayúsculas y minúsculas en cualquier profundidad, por ejemplo, docs o *_backup. Las carpetas coincidentes excluyen todo su contenido.</translation>
+      <source>Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Their entire contents are excluded from deployment and conflict tracking.</source>
+      <translation>Patrones de carpeta insensibles en mayúsculas y minúsculas en cualquier profundidad, por ejemplo, docs o *_backup. Su contenido completo está excluido del despliegue y seguimiento de conflictos.</translation>
+    </message>
+    <message>
+      <source>Ignore File Conflicts</source>
+      <translation>Ignorar conflictos de archivos</translation>
+    </message>
+    <message>
+      <source>Case-insensitive destination filename patterns, e.g. readme*.txt. Matching files deploy normally without conflict reporting.</source>
+      <translation>Patrones de nombres de archivo insensibles para mayúsculas y minúsculas, por ejemplo, readme*.txt. Los archivos coincidentes se despliegan normalmente sin reportes de conflictos.</translation>
+    </message>
+    <message>
+      <source>Ignore Folder Conflicts</source>
+      <translation>Conflictos de la carpeta Ignore</translation>
+    </message>
+    <message>
+      <source>Case-insensitive destination folder-name patterns at any depth, e.g. docs or *_info. Their contents and subfolders deploy normally without conflict reporting.</source>
+      <translation>Los patrones de nombres de carpeta de destino insensibles para mayúsculas y minúsculas en cualquier profundidad, por ejemplo, documentos o *_info. Sus contenidos y subcarpetas se despliegan normalmente sin reportes de conflictos.</translation>
     </message>
     <message>
       <source>Pattern</source>
@@ -2111,6 +2127,10 @@ Presione Intentar de nuevo, o utilice Navegar para seleccionarlo manualmente.</t
     <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Galería Wabbajack y paquetes</translation>
+    </message>
+    <message>
+      <source>{0} (shared with {1})</source>
+      <translation>{0} (compartido con {1})</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -3582,6 +3602,18 @@ La configuración del perfil predeterminado no se ve afectada.</translation>
       <translation>Restaurar despliegue anterior</translation>
     </message>
     <message>
+      <source>Duplicate Instance…</source>
+      <translation>Duplicate Instance…</translation>
+    </message>
+    <message>
+      <source>Create a fresh instance with independent locations, mods and profiles.</source>
+      <translation>Crea una instancia nueva con ubicaciones, mods y perfiles independientes.</translation>
+    </message>
+    <message>
+      <source>This handler must declare independent instance support and its write targets.</source>
+      <translation>Este manejador debe declarar soporte de instancia independiente y sus objetivos de escritura.</translation>
+    </message>
+    <message>
       <source>Configured</source>
       <translation>Configurado</translation>
     </message>
@@ -3632,6 +3664,14 @@ La configuración del perfil predeterminado no se ve afectada.</translation>
     <message>
       <source>Mod staging</source>
       <translation>Mod staging</translation>
+    </message>
+    <message>
+      <source>Each instance needs its own configuration file.</source>
+      <translation>Cada instancia necesita su propio archivo de configuración.</translation>
+    </message>
+    <message>
+      <source>OpenMW config</source>
+      <translation>Configuración OpenMW</translation>
     </message>
     <message>
       <source>Previous deployment's staging folder. Restore before changing it.</source>
@@ -3698,6 +3738,10 @@ Flatpak aplica un nuevo acceso al sistema de archivos en el próximo lanzamiento
       <translation>Más tarde</translation>
     </message>
     <message>
+      <source>Creating instance…</source>
+      <translation>Creando instancia…</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>Primero, configura la carpeta de instalación del juego.</translation>
     </message>
@@ -3716,6 +3760,10 @@ Flatpak aplica un nuevo acceso al sistema de archivos en el próximo lanzamiento
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>La carpeta de montaje mod no puede ser la carpeta de juego o estar dentro de ella. Elige una ubicación separada.</translation>
+    </message>
+    <message>
+      <source>Enter an absolute OpenMW configuration path.</source>
+      <translation>Introduzca una ruta de configuración absoluta de OpenMW.</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -3778,6 +3826,22 @@ Flatpak aplica un nuevo acceso al sistema de archivos en el próximo lanzamiento
       <translation>Moviendo archivos Staging de Mod</translation>
     </message>
     <message>
+      <source>Restore without the original installation?</source>
+      <translation>¿Restaurar sin la instalación original?</translation>
+    </message>
+    <message>
+      <source>Amethyst could not find the previous game folder at {0}.
+
+If the drive is temporarily disconnected, reconnect it before restoring. If the installation is gone, continue to recover the previous deployment. Amethyst will restore files at available locations and keep backups for missing locations in staging.</source>
+      <translation>Amethyst no pudo encontrar la carpeta del juego anterior en {0}.
+
+Si la unidad está temporalmente desconectada, vuelva a conectarla antes de restaurarla. Si la instalación ha desaparecido, continúe recuperando el despliegue anterior. Amethyst restaurará archivos en ubicaciones disponibles y mantendrá copias de seguridad para ubicaciones que faltan en el escenario.</translation>
+    </message>
+    <message>
+      <source>Restore</source>
+      <translation>Restaurar</translation>
+    </message>
+    <message>
       <source>Restore the previous deployment of {0} using its saved locations?
 
 Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</source>
@@ -3804,6 +3868,10 @@ Los cambios de ubicación no guardados se mantendrán en este formulario. Despu�
     <message>
       <source>Restore failed: {0}</source>
       <translation>Restauración fallida: {0}</translation>
+    </message>
+    <message>
+      <source>Deployment state repaired. Review the recovery advice before deploying.</source>
+      <translation>Estado de despliegue reparado. Revise el consejo de recuperación antes de desplegar.</translation>
     </message>
     <message>
       <source>Yes</source>
@@ -4914,6 +4982,14 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
       <translation>Comunidad Thunderstore</translation>
     </message>
     <message>
+      <source>Hexium Community</source>
+      <translation>Comunidad Hexium</translation>
+    </message>
+    <message>
+      <source>The game's community slug on hexium.gg. e.g. 'valheim'. Leave empty if the game has no Hexium page.</source>
+      <translation>El slug de la comunidad del juego en hexium.gg. ej. 'valheim'. Deje en blanco si el juego no tiene página de Hexio.</translation>
+    </message>
+    <message>
       <source>The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page.</source>
       <translation>La pelea comunitaria del juego en la tienda de truenos.io. por ejemplo, 'compaña letal'. Deja vacío si el juego no tiene página Thunderstore.</translation>
     </message>
@@ -5166,16 +5242,8 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
       <translation>Reglas de enrutamiento personalizadas</translation>
     </message>
     <message>
-      <source>Route specific files to alternate destinations during deploy. Each rule maps files (by extension, folder or filename) to a game-root-relative directory. For extensions, append (.ext, .ext) to also route same-stem siblings (e.g. .asi (.ini) sends Foo.ini alongside Foo.asi). Flatten drops subfolders below the matched folder. To Prefix routes relative to the Proton/Wine prefix root instead of the game install root.</source>
-      <translation>Redirigir archivos específicos a destinos alternativos durante la implementación. Cada regla asigna archivos (por extensión, carpeta o nombre de archivo) a un directorio relativo a la raíz del juego. En el caso de las extensiones, añade (.ext, .ext) para redirigir también los archivos hermanos con la misma raíz (por ejemplo, .asi (.ini) envía Foo.ini junto con Foo.asi). La opción «Flatten» elimina las subcarpetas situadas debajo de la carpeta coincidente. La opción «Prefix» redirige los archivos en relación con la raíz del prefijo de Proton/Wine, en lugar de con la raíz de instalación del juego.</translation>
-    </message>
-    <message>
       <source>+ Add Rule</source>
       <translation>+ Añadir regla</translation>
-    </message>
-    <message>
-      <source>Destination</source>
-      <translation>Destino</translation>
     </message>
     <message>
       <source>File/folder</source>
@@ -5306,6 +5374,10 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
       <translation>e.g. lethal-empresa</translation>
     </message>
     <message>
+      <source>e.g. valheim</source>
+      <translation>e.g. valheim</translation>
+    </message>
+    <message>
       <source>Banner Image URL</source>
       <translation>URL de la imagen del banner</translation>
     </message>
@@ -5314,8 +5386,28 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
       <translation>Mod Install Tuning</translation>
     </message>
     <message>
+      <source>Install Rules (0)</source>
+      <translation>Instalar Reglas (0)</translation>
+    </message>
+    <message>
+      <source>Install Rules</source>
+      <translation>Instalar Reglas</translation>
+    </message>
+    <message>
+      <source>Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</source>
+      <translation type="unfinished">Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</translation>
+    </message>
+    <message>
       <source>Conflicts &amp; Advanced Behaviour</source>
       <translation>Conflictos " Comportamiento avanzado</translation>
+    </message>
+    <message>
+      <source>Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</source>
+      <translation type="unfinished">Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</translation>
+    </message>
+    <message>
+      <source>Routing Rules (0)</source>
+      <translation type="unfinished">Routing Rules (0)</translation>
     </message>
     <message>
       <source>Game Sub-folder</source>
@@ -5324,6 +5416,14 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
     <message>
       <source>e.g. Data   (leave empty for game root)</source>
       <translation>p. ej., Datos   (dejar en blanco para la raíz del juego)</translation>
+    </message>
+    <message>
+      <source>Routing Rules ({0})</source>
+      <translation type="unfinished">Routing Rules ({0})</translation>
+    </message>
+    <message>
+      <source>Install Rules ({0})</source>
+      <translation type="unfinished">Install Rules ({0})</translation>
     </message>
     <message>
       <source>Move up</source>
@@ -5350,22 +5450,6 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
       <translation>Archivo/Carpeta</translation>
     </message>
     <message>
-      <source>Loose only</source>
-      <translation>Solo a granel</translation>
-    </message>
-    <message>
-      <source>Flatten</source>
-      <translation>Aplanar</translation>
-    </message>
-    <message>
-      <source>Include Siblings</source>
-      <translation>Incluir a los hermanos</translation>
-    </message>
-    <message>
-      <source>To Prefix</source>
-      <translation>Prefijo</translation>
-    </message>
-    <message>
       <source>Remove rule</source>
       <translation>Eliminar regla</translation>
     </message>
@@ -5384,6 +5468,10 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
     <message>
       <source>Remove framework</source>
       <translation>Eliminar el marco</translation>
+    </message>
+    <message>
+      <source>Hexium Community must be a community slug, for example 'valheim'.</source>
+      <translation type="unfinished">Hexium Community must be a community slug, for example 'valheim'.</translation>
     </message>
     <message>
       <source>Downloading image…</source>
@@ -5473,6 +5561,75 @@ Cuando se complete, la aplicación cambia al nuevo perfil - luego vuelve aquí y
     <message>
       <source>OK</source>
       <translation>Vale</translation>
+    </message>
+  </context>
+  <context>
+    <name>DependencyInstallOverlay</name>
+    <message>
+      <source>Installing Windows dependencies</source>
+      <translation type="unfinished">Installing Windows dependencies</translation>
+    </message>
+    <message>
+      <source>{0}
+Prefix: {1}</source>
+      <translation type="unfinished">{0}
+Prefix: {1}</translation>
+    </message>
+    <message>
+      <source>Dependency</source>
+      <translation type="unfinished">Dependency</translation>
+    </message>
+    <message>
+      <source>Status</source>
+      <translation type="unfinished">Status</translation>
+    </message>
+    <message>
+      <source>Waiting</source>
+      <translation type="unfinished">Waiting</translation>
+    </message>
+    <message>
+      <source>Checking Windows dependencies…</source>
+      <translation type="unfinished">Checking Windows dependencies…</translation>
+    </message>
+    <message>
+      <source>%v of %m dependencies processed</source>
+      <translation type="unfinished">%v of %m dependencies processed</translation>
+    </message>
+    <message>
+      <source>Processed</source>
+      <translation type="unfinished">Processed</translation>
+    </message>
+    <message>
+      <source>Checking / installing</source>
+      <translation type="unfinished">Checking / installing</translation>
+    </message>
+    <message>
+      <source>Setting up {0} ({1} of {2})…</source>
+      <translation type="unfinished">Setting up {0} ({1} of {2})…</translation>
+    </message>
+    <message>
+      <source>Failed</source>
+      <translation type="unfinished">Failed</translation>
+    </message>
+    <message>
+      <source>Not run</source>
+      <translation type="unfinished">Not run</translation>
+    </message>
+    <message>
+      <source>Dependency setup failed: {0}</source>
+      <translation type="unfinished">Dependency setup failed: {0}</translation>
+    </message>
+    <message>
+      <source>Installed</source>
+      <translation type="unfinished">Installed</translation>
+    </message>
+    <message>
+      <source>Skipped</source>
+      <translation type="unfinished">Skipped</translation>
+    </message>
+    <message>
+      <source>Dependency setup finished: {0} installed, {1} skipped, {2} failed.</source>
+      <translation type="unfinished">Dependency setup finished: {0} installed, {1} skipped, {2} failed.</translation>
     </message>
   </context>
   <context>
@@ -5885,6 +6042,33 @@ Compruebe la salida arriba y el registro.</translation>
     </message>
   </context>
   <context>
+    <name>DuplicateInstanceOverlay</name>
+    <message>
+      <source>Duplicate Instance</source>
+      <translation type="unfinished">Duplicate Instance</translation>
+    </message>
+    <message>
+      <source>Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</source>
+      <translation type="unfinished">Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</translation>
+    </message>
+    <message>
+      <source>New instance name</source>
+      <translation type="unfinished">New instance name</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation type="unfinished">Continue</translation>
+    </message>
+    <message>
+      <source>Instance ID: {0}</source>
+      <translation type="unfinished">Instance ID: {0}</translation>
+    </message>
+  </context>
+  <context>
     <name>DynDOLODView</name>
     <message>
       <source>{0} - {1}</source>
@@ -5987,6 +6171,10 @@ o utiliza «Examinar» para seleccionarlo manualmente.</translation>
       <translation>Paso 4: Implementar Modlist</translation>
     </message>
     <message>
+      <source>Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</source>
+      <translation type="unfinished">Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</translation>
+    </message>
+    <message>
       <source>Skip</source>
       <translation>Saltar</translation>
     </message>
@@ -6041,10 +6229,6 @@ Reinicia el asistente e instala primero {1}.</translation>
       <translation>Iniciando {0}…</translation>
     </message>
     <message>
-      <source>{0} finished.</source>
-      <translation>{0} terminó.</translation>
-    </message>
-    <message>
       <source>Launch error: {0}</source>
       <translation>Error de lanzamiento: {0}</translation>
     </message>
@@ -6053,26 +6237,58 @@ Reinicia el asistente e instala primero {1}.</translation>
       <translation>Recuperando la última versión de GitHub…</translation>
     </message>
     <message>
+      <source>Output folder: {0}</source>
+      <translation type="unfinished">Output folder: {0}</translation>
+    </message>
+    <message>
+      <source>Checking generation inputs…</source>
+      <translation type="unfinished">Checking generation inputs…</translation>
+    </message>
+    <message>
+      <source>Preparing the tool prefix…</source>
+      <translation type="unfinished">Preparing the tool prefix…</translation>
+    </message>
+    <message>
+      <source>Finishing the tool session…</source>
+      <translation type="unfinished">Finishing the tool session…</translation>
+    </message>
+    <message>
+      <source>Restoring the game after generation…</source>
+      <translation type="unfinished">Restoring the game after generation…</translation>
+    </message>
+    <message>
+      <source>Validating generated output…</source>
+      <translation type="unfinished">Validating generated output…</translation>
+    </message>
+    <message>
+      <source>Importing generated output as a new mod…</source>
+      <translation type="unfinished">Importing generated output as a new mod…</translation>
+    </message>
+    <message>
+      <source>Indexing the new output mod…</source>
+      <translation type="unfinished">Indexing the new output mod…</translation>
+    </message>
+    <message>
+      <source>Synchronizing generated plugins…</source>
+      <translation type="unfinished">Synchronizing generated plugins…</translation>
+    </message>
+    <message>
+      <source>{0} finished. Created '{1}'.</source>
+      <translation type="unfinished">{0} finished. Created '{1}'.</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</source>
+      <translation type="unfinished">{0} is running.
+When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</translation>
+    </message>
+    <message>
       <source>Searching Downloads folder…</source>
       <translation>Buscando en la carpeta «Descargas»…</translation>
     </message>
     <message>
       <source>Extracting…</source>
       <translation>Extrayendo…</translation>
-    </message>
-    <message>
-      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
-      <translation>Desactivar o eliminar el mod de salida '{0}' anterior antes de desplegar. La nueva salida se importa después de que la generación tenga éxito.</translation>
-    </message>
-    <message>
-      <source>Replace the disabled output after generation succeeds</source>
-      <translation>Reemplazar la salida deshabilitada después de que la generación tenga éxito</translation>
-    </message>
-    <message>
-      <source>{0} is running.
-Close the tool when generation finishes; its output will then be imported.</source>
-      <translation>{0} se está ejecutando.
-Cerrar la herramienta cuando termine la generación; su salida se importará.</translation>
     </message>
   </context>
   <context>
@@ -6968,6 +7184,14 @@ Prefijo de Proton: haga clic en 'Instalar Java en prefijo' una vez, luego se eje
       <translation>Herramientas de Proton</translation>
     </message>
     <message>
+      <source>Capture launch logs</source>
+      <translation type="unfinished">Capture launch logs</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+    </message>
+    <message>
       <source>Hide from dropdown</source>
       <translation>Ocultar desplegable</translation>
     </message>
@@ -7061,6 +7285,10 @@ Prefijo de Proton: haga clic en 'Instalar Java en prefijo' una vez, luego se eje
     <message>
       <source>Nexus</source>
       <translation>Nexus</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation type="unfinished">Hexium</translation>
     </message>
     <message>
       <source>Thunderstore</source>
@@ -7233,6 +7461,10 @@ Prefijo de Proton: haga clic en 'Instalar Java en prefijo' una vez, luego se eje
     <message>
       <source>This mod has no portable provider source.</source>
       <translation>Este mod no tiene fuente de proveedor portátil.</translation>
+    </message>
+    <message>
+      <source>This mod has no recorded package identity for this source.</source>
+      <translation type="unfinished">This mod has no recorded package identity for this source.</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -8564,6 +8796,40 @@ Directorio gestionado: {2}</translation>
     </message>
   </context>
   <context>
+    <name>LaunchLogEditor</name>
+    <message>
+      <source>Refresh</source>
+      <translation type="unfinished">Refresh</translation>
+    </message>
+    <message>
+      <source>No {0} log is available for the latest launch.
+Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</source>
+      <translation type="unfinished">No {0} log is available for the latest launch.
+Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</translation>
+    </message>
+    <message>
+      <source>Showing the last 2 MiB.
+</source>
+      <translation type="unfinished">Showing the last 2 MiB.
+</translation>
+    </message>
+    <message>
+      <source>Could not read log: {0}</source>
+      <translation type="unfinished">Could not read log: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>LauncherEntryOverlay</name>
+    <message>
+      <source>Capture launch logs</source>
+      <translation type="unfinished">Capture launch logs</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+    </message>
+  </context>
+  <context>
     <name>LauncherSettingsOverlay</name>
     <message>
       <source>Launch settings - {0}</source>
@@ -8604,6 +8870,14 @@ Directorio gestionado: {2}</translation>
     <message>
       <source>Deploy mods before launching</source>
       <translation>Instala los mods antes de iniciar el juego</translation>
+    </message>
+    <message>
+      <source>Capture launch logs</source>
+      <translation type="unfinished">Capture launch logs</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -11060,6 +11334,78 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>Juego no disponible</translation>
     </message>
     <message>
+      <source>The blacklist changed. Close and reopen the editor before saving.</source>
+      <translation type="unfinished">The blacklist changed. Close and reopen the editor before saving.</translation>
+    </message>
+    <message>
+      <source>Install Rules</source>
+      <translation type="unfinished">Install Rules</translation>
+    </message>
+    <message>
+      <source>The selected game changed. Reopen the editor.</source>
+      <translation type="unfinished">The selected game changed. Reopen the editor.</translation>
+    </message>
+    <message>
+      <source>Install rules changed while the editor was open. Reopen it before saving.</source>
+      <translation type="unfinished">Install rules changed while the editor was open. Reopen it before saving.</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation type="unfinished">Hexium</translation>
+    </message>
+    <message>
+      <source>Browse Hexium</source>
+      <translation type="unfinished">Browse Hexium</translation>
+    </message>
+    <message>
+      <source>Open game on Hexium</source>
+      <translation type="unfinished">Open game on Hexium</translation>
+    </message>
+    <message>
+      <source>Select game instance</source>
+      <translation type="unfinished">Select game instance</translation>
+    </message>
+    <message>
+      <source>Received an invalid or unsupported repository install link.</source>
+      <translation type="unfinished">Received an invalid or unsupported repository install link.</translation>
+    </message>
+    <message>
+      <source>Select and configure a game before installing repository mods.</source>
+      <translation type="unfinished">Select and configure a game before installing repository mods.</translation>
+    </message>
+    <message>
+      <source>Checking {0} dependencies…</source>
+      <translation type="unfinished">Checking {0} dependencies…</translation>
+    </message>
+    <message>
+      <source>This repository does not support the selected game.</source>
+      <translation type="unfinished">This repository does not support the selected game.</translation>
+    </message>
+    <message>
+      <source>Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</source>
+      <translation type="unfinished">Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</translation>
+    </message>
+    <message>
+      <source>Game or profile changed. Start the installation again.</source>
+      <translation type="unfinished">Game or profile changed. Start the installation again.</translation>
+    </message>
+    <message>
+      <source>Review package sources</source>
+      <translation type="unfinished">Review package sources</translation>
+    </message>
+    <message>
+      <source>Replacements affect every profile using these mod folders. Continue?</source>
+      <translation type="unfinished">Replacements affect every profile using these mod folders. Continue?</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation type="unfinished">Continue</translation>
+    </message>
+    <message>
+      <source>Downloading mod from {0}…</source>
+      <translation type="unfinished">Downloading mod from {0}…</translation>
+    </message>
+    <message>
       <source>Remove game</source>
       <translation>Eliminar juego</translation>
     </message>
@@ -11070,6 +11416,30 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
     <message>
       <source>Removed {0} from Amethyst.</source>
       <translation>Eliminado {0} de Ametist.</translation>
+    </message>
+    <message>
+      <source>Select a configured game with {0} support first.</source>
+      <translation type="unfinished">Select a configured game with {0} support first.</translation>
+    </message>
+    <message>
+      <source>A repository profile is already downloading.</source>
+      <translation type="unfinished">A repository profile is already downloading.</translation>
+    </message>
+    <message>
+      <source>Downloading {0} profile…</source>
+      <translation type="unfinished">Downloading {0} profile…</translation>
+    </message>
+    <message>
+      <source>Import {0} share code</source>
+      <translation type="unfinished">Import {0} share code</translation>
+    </message>
+    <message>
+      <source>Paste a share code from {0}:</source>
+      <translation type="unfinished">Paste a share code from {0}:</translation>
+    </message>
+    <message>
+      <source>Select a configured game with Thunderstore or Hexium support first.</source>
+      <translation type="unfinished">Select a configured game with Thunderstore or Hexium support first.</translation>
     </message>
     <message>
       <source>Restoring {0}…</source>
@@ -11372,22 +11742,6 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>Juego abierto en Thunderstore</translation>
     </message>
     <message>
-      <source>Received a malformed Thunderstore link.</source>
-      <translation>Recibió un enlace malformado de Thunderstore.</translation>
-    </message>
-    <message>
-      <source>Select and configure a game before installing Thunderstore mods.</source>
-      <translation>Seleccione y configure un juego antes de instalar mods Thunderstore.</translation>
-    </message>
-    <message>
-      <source>Checking Thunderstore dependencies…</source>
-      <translation>Revisando las dependencias de Thunderstore..</translation>
-    </message>
-    <message>
-      <source>Downloading mod from Thunderstore…</source>
-      <translation>Descargar mod de Thunderstore..</translation>
-    </message>
-    <message>
       <source>Thunderstore download failed - {0}</source>
       <translation>Descarga de Thunderstore falló - {0}</translation>
     </message>
@@ -11398,10 +11752,6 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
     <message>
       <source>all</source>
       <translation>todos</translation>
-    </message>
-    <message>
-      <source>Checking Thunderstore for updates ({0})…</source>
-      <translation>Chequeando Thunderstore para actualizaciones ({0})..</translation>
     </message>
     <message>
       <source>Thunderstore update check failed - see the log.</source>
@@ -11418,10 +11768,6 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
     <message>
       <source>{0} package(s) could not be checked.</source>
       <translation>Los paquetes {0} no pueden ser revisados.</translation>
-    </message>
-    <message>
-      <source>All Thunderstore mods are up to date.</source>
-      <translation>Todos los mods Thunderstore están actualizados.</translation>
     </message>
     <message>
       <source>This mod has no Thunderstore metadata.</source>
@@ -11610,28 +11956,12 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>Importar código compartido…</translation>
     </message>
     <message>
-      <source>Import Thunderstore share code</source>
-      <translation>Importar código compartido de Thunderstore</translation>
-    </message>
-    <message>
-      <source>Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:</source>
-      <translation>Pega un código compartido de Thunderstore de r2modman, Thunderstore Mod Manager o Gale:</translation>
-    </message>
-    <message>
-      <source>A Thunderstore profile is already downloading.</source>
-      <translation>Un perfil de Thunderstore ya está descargando.</translation>
-    </message>
-    <message>
       <source>Could not import share code: {0}</source>
       <translation>No se pudo importar el código compartido: {0}</translation>
     </message>
     <message>
       <source>Game changed. Enter the code again for the selected game.</source>
       <translation>Juego cambiado. Introduce el código de nuevo para el juego seleccionado.</translation>
-    </message>
-    <message>
-      <source>Downloading Thunderstore profile…</source>
-      <translation>Descargando el perfil de Thunderstore…</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -11722,12 +12052,12 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>Se ha cambiado el juego seleccionado; vuelva a cambiar la versión.</translation>
     </message>
     <message>
-      <source>Could not resolve all Thunderstore dependencies. Installation stopped; please try again. See the log for details.</source>
-      <translation>No se han podido resolver todas las dependencias de ThunderStore. La instalación se ha detenido; por favor, inténtelo de nuevo. Consulte el registro para más detalles.</translation>
-    </message>
-    <message>
       <source>{0} ({1}/{2} downloaded)</source>
       <translation>{0} ({1}/{2} descargado)</translation>
+    </message>
+    <message>
+      <source>A package download failed. Completed archives were retained; installation stopped.</source>
+      <translation type="unfinished">A package download failed. Completed archives were retained; installation stopped.</translation>
     </message>
     <message>
       <source>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</source>
@@ -11738,8 +12068,28 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>No se pudo iniciar el cambio de versión - ver registro.</translation>
     </message>
     <message>
+      <source>Checking package repositories for updates ({0})…</source>
+      <translation type="unfinished">Checking package repositories for updates ({0})…</translation>
+    </message>
+    <message>
+      <source>All checked packages are up to date.</source>
+      <translation type="unfinished">All checked packages are up to date.</translation>
+    </message>
+    <message>
+      <source>The selected instance is no longer available.</source>
+      <translation type="unfinished">The selected instance is no longer available.</translation>
+    </message>
+    <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
       <translation>Inicie sesión primero: Configuración de conexiones: Nexus ► Inicio de sesión a través de SSO.</translation>
+    </message>
+    <message>
+      <source>Finish the current operation before opening a Wabbajack list.</source>
+      <translation type="unfinished">Finish the current operation before opening a Wabbajack list.</translation>
+    </message>
+    <message>
+      <source>Finish the current Wabbajack operation before opening another list.</source>
+      <translation type="unfinished">Finish the current Wabbajack operation before opening another list.</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -11748,6 +12098,10 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
     <message>
       <source>Identifying Thunderstore mods…</source>
       <translation>Identificando mods Thunderstore..</translation>
+    </message>
+    <message>
+      <source>Game or profile changed. Start identification again.</source>
+      <translation type="unfinished">Game or profile changed. Start identification again.</translation>
     </message>
     <message>
       <source>Identifying mods failed - see the log.</source>
@@ -11772,6 +12126,18 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
     <message>
       <source>Could not identify any of the {0} mod(s) found.</source>
       <translation>No podía identificar ninguno de los mod(s) {0} encontrados.</translation>
+    </message>
+    <message>
+      <source>Select a configured game with Hexium support first.</source>
+      <translation type="unfinished">Select a configured game with Hexium support first.</translation>
+    </message>
+    <message>
+      <source>Choose Hexium author</source>
+      <translation type="unfinished">Choose Hexium author</translation>
+    </message>
+    <message>
+      <source>Identify</source>
+      <translation type="unfinished">Identify</translation>
     </message>
     <message>
       <source>Another installation or deployment operation</source>
@@ -12010,6 +12376,14 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>la comprobación de actualización mod.io está deshabilitada hasta que su ruta API se añada en la herramienta Mod.io API Key.</translation>
     </message>
     <message>
+      <source>Nexus update check failed; see log</source>
+      <translation type="unfinished">Nexus update check failed; see log</translation>
+    </message>
+    <message>
+      <source>Nexus: {0} mod(s) could not be checked; see log</source>
+      <translation type="unfinished">Nexus: {0} mod(s) could not be checked; see log</translation>
+    </message>
+    <message>
       <source>Mod providers: {0} updates</source>
       <translation>Mod providers: {0} updates</translation>
     </message>
@@ -12040,6 +12414,10 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
     <message>
       <source>Reinstall download</source>
       <translation>Descarga de reinstalación</translation>
+    </message>
+    <message>
+      <source>Nexus login is required for the selected Nexus mods.</source>
+      <translation type="unfinished">Nexus login is required for the selected Nexus mods.</translation>
     </message>
     <message>
       <source>Quick Update download cancelled.</source>
@@ -12162,6 +12540,10 @@ Ejecutar la actualización rápida en todos ellos ahora?</translation>
       <translation>Espere a que {0} termine antes de cambiar las partidas guardadas.</translation>
     </message>
     <message>
+      <source>{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</source>
+      <translation type="unfinished">{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</translation>
+    </message>
+    <message>
       <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
 
 If the game has moved, choose Reconfigure game to update its location.
@@ -12176,10 +12558,6 @@ Quitar este juego de Amatista? Sólo se eliminará su configuración guardada. S
     <message>
       <source>Reconfigure game</source>
       <translation>Reconfigurar juego</translation>
-    </message>
-    <message>
-      <source>Select a configured Thunderstore game first.</source>
-      <translation>Selecciona primero un juego de Thunderstore configurado.</translation>
     </message>
     <message>
       <source>Game changed. Open the manifest again for the selected game.</source>
@@ -12256,6 +12634,10 @@ Presiona Desplegar para aplicar tus mods, luego inicia el juego desde Steam, Her
     <message>
       <source>MangoHud controls</source>
       <translation>Controles de mango</translation>
+    </message>
+    <message>
+      <source>Logs</source>
+      <translation type="unfinished">Logs</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -12424,6 +12806,10 @@ Ejecute el mago de Downgrade para recortar el juego de nuevo a una versión comp
       <translation>Eliminar fuente vinculada</translation>
     </message>
     <message>
+      <source>Could not remove the previous version: {0}</source>
+      <translation type="unfinished">Could not remove the previous version: {0}</translation>
+    </message>
+    <message>
       <source>Rename linked source</source>
       <translation>Renombrar fuente enlazada</translation>
     </message>
@@ -12578,6 +12964,10 @@ Ejecute el mago de Downgrade para recortar el juego de nuevo a una versión comp
     <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
       <translation>Refrescando metadatos LOOT para plugins {0}..</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Run LOOT again.</source>
+      <translation type="unfinished">The active game or profile changed. Run LOOT again.</translation>
     </message>
     <message>
       <source>LOOT cancelled.</source>
@@ -13843,6 +14233,28 @@ Esto no se puede deshacer.</translation>
 {0}</translation>
     </message>
     <message>
+      <source>Custom URL</source>
+      <translation type="unfinished">Custom URL</translation>
+    </message>
+    <message>
+      <source>Open URL</source>
+      <translation type="unfinished">Open URL</translation>
+    </message>
+    <message>
+      <source>Set URL</source>
+      <translation type="unfinished">Set URL</translation>
+    </message>
+    <message>
+      <source>URL for {0} selected mod(s) (leave blank to clear):</source>
+      <translation type="unfinished">URL for {0} selected mod(s) (leave blank to clear):</translation>
+    </message>
+    <message>
+      <source>Could not set URL for "{0}":
+{1}</source>
+      <translation type="unfinished">Could not set URL for "{0}":
+{1}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>No se pudo guardar actualizaciones ignoradas para "{0}":
@@ -14211,6 +14623,18 @@ Esto no se puede deshacer.</translation>
       <translation>Abrir como pestaña</translation>
     </message>
     <message>
+      <source>Open mod pages</source>
+      <translation type="unfinished">Open mod pages</translation>
+    </message>
+    <message>
+      <source>Open source pages for {0} selected mods in your browser?</source>
+      <translation type="unfinished">Open source pages for {0} selected mods in your browser?</translation>
+    </message>
+    <message>
+      <source>Open pages</source>
+      <translation type="unfinished">Open pages</translation>
+    </message>
+    <message>
       <source>Lock Separator - Mods in this separator are attached to it</source>
       <translation>Separador de bloqueo - Mods en este separador se adjuntan a él</translation>
     </message>
@@ -14343,6 +14767,10 @@ Haga clic en Hecho para cerrar.</translation>
     <message>
       <source>Update available on mod.io</source>
       <translation>Actualización disponible en mod.io</translation>
+    </message>
+    <message>
+      <source>Update available on Hexium</source>
+      <translation type="unfinished">Update available on Hexium</translation>
     </message>
     <message>
       <source>Update available on Thunderstore</source>
@@ -15043,6 +15471,125 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <message>
       <source>Suggested names</source>
       <translation>Nombres propuestos</translation>
+    </message>
+  </context>
+  <context>
+    <name>NewCaliforniaView</name>
+    <message>
+      <source>Install New California - {0}</source>
+      <translation type="unfinished">Install New California - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Download New California</source>
+      <translation type="unfinished">Step 1: Download New California</translation>
+    </message>
+    <message>
+      <source>Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</source>
+      <translation type="unfinished">Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</translation>
+    </message>
+    <message>
+      <source>Step 2: Extract the installer</source>
+      <translation type="unfinished">Step 2: Extract the installer</translation>
+    </message>
+    <message>
+      <source>Installing New California</source>
+      <translation type="unfinished">Installing New California</translation>
+    </message>
+    <message>
+      <source>Step 3: Create a New California profile</source>
+      <translation type="unfinished">Step 3: Create a New California profile</translation>
+    </message>
+    <message>
+      <source>The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
+
+In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
+
+Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</source>
+      <translation type="unfinished">The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
+
+In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
+
+Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</translation>
+    </message>
+    <message>
+      <source>New profile name:</source>
+      <translation type="unfinished">New profile name:</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation type="unfinished">Continue</translation>
+    </message>
+    <message>
+      <source>Profile selection and deployment are unavailable here.</source>
+      <translation type="unfinished">Profile selection and deployment are unavailable here.</translation>
+    </message>
+    <message>
+      <source>Select the New California installer ZIP</source>
+      <translation type="unfinished">Select the New California installer ZIP</translation>
+    </message>
+    <message>
+      <source>Installer archive not found. Download it, then try again or browse.</source>
+      <translation type="unfinished">Installer archive not found. Download it, then try again or browse.</translation>
+    </message>
+    <message>
+      <source>Extracting installer into Applications…</source>
+      <translation type="unfinished">Extracting installer into Applications…</translation>
+    </message>
+    <message>
+      <source>Saving current INIs…</source>
+      <translation type="unfinished">Saving current INIs…</translation>
+    </message>
+    <message>
+      <source>Return to Fallout New Vegas before starting this wizard.</source>
+      <translation type="unfinished">Return to Fallout New Vegas before starting this wizard.</translation>
+    </message>
+    <message>
+      <source>The game or prefix paths changed. Reopen the wizard to review them.</source>
+      <translation type="unfinished">The game or prefix paths changed. Reopen the wizard to review them.</translation>
+    </message>
+    <message>
+      <source>Could not restore the original deployment.</source>
+      <translation type="unfinished">Could not restore the original deployment.</translation>
+    </message>
+    <message>
+      <source>Creating the new profile…</source>
+      <translation type="unfinished">Creating the new profile…</translation>
+    </message>
+    <message>
+      <source>Could not select the new profile.</source>
+      <translation type="unfinished">Could not select the new profile.</translation>
+    </message>
+    <message>
+      <source>Could not deploy the empty profile.</source>
+      <translation type="unfinished">Could not deploy the empty profile.</translation>
+    </message>
+    <message>
+      <source>Complete the New California installer, then close it without launching the game.</source>
+      <translation type="unfinished">Complete the New California installer, then close it without launching the game.</translation>
+    </message>
+    <message>
+      <source>Restore failed. Keep the recovery files and run Restore before continuing.</source>
+      <translation type="unfinished">Restore failed. Keep the recovery files and run Restore before continuing.</translation>
+    </message>
+    <message>
+      <source>New California is installed. The game is restored. Deploy this profile when you are ready to play.</source>
+      <translation type="unfinished">New California is installed. The game is restored. Deploy this profile when you are ready to play.</translation>
+    </message>
+    <message>
+      <source>New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
+{1}</source>
+      <translation type="unfinished">New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
+{1}</translation>
+    </message>
+    <message>
+      <source>Extracted installer files could not be removed. Remove them manually from {0}.
+{1}</source>
+      <translation type="unfinished">Extracted installer files could not be removed. Remove them manually from {0}.
+{1}</translation>
+    </message>
+    <message>
+      <source>Extracted installer files could not be removed from {0}: {1}</source>
+      <translation type="unfinished">Extracted installer files could not be removed from {0}: {1}</translation>
     </message>
   </context>
   <context>
@@ -17638,6 +18185,10 @@ Re-se puede verificar.</translation>
       <translation>Reglas de ruta</translation>
     </message>
     <message>
+      <source>Install Rules</source>
+      <translation type="unfinished">Install Rules</translation>
+    </message>
+    <message>
       <source>⊟ Collapse all</source>
       <translation>► Colapsar todo</translation>
     </message>
@@ -19609,6 +20160,22 @@ Elige «Conservar» si se trata de una variante opcional o alternativa, en lugar
       <translation>Comprueba los requisitos para verificar los archivos de juego, espacio disponible y tiempo de ejecución. Revisa los resultados antes de instalar.</translation>
     </message>
     <message>
+      <source>Manual downloads</source>
+      <translation type="unfinished">Manual downloads</translation>
+    </message>
+    <message>
+      <source>{0} files need to be downloaded through your browser during installation.</source>
+      <translation type="unfinished">{0} files need to be downloaded through your browser during installation.</translation>
+    </message>
+    <message>
+      <source>Free Nexus accounts and some download sites require browser downloads.</source>
+      <translation type="unfinished">Free Nexus accounts and some download sites require browser downloads.</translation>
+    </message>
+    <message>
+      <source>Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</source>
+      <translation type="unfinished">Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</translation>
+    </message>
+    <message>
       <source>Stock game folder: Invalid</source>
       <translation>Carpeta de Stock del juego: No válido</translation>
     </message>
@@ -19715,6 +20282,18 @@ Elige «Conservar» si se trata de una variante opcional o alternativa, en lugar
       <translation>Reglas de ruta: {0}</translation>
     </message>
     <message>
+      <source>Install Rules — {0}</source>
+      <translation type="unfinished">Install Rules — {0}</translation>
+    </message>
+    <message>
+      <source>Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</source>
+      <translation type="unfinished">Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</translation>
+    </message>
+    <message>
+      <source>Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</source>
+      <translation type="unfinished">Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</translation>
+    </message>
+    <message>
       <source>Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</source>
       <translation>Se aplica a todos los perfiles de este juego. Las reglas de emparejamiento anteriores tienen prioridad. Los cambios se aplican en el siguiente despliegue o automáticamente cuando el despliegue automático está habilitado. Las exclusiones de la lista negra siguen aplicándose. Las incorporaciones eliminadas siguen disponibles para restaurar.</translation>
     </message>
@@ -19757,6 +20336,10 @@ Elige «Conservar» si se trata de una variante opcional o alternativa, en lugar
     <message>
       <source>Empty = root of the selected destination base</source>
       <translation>Vacío = raíz de la base de destino seleccionada</translation>
+    </message>
+    <message>
+      <source>e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</source>
+      <translation type="unfinished">e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</translation>
     </message>
     <message>
       <source>Extensions, folders, and filenames are alternatives within one rule. For example, .asi, MyPlugins, and winmm.dll route all .asi files, everything inside MyPlugins, and winmm.dll to the same destination.</source>
@@ -19851,6 +20434,10 @@ Elige «Conservar» si se trata de una variante opcional o alternativa, en lugar
       <translation>Destinaciones son relativas a la raíz del prefijo Proton/Wine en lugar de la raíz del juego. Requiere un prefijo configurado.</translation>
     </message>
     <message>
+      <source>Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</source>
+      <translation type="unfinished">Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</translation>
+    </message>
+    <message>
       <source>Reset to built-in</source>
       <translation>Restablecer a integrado</translation>
     </message>
@@ -19873,6 +20460,10 @@ Elige «Conservar» si se trata de una variante opcional o alternativa, en lugar
     <message>
       <source>Game</source>
       <translation>Juego</translation>
+    </message>
+    <message>
+      <source>Staging</source>
+      <translation type="unfinished">Staging</translation>
     </message>
     <message>
       <source>Custom</source>
@@ -19909,6 +20500,10 @@ Elige «Conservar» si se trata de una variante opcional o alternativa, en lugar
     <message>
       <source>Could not save routing rules: {0}</source>
       <translation>No se pudieron guardar las reglas de enrutamiento: {0}</translation>
+    </message>
+    <message>
+      <source>Could not save install rules: {0}</source>
+      <translation type="unfinished">Could not save install rules: {0}</translation>
     </message>
   </context>
   <context>
@@ -21285,6 +21880,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Thunderstore</source>
       <translation>Thunderstore</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation type="unfinished">Hexium</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -24429,6 +25028,10 @@ o utiliza «Examinar» para seleccionarlo manualmente.</translation>
       <translation>NSFW</translation>
     </message>
     <message>
+      <source>Include prereleases</source>
+      <translation type="unfinished">Include prereleases</translation>
+    </message>
+    <message>
       <source>Refresh</source>
       <translation>Refrescar</translation>
     </message>
@@ -25095,6 +25698,14 @@ Intente borrar su búsqueda o filtros.</translation>
       <translation>Esta entrada no tiene ninguna URL de descarga de paquetes. Abrir un archivo .wabbajack local.</translation>
     </message>
     <message>
+      <source>Finish the current operation before opening another list.</source>
+      <translation type="unfinished">Finish the current operation before opening another list.</translation>
+    </message>
+    <message>
+      <source>Log in to Nexus before loading this collection revision.</source>
+      <translation type="unfinished">Log in to Nexus before loading this collection revision.</translation>
+    </message>
+    <message>
       <source>Downloading modlist package…</source>
       <translation>Descargando paquete modlist…</translation>
     </message>
@@ -25249,6 +25860,14 @@ Intente borrar su búsqueda o filtros.</translation>
     <message>
       <source>Check requirements first, then run the developer texture test.</source>
       <translation>Comprueba los requisitos primero, luego ejecuta la prueba de textura del desarrollador.</translation>
+    </message>
+    <message>
+      <source>Retry download</source>
+      <translation type="unfinished">Retry download</translation>
+    </message>
+    <message>
+      <source>{0} · Nexus revision {1}</source>
+      <translation type="unfinished">{0} · Nexus revision {1}</translation>
     </message>
     <message>
       <source>Local installation</source>
@@ -25730,6 +26349,10 @@ Prefijo: {1}</translation>
       <translation>Instalar la historia de dos desperdicios</translation>
     </message>
     <message>
+      <source>Install New California</source>
+      <translation type="unfinished">Install New California</translation>
+    </message>
+    <message>
       <source>BSA Decompressor</source>
       <translation>Descompresor BSA</translation>
     </message>
@@ -25888,6 +26511,10 @@ Prefijo: {1}</translation>
     <message>
       <source>Install ReShade</source>
       <translation>Instala ReShade</translation>
+    </message>
+    <message>
+      <source>Run the New California installer and capture its files and INIs in a dedicated profile.</source>
+      <translation type="unfinished">Run the New California installer and capture its files and INIs in a dedicated profile.</translation>
     </message>
     <message>
       <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
@@ -27039,6 +27666,29 @@ Siga las instrucciones en la ventana del terminal. YeetPatch requiere curl, jq, 
     </message>
   </context>
   <context>
+    <name>_PanelHandle</name>
+    <message>
+      <source>Drag to resize panels. Double-click to reset the layout.</source>
+      <translation type="unfinished">Drag to resize panels. Double-click to reset the layout.</translation>
+    </message>
+    <message>
+      <source>Resize modlist and plugins panels</source>
+      <translation type="unfinished">Resize modlist and plugins panels</translation>
+    </message>
+    <message>
+      <source>Show Modlist</source>
+      <translation type="unfinished">Show Modlist</translation>
+    </message>
+    <message>
+      <source>Show Plugins</source>
+      <translation type="unfinished">Show Plugins</translation>
+    </message>
+    <message>
+      <source>Click to reopen, or drag to resize.</source>
+      <translation type="unfinished">Click to reopen, or drag to resize.</translation>
+    </message>
+  </context>
+  <context>
     <name>_PolicyOverlay</name>
     <message>
       <source>Update policy - {0}</source>
@@ -27257,6 +27907,14 @@ Publishing hace que esta revisión se instale un usuario. No puede ser inédito,
     <message>
       <source>Download package from Thunderstore</source>
       <translation>Descargar paquete de Thunderstore</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation type="unfinished">Hexium</translation>
+    </message>
+    <message>
+      <source>Download package from Hexium</source>
+      <translation type="unfinished">Download package from Hexium</translation>
     </message>
     <message>
       <source>Mod provider</source>
