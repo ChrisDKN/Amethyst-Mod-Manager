@@ -5,6 +5,7 @@ py.install_sources(
   'custom_rules.py',
   'game_root.py',
   'incremental.py',
+  'missing_installation.py',
   'pipeline.py',
   'root.py',
   'shared.py',

@@ -1,10 +1,15 @@
 - v2.6.4
-- Fixed mods whose names differ only by casing sharing file listings and deployment ownership.
-- Fixed video files not playing correctly from the mod files tab
+## Game Support
+- Added V Rising
+## Changes
 - Proton/UMU launch logs are now optional (Default off)
 - Updated Mako integration to v5
+## Bug Fixes
+- Fixed mods whose names differ only by casing sharing file listings and deployment ownership.
+- Fixed video files not playing correctly from the mod files tab
 - Fixed missing-source errors for legacy BSA filenames when installing Wabbajack lists
 - Fixed gamescope, MangoHud and GameMode launch options failing during direct Flatpak launches.
+- Fixed missing game folders blocking deployment recovery, reconfiguration, or removal.
 
 ---
 
