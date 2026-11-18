@@ -5395,7 +5395,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</source>
-      <translation type="unfinished">Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</translation>
+      <translation>順序付けられたルールは、インストール後のストリップ後にプレーンアーカイブに適用されます。 &lt;modname&gt; &lt;random&gt; 宛先をサポートします。</translation>
     </message>
     <message>
       <source>Conflicts &amp; Advanced Behaviour</source>
@@ -5403,11 +5403,11 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</source>
-      <translation type="unfinished">Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</translation>
+      <translation>format@@0タブと同じエディタを使用してゲームのデフォルトルーティングルールを編集します。ルールはカスタムゲーム定義とともに保存されます。</translation>
     </message>
     <message>
       <source>Routing Rules (0)</source>
-      <translation type="unfinished">Routing Rules (0)</translation>
+      <translation>ルーティングルール (0)</translation>
     </message>
     <message>
       <source>Game Sub-folder</source>
@@ -5419,11 +5419,11 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>Routing Rules ({0})</source>
-      <translation type="unfinished">Routing Rules ({0})</translation>
+      <translation>ルーティングルール ({0})</translation>
     </message>
     <message>
       <source>Install Rules ({0})</source>
-      <translation type="unfinished">Install Rules ({0})</translation>
+      <translation>インストールルール ({0})</translation>
     </message>
     <message>
       <source>Move up</source>
@@ -5471,7 +5471,7 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>Hexium Community must be a community slug, for example 'valheim'.</source>
-      <translation type="unfinished">Hexium Community must be a community slug, for example 'valheim'.</translation>
+      <translation>Hexiumコミュニティは、例えば「valheim」のようなコミュニティナメクジでなければなりません。</translation>
     </message>
     <message>
       <source>Downloading image…</source>
@@ -5567,25 +5567,25 @@ When it completes, the app switches to the new profile - then come back here and
     <name>DependencyInstallOverlay</name>
     <message>
       <source>Installing Windows dependencies</source>
-      <translation type="unfinished">Installing Windows dependencies</translation>
+      <translation>Windowsの依存関係のインストール</translation>
     </message>
     <message>
       <source>{0}
 Prefix: {1}</source>
-      <translation type="unfinished">{0}
-Prefix: {1}</translation>
+      <translation>{0}
+プレフィックス: {1}</translation>
     </message>
     <message>
       <source>Dependency</source>
-      <translation type="unfinished">Dependency</translation>
+      <translation>依存関係</translation>
     </message>
     <message>
       <source>Status</source>
-      <translation type="unfinished">Status</translation>
+      <translation>ステータス</translation>
     </message>
     <message>
       <source>Waiting</source>
-      <translation type="unfinished">Waiting</translation>
+      <translation>待機中</translation>
     </message>
     <message>
       <source>Checking Windows dependencies…</source>
@@ -5593,15 +5593,15 @@ Prefix: {1}</translation>
     </message>
     <message>
       <source>%v of %m dependencies processed</source>
-      <translation type="unfinished">%v of %m dependencies processed</translation>
+      <translation>%v の %m 依存関係が処理されました</translation>
     </message>
     <message>
       <source>Processed</source>
-      <translation type="unfinished">Processed</translation>
+      <translation>処理完了</translation>
     </message>
     <message>
       <source>Checking / installing</source>
-      <translation type="unfinished">Checking / installing</translation>
+      <translation>確認/インストール中</translation>
     </message>
     <message>
       <source>Setting up {0} ({1} of {2})…</source>
@@ -5609,27 +5609,27 @@ Prefix: {1}</translation>
     </message>
     <message>
       <source>Failed</source>
-      <translation type="unfinished">Failed</translation>
+      <translation>失敗しました</translation>
     </message>
     <message>
       <source>Not run</source>
-      <translation type="unfinished">Not run</translation>
+      <translation>実行されません</translation>
     </message>
     <message>
       <source>Dependency setup failed: {0}</source>
-      <translation type="unfinished">Dependency setup failed: {0}</translation>
+      <translation>依存関係のセットアップに失敗しました: {0}</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>インストール済み</translation>
     </message>
     <message>
       <source>Skipped</source>
-      <translation type="unfinished">Skipped</translation>
+      <translation>スキップ</translation>
     </message>
     <message>
       <source>Dependency setup finished: {0} installed, {1} skipped, {2} failed.</source>
-      <translation type="unfinished">Dependency setup finished: {0} installed, {1} skipped, {2} failed.</translation>
+      <translation>依存関係のセットアップが完了しました: {0} がインストールされ、 {1} がスキップされ、 {2} が失敗しました。</translation>
     </message>
   </context>
   <context>
@@ -6045,27 +6045,27 @@ Check the output above and the log.</source>
     <name>DuplicateInstanceOverlay</name>
     <message>
       <source>Duplicate Instance</source>
-      <translation type="unfinished">Duplicate Instance</translation>
+      <translation>Duplicate Instance</translation>
     </message>
     <message>
       <source>Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</source>
-      <translation type="unfinished">Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</translation>
+      <translation>同じハンドラを使用して新しいインスタンスを作成し、キャッシュをダウンロードします。次の画面でインストールとランチャーを選択します。</translation>
     </message>
     <message>
       <source>New instance name</source>
-      <translation type="unfinished">New instance name</translation>
+      <translation>新しいインスタンス名</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>キャンセル</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>続ける</translation>
     </message>
     <message>
       <source>Instance ID: {0}</source>
-      <translation type="unfinished">Instance ID: {0}</translation>
+      <translation>インスタンス ID: {0}</translation>
     </message>
   </context>
   <context>
@@ -6172,7 +6172,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</source>
-      <translation type="unfinished">Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</translation>
+      <translation>デプロイする前に、以前の「{0}」出力を無効にします。各実行は新しい無効化されたModに生成されます。(2), (3) など。 必要な場合。生成が成功すると、新しいMODが有効になります。手動で削除するために、以前の出力が保持されます。</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -6238,7 +6238,7 @@ Please restart the wizard and install {1} first.</source>
     </message>
     <message>
       <source>Output folder: {0}</source>
-      <translation type="unfinished">Output folder: {0}</translation>
+      <translation>出力フォルダ: {0}</translation>
     </message>
     <message>
       <source>Checking generation inputs…</source>
@@ -6274,13 +6274,13 @@ Please restart the wizard and install {1} first.</source>
     </message>
     <message>
       <source>{0} finished. Created '{1}'.</source>
-      <translation type="unfinished">{0} finished. Created '{1}'.</translation>
+      <translation>{0} は完了しました。作成された '{1}'。</translation>
     </message>
     <message>
       <source>{0} is running.
 When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</source>
-      <translation type="unfinished">{0} is running.
-When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</translation>
+      <translation>{0} が実行されています。
+生成が完了したら、zippingせずに終了または保存&amp;終了を選択します。 プリセットの読み込み時に選択した出力パスを保持します。新しい出力モジュールは生成が成功すると有効になります。</translation>
     </message>
     <message>
       <source>Searching Downloads folder…</source>
@@ -7185,11 +7185,11 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     </message>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>起動ログをキャプチャする</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>起動出力とProton診断ログをキャッシュに保存します。</translation>
     </message>
     <message>
       <source>Hide from dropdown</source>
@@ -7288,7 +7288,7 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>ヘキシウム</translation>
     </message>
     <message>
       <source>Thunderstore</source>
@@ -7464,7 +7464,7 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     </message>
     <message>
       <source>This mod has no recorded package identity for this source.</source>
-      <translation type="unfinished">This mod has no recorded package identity for this source.</translation>
+      <translation>このMODにはこのソースのパッケージIDが記録されていません。</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -8799,34 +8799,34 @@ Managed directory: {2}</source>
     <name>LaunchLogEditor</name>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>更新</translation>
     </message>
     <message>
       <source>No {0} log is available for the latest launch.
 Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</source>
-      <translation type="unfinished">No {0} log is available for the latest launch.
-Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</translation>
+      <translation>最新の起動には {0} ログがありません。
+起動設定でキャプチャログを有効にし、Playを押します。 ネイティブおよびプレーンワインの起動はProtonログを生成しません。</translation>
     </message>
     <message>
       <source>Showing the last 2 MiB.
 </source>
-      <translation type="unfinished">Showing the last 2 MiB.
+      <translation>最後の 2 MiB を表示しています。
 </translation>
     </message>
     <message>
       <source>Could not read log: {0}</source>
-      <translation type="unfinished">Could not read log: {0}</translation>
+      <translation>ログを読むことができませんでした: {0}</translation>
     </message>
   </context>
   <context>
     <name>LauncherEntryOverlay</name>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>起動ログをキャプチャする</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>起動出力とProton診断ログをキャッシュに保存します。</translation>
     </message>
   </context>
   <context>
@@ -8873,11 +8873,11 @@ Enable Capture launch logs in launch settings, then press Play. Native and plain
     </message>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>起動ログをキャプチャする</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>起動出力とProton診断ログをキャッシュに保存します。</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -11335,43 +11335,43 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>The blacklist changed. Close and reopen the editor before saving.</source>
-      <translation type="unfinished">The blacklist changed. Close and reopen the editor before saving.</translation>
+      <translation>ブラックリストが変更されました。保存する前にエディタを閉じて再度開きます。</translation>
     </message>
     <message>
       <source>Install Rules</source>
-      <translation type="unfinished">Install Rules</translation>
+      <translation>インストールルール</translation>
     </message>
     <message>
       <source>The selected game changed. Reopen the editor.</source>
-      <translation type="unfinished">The selected game changed. Reopen the editor.</translation>
+      <translation>選択したゲームが変更されました。エディターを再度開きます。</translation>
     </message>
     <message>
       <source>Install rules changed while the editor was open. Reopen it before saving.</source>
-      <translation type="unfinished">Install rules changed while the editor was open. Reopen it before saving.</translation>
+      <translation>エディタを開いている間にインストールルールが変更されました。保存する前に再開してください。</translation>
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>ヘキシウム</translation>
     </message>
     <message>
       <source>Browse Hexium</source>
-      <translation type="unfinished">Browse Hexium</translation>
+      <translation>ヘキシウムを検索</translation>
     </message>
     <message>
       <source>Open game on Hexium</source>
-      <translation type="unfinished">Open game on Hexium</translation>
+      <translation>Hexiumでゲームを開く</translation>
     </message>
     <message>
       <source>Select game instance</source>
-      <translation type="unfinished">Select game instance</translation>
+      <translation>ゲームインスタンスを選択</translation>
     </message>
     <message>
       <source>Received an invalid or unsupported repository install link.</source>
-      <translation type="unfinished">Received an invalid or unsupported repository install link.</translation>
+      <translation>無効またはサポートされていないリポジトリのインストールリンクを受信しました。</translation>
     </message>
     <message>
       <source>Select and configure a game before installing repository mods.</source>
-      <translation type="unfinished">Select and configure a game before installing repository mods.</translation>
+      <translation>リポジトリの Mod をインストールする前に、ゲームを選択して設定します。</translation>
     </message>
     <message>
       <source>Checking {0} dependencies…</source>
@@ -11379,27 +11379,27 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>This repository does not support the selected game.</source>
-      <translation type="unfinished">This repository does not support the selected game.</translation>
+      <translation>このリポジトリは選択したゲームをサポートしていません。</translation>
     </message>
     <message>
       <source>Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</source>
-      <translation type="unfinished">Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</translation>
+      <translation>パッケージの依存関係をすべて解決できませんでした。インストールが停止しました。もう一度やり直してください。詳細についてはログを参照してください。</translation>
     </message>
     <message>
       <source>Game or profile changed. Start the installation again.</source>
-      <translation type="unfinished">Game or profile changed. Start the installation again.</translation>
+      <translation>ゲームまたはプロファイルが変更されました。再度インストールを開始します。</translation>
     </message>
     <message>
       <source>Review package sources</source>
-      <translation type="unfinished">Review package sources</translation>
+      <translation>パッケージのソースを確認</translation>
     </message>
     <message>
       <source>Replacements affect every profile using these mod folders. Continue?</source>
-      <translation type="unfinished">Replacements affect every profile using these mod folders. Continue?</translation>
+      <translation>Modフォルダを使用しているすべてのプロファイルに置き換えが影響します。続行しますか？</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>続ける</translation>
     </message>
     <message>
       <source>Downloading mod from {0}…</source>
@@ -11419,11 +11419,11 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Select a configured game with {0} support first.</source>
-      <translation type="unfinished">Select a configured game with {0} support first.</translation>
+      <translation>{0} のサポートを持つ構成されたゲームを最初に選択してください。</translation>
     </message>
     <message>
       <source>A repository profile is already downloading.</source>
-      <translation type="unfinished">A repository profile is already downloading.</translation>
+      <translation>リポジトリプロファイルは既にダウンロードされています。</translation>
     </message>
     <message>
       <source>Downloading {0} profile…</source>
@@ -11431,15 +11431,15 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Import {0} share code</source>
-      <translation type="unfinished">Import {0} share code</translation>
+      <translation>{0} 共有コードをインポート</translation>
     </message>
     <message>
       <source>Paste a share code from {0}:</source>
-      <translation type="unfinished">Paste a share code from {0}:</translation>
+      <translation>{0} の共有コードを貼り付けてください:</translation>
     </message>
     <message>
       <source>Select a configured game with Thunderstore or Hexium support first.</source>
-      <translation type="unfinished">Select a configured game with Thunderstore or Hexium support first.</translation>
+      <translation>最初に Thunderbird または Hexium のサポートを使用して設定されたゲームを選択します。</translation>
     </message>
     <message>
       <source>Restoring {0}…</source>
@@ -12057,7 +12057,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>A package download failed. Completed archives were retained; installation stopped.</source>
-      <translation type="unfinished">A package download failed. Completed archives were retained; installation stopped.</translation>
+      <translation>パッケージのダウンロードに失敗しました。完了したアーカイブは保持されました。インストールは停止しました。</translation>
     </message>
     <message>
       <source>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</source>
@@ -12069,15 +12069,15 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Checking package repositories for updates ({0})…</source>
-      <translation type="unfinished">Checking package repositories for updates ({0})…</translation>
+      <translation>パッケージリポジトリの更新を確認しています({0})…</translation>
     </message>
     <message>
       <source>All checked packages are up to date.</source>
-      <translation type="unfinished">All checked packages are up to date.</translation>
+      <translation>すべてのチェックされたパッケージは最新です。</translation>
     </message>
     <message>
       <source>The selected instance is no longer available.</source>
-      <translation type="unfinished">The selected instance is no longer available.</translation>
+      <translation>選択したインスタンスは使用できません。</translation>
     </message>
     <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
@@ -12085,11 +12085,11 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Finish the current operation before opening a Wabbajack list.</source>
-      <translation type="unfinished">Finish the current operation before opening a Wabbajack list.</translation>
+      <translation>Wabbajack リストを開く前に、現在の操作を完了します。</translation>
     </message>
     <message>
       <source>Finish the current Wabbajack operation before opening another list.</source>
-      <translation type="unfinished">Finish the current Wabbajack operation before opening another list.</translation>
+      <translation>別のリストを開く前に現在の Wabbajack 操作を完了します。</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -12101,7 +12101,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Game or profile changed. Start identification again.</source>
-      <translation type="unfinished">Game or profile changed. Start identification again.</translation>
+      <translation>ゲームまたはプロフィールが変更されました。再度IDを開始してください。</translation>
     </message>
     <message>
       <source>Identifying mods failed - see the log.</source>
@@ -12129,15 +12129,15 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Select a configured game with Hexium support first.</source>
-      <translation type="unfinished">Select a configured game with Hexium support first.</translation>
+      <translation>Hexiumをサポートする設定されたゲームを選択してください。</translation>
     </message>
     <message>
       <source>Choose Hexium author</source>
-      <translation type="unfinished">Choose Hexium author</translation>
+      <translation>Hexiumの作成者を選択</translation>
     </message>
     <message>
       <source>Identify</source>
-      <translation type="unfinished">Identify</translation>
+      <translation>識別</translation>
     </message>
     <message>
       <source>Another installation or deployment operation</source>
@@ -12377,11 +12377,11 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Nexus update check failed; see log</source>
-      <translation type="unfinished">Nexus update check failed; see log</translation>
+      <translation>Nexusのアップデートのチェックに失敗しました。ログを見る</translation>
     </message>
     <message>
       <source>Nexus: {0} mod(s) could not be checked; see log</source>
-      <translation type="unfinished">Nexus: {0} mod(s) could not be checked; see log</translation>
+      <translation>Nexus: {0} mod(s) をチェックできませんでした。ログを参照してください</translation>
     </message>
     <message>
       <source>Mod providers: {0} updates</source>
@@ -12417,7 +12417,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Nexus login is required for the selected Nexus mods.</source>
-      <translation type="unfinished">Nexus login is required for the selected Nexus mods.</translation>
+      <translation>選択した Nexus Mod には、Nexus ログインが必要です。</translation>
     </message>
     <message>
       <source>Quick Update download cancelled.</source>
@@ -12541,7 +12541,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</source>
-      <translation type="unfinished">{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</translation>
+      <translation>{0} は利用できず、まだアクティブな展開があります。接続を切断した場合はドライブを再接続してください。 場所を変更または削除するには、再設定ゲームを開き、format@@0を選択します。</translation>
     </message>
     <message>
       <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
@@ -12637,7 +12637,7 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     </message>
     <message>
       <source>Logs</source>
-      <translation type="unfinished">Logs</translation>
+      <translation>ログ</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -12807,7 +12807,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>Could not remove the previous version: {0}</source>
-      <translation type="unfinished">Could not remove the previous version: {0}</translation>
+      <translation>以前のバージョンを削除できませんでした: {0}</translation>
     </message>
     <message>
       <source>Rename linked source</source>
@@ -12967,7 +12967,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>The active game or profile changed. Run LOOT again.</source>
-      <translation type="unfinished">The active game or profile changed. Run LOOT again.</translation>
+      <translation>アクティブなゲームまたはプロファイルが変更されました。もう一度LOOTを実行してください。</translation>
     </message>
     <message>
       <source>LOOT cancelled.</source>
@@ -14234,24 +14234,24 @@ This cannot be undone.</source>
     </message>
     <message>
       <source>Custom URL</source>
-      <translation type="unfinished">Custom URL</translation>
+      <translation>カスタム URL</translation>
     </message>
     <message>
       <source>Open URL</source>
-      <translation type="unfinished">Open URL</translation>
+      <translation>URLを開く</translation>
     </message>
     <message>
       <source>Set URL</source>
-      <translation type="unfinished">Set URL</translation>
+      <translation>URL を設定</translation>
     </message>
     <message>
       <source>URL for {0} selected mod(s) (leave blank to clear):</source>
-      <translation type="unfinished">URL for {0} selected mod(s) (leave blank to clear):</translation>
+      <translation>{0} 選択したModのURL（空白のままにしてください）：</translation>
     </message>
     <message>
       <source>Could not set URL for "{0}":
 {1}</source>
-      <translation type="unfinished">Could not set URL for "{0}":
+      <translation>"{0}"のURLを設定できませんでした：
 {1}</translation>
     </message>
     <message>
@@ -14624,15 +14624,15 @@ This cannot be undone.</source>
     </message>
     <message>
       <source>Open mod pages</source>
-      <translation type="unfinished">Open mod pages</translation>
+      <translation>MODページを開く</translation>
     </message>
     <message>
       <source>Open source pages for {0} selected mods in your browser?</source>
-      <translation type="unfinished">Open source pages for {0} selected mods in your browser?</translation>
+      <translation>ブラウザで {0} 選択した Mod のソースページを開きますか？</translation>
     </message>
     <message>
       <source>Open pages</source>
-      <translation type="unfinished">Open pages</translation>
+      <translation>ページを開く</translation>
     </message>
     <message>
       <source>Lock Separator - Mods in this separator are attached to it</source>
@@ -14770,7 +14770,7 @@ Done をクリックして閉じます.</translation>
     </message>
     <message>
       <source>Update available on Hexium</source>
-      <translation type="unfinished">Update available on Hexium</translation>
+      <translation>Hexiumで利用可能な更新</translation>
     </message>
     <message>
       <source>Update available on Thunderstore</source>
@@ -15477,27 +15477,27 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <name>NewCaliforniaView</name>
     <message>
       <source>Install New California - {0}</source>
-      <translation type="unfinished">Install New California - {0}</translation>
+      <translation>カリフォルニアのインストール - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download New California</source>
-      <translation type="unfinished">Step 1: Download New California</translation>
+      <translation>ステップ 1: 新しいカリフォルニアをダウンロード</translation>
     </message>
     <message>
       <source>Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</source>
-      <translation type="unfinished">Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</translation>
+      <translation>新しいカリフォルニア州をダウンロード 2.3.1 完全なインストーラZIP. プレミアムアカウントは自動的にダウンロードされます; 他のアカウントはブラウザでダウンロードでき、アーカイブが検出されます。</translation>
     </message>
     <message>
       <source>Step 2: Extract the installer</source>
-      <translation type="unfinished">Step 2: Extract the installer</translation>
+      <translation>ステップ 2: インストーラを抽出</translation>
     </message>
     <message>
       <source>Installing New California</source>
-      <translation type="unfinished">Installing New California</translation>
+      <translation>新しいカリフォルニアのインストール</translation>
     </message>
     <message>
       <source>Step 3: Create a New California profile</source>
-      <translation type="unfinished">Step 3: Create a New California profile</translation>
+      <translation>ステップ 3: 新しいカリフォルニアプロフィールを作成する</translation>
     </message>
     <message>
       <source>The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
@@ -15513,23 +15513,23 @@ Extracted installer files are removed after installation or when you close this 
     </message>
     <message>
       <source>New profile name:</source>
-      <translation type="unfinished">New profile name:</translation>
+      <translation>新しいプロファイル名:</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>続ける</translation>
     </message>
     <message>
       <source>Profile selection and deployment are unavailable here.</source>
-      <translation type="unfinished">Profile selection and deployment are unavailable here.</translation>
+      <translation>ここではプロファイルの選択と展開は利用できません。</translation>
     </message>
     <message>
       <source>Select the New California installer ZIP</source>
-      <translation type="unfinished">Select the New California installer ZIP</translation>
+      <translation>新しいカリフォルニアインストーラのZIPを選択してください</translation>
     </message>
     <message>
       <source>Installer archive not found. Download it, then try again or browse.</source>
-      <translation type="unfinished">Installer archive not found. Download it, then try again or browse.</translation>
+      <translation>インストーラのアーカイブが見つかりません。ダウンロードしてからもう一度お試しください。</translation>
     </message>
     <message>
       <source>Extracting installer into Applications…</source>
@@ -15541,15 +15541,15 @@ Extracted installer files are removed after installation or when you close this 
     </message>
     <message>
       <source>Return to Fallout New Vegas before starting this wizard.</source>
-      <translation type="unfinished">Return to Fallout New Vegas before starting this wizard.</translation>
+      <translation>このウィザードを開始する前に、Fallout New Vegasに戻ります。</translation>
     </message>
     <message>
       <source>The game or prefix paths changed. Reopen the wizard to review them.</source>
-      <translation type="unfinished">The game or prefix paths changed. Reopen the wizard to review them.</translation>
+      <translation>ゲームまたはプレフィックスのパスが変更されました。ウィザードを再度開いて確認してください。</translation>
     </message>
     <message>
       <source>Could not restore the original deployment.</source>
-      <translation type="unfinished">Could not restore the original deployment.</translation>
+      <translation>元のデプロイを復元できませんでした。</translation>
     </message>
     <message>
       <source>Creating the new profile…</source>
@@ -15557,39 +15557,39 @@ Extracted installer files are removed after installation or when you close this 
     </message>
     <message>
       <source>Could not select the new profile.</source>
-      <translation type="unfinished">Could not select the new profile.</translation>
+      <translation>新しいプロファイルを選択できませんでした。</translation>
     </message>
     <message>
       <source>Could not deploy the empty profile.</source>
-      <translation type="unfinished">Could not deploy the empty profile.</translation>
+      <translation>空のプロファイルをデプロイできませんでした。</translation>
     </message>
     <message>
       <source>Complete the New California installer, then close it without launching the game.</source>
-      <translation type="unfinished">Complete the New California installer, then close it without launching the game.</translation>
+      <translation>新しいカリフォルニアのインストーラを完了し、ゲームを起動せずに閉じます。</translation>
     </message>
     <message>
       <source>Restore failed. Keep the recovery files and run Restore before continuing.</source>
-      <translation type="unfinished">Restore failed. Keep the recovery files and run Restore before continuing.</translation>
+      <translation>復元に失敗しました。続行する前に復元を実行してください。</translation>
     </message>
     <message>
       <source>New California is installed. The game is restored. Deploy this profile when you are ready to play.</source>
-      <translation type="unfinished">New California is installed. The game is restored. Deploy this profile when you are ready to play.</translation>
+      <translation>新しいカリフォルニアがインストールされました。ゲームは復元されました。準備ができたらこのプロフィールを展開してください。</translation>
     </message>
     <message>
       <source>New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
 {1}</source>
-      <translation type="unfinished">New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
+      <translation>新しいカリフォルニアがインストールされましたが、抽出されたインストーラファイルは削除できませんでした。 {0}から手動で削除してください。
 {1}</translation>
     </message>
     <message>
       <source>Extracted installer files could not be removed. Remove them manually from {0}.
 {1}</source>
-      <translation type="unfinished">Extracted installer files could not be removed. Remove them manually from {0}.
+      <translation>解凍されたインストーラファイルは削除できませんでした。 {0}から手動で削除してください。
 {1}</translation>
     </message>
     <message>
       <source>Extracted installer files could not be removed from {0}: {1}</source>
-      <translation type="unfinished">Extracted installer files could not be removed from {0}: {1}</translation>
+      <translation>{0}から展開されたインストーラファイルを削除できませんでした: {1}</translation>
     </message>
   </context>
   <context>
@@ -18186,7 +18186,7 @@ Re-scan to verify.</source>
     </message>
     <message>
       <source>Install Rules</source>
-      <translation type="unfinished">Install Rules</translation>
+      <translation>インストールルール</translation>
     </message>
     <message>
       <source>⊟ Collapse all</source>
@@ -20163,19 +20163,19 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>Manual downloads</source>
-      <translation type="unfinished">Manual downloads</translation>
+      <translation>手動ダウンロード</translation>
     </message>
     <message>
       <source>{0} files need to be downloaded through your browser during installation.</source>
-      <translation type="unfinished">{0} files need to be downloaded through your browser during installation.</translation>
+      <translation>{0} ファイルは、インストール中にブラウザからダウンロードする必要があります。</translation>
     </message>
     <message>
       <source>Free Nexus accounts and some download sites require browser downloads.</source>
-      <translation type="unfinished">Free Nexus accounts and some download sites require browser downloads.</translation>
+      <translation>無料のNexusアカウントと一部のダウンロードサイトでは、ブラウザのダウンロードが必要です。</translation>
     </message>
     <message>
       <source>Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</source>
-      <translation type="unfinished">Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</translation>
+      <translation>インストールを開始し、各ブラウザの指示に従います。 Amethystがダウンロードを見つけられない場合は、format@@0を選択し、自分で選択してください。下記の正確なバージョンをダウンロードしてください。</translation>
     </message>
     <message>
       <source>Stock game folder: Invalid</source>
@@ -20285,15 +20285,15 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>Install Rules — {0}</source>
-      <translation type="unfinished">Install Rules — {0}</translation>
+      <translation>インストールルール — {0}</translation>
     </message>
     <message>
       <source>Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</source>
-      <translation type="unfinished">Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</translation>
+      <translation>将来のプレーンアーカイブのインストールとすべてのプロファイルの再インストールに適用されます。インストール後のプリフィックスストリップ後に実行されます。以前のルールが優先されます。 デスティネーションはModのステージングルートからの相対パスです。 &lt;modname&gt; はインストール名を使用し、 &lt;random&gt; は再インストールとアップデートに渡り保存されます。 インストーラ駆動および正確なレイアウトのインストールは影響を受けません。</translation>
     </message>
     <message>
       <source>Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</source>
-      <translation type="unfinished">Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</translation>
+      <translation>ゲームの既定のルーティング ルールを編集します。変更はカスタムゲームの定義を保存するときに保存されます。 以前のマッチングルールが優先されます。format@@0タブは、このゲームでこれらのデフォルトを個別に上書きできます。</translation>
     </message>
     <message>
       <source>Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</source>
@@ -20341,7 +20341,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</source>
-      <translation type="unfinished">e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</translation>
+      <translation>例: &lt;modname&gt; または plugins/&lt;random&gt;; empty = mod staging root</translation>
     </message>
     <message>
       <source>Extensions, folders, and filenames are alternatives within one rule. For example, .asi, MyPlugins, and winmm.dll route all .asi files, everything inside MyPlugins, and winmm.dll to the same destination.</source>
@@ -20437,7 +20437,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</source>
-      <translation type="unfinished">Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</translation>
+      <translation>最上位のフォルダを持参してください。ルーズマッチはサブフォルダを含むすべてのMODコンテンツをもたらします。Flattenをオーバーライドします。</translation>
     </message>
     <message>
       <source>Reset to built-in</source>
@@ -20465,7 +20465,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>Staging</source>
-      <translation type="unfinished">Staging</translation>
+      <translation>ステージング中</translation>
     </message>
     <message>
       <source>Custom</source>
@@ -20505,7 +20505,7 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     </message>
     <message>
       <source>Could not save install rules: {0}</source>
-      <translation type="unfinished">Could not save install rules: {0}</translation>
+      <translation>インストールルールを保存できませんでした: {0}</translation>
     </message>
   </context>
   <context>
@@ -21885,7 +21885,7 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>ヘキシウム</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -25031,7 +25031,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Include prereleases</source>
-      <translation type="unfinished">Include prereleases</translation>
+      <translation>プレリリースを含める</translation>
     </message>
     <message>
       <source>Refresh</source>
@@ -25701,11 +25701,11 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>Finish the current operation before opening another list.</source>
-      <translation type="unfinished">Finish the current operation before opening another list.</translation>
+      <translation>別のリストを開く前に現在の操作を終了します。</translation>
     </message>
     <message>
       <source>Log in to Nexus before loading this collection revision.</source>
-      <translation type="unfinished">Log in to Nexus before loading this collection revision.</translation>
+      <translation>このコレクションリビジョンをロードする前に Nexus にログインしてください。</translation>
     </message>
     <message>
       <source>Downloading modlist package…</source>
@@ -25865,11 +25865,11 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>Retry download</source>
-      <translation type="unfinished">Retry download</translation>
+      <translation>ダウンロードを再試行</translation>
     </message>
     <message>
       <source>{0} · Nexus revision {1}</source>
-      <translation type="unfinished">{0} · Nexus revision {1}</translation>
+      <translation>{0} · Nexus revision {1}</translation>
     </message>
     <message>
       <source>Local installation</source>
@@ -26352,7 +26352,7 @@ Prefix: {1}</source>
     </message>
     <message>
       <source>Install New California</source>
-      <translation type="unfinished">Install New California</translation>
+      <translation>新しいカリフォルニアをインストール</translation>
     </message>
     <message>
       <source>BSA Decompressor</source>
@@ -26516,7 +26516,7 @@ Prefix: {1}</source>
     </message>
     <message>
       <source>Run the New California installer and capture its files and INIs in a dedicated profile.</source>
-      <translation type="unfinished">Run the New California installer and capture its files and INIs in a dedicated profile.</translation>
+      <translation>新しいカリフォルニアのインストーラを実行し、そのファイルとINIを専用プロファイルでキャプチャします。</translation>
     </message>
     <message>
       <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
@@ -27671,23 +27671,23 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     <name>_PanelHandle</name>
     <message>
       <source>Drag to resize panels. Double-click to reset the layout.</source>
-      <translation type="unfinished">Drag to resize panels. Double-click to reset the layout.</translation>
+      <translation>ドラッグしてパネルのサイズを変更します。ダブルクリックしてレイアウトをリセットします。</translation>
     </message>
     <message>
       <source>Resize modlist and plugins panels</source>
-      <translation type="unfinished">Resize modlist and plugins panels</translation>
+      <translation>Modlistとプラグインパネルのサイズを変更</translation>
     </message>
     <message>
       <source>Show Modlist</source>
-      <translation type="unfinished">Show Modlist</translation>
+      <translation>Modリストを表示</translation>
     </message>
     <message>
       <source>Show Plugins</source>
-      <translation type="unfinished">Show Plugins</translation>
+      <translation>プラグインを表示</translation>
     </message>
     <message>
       <source>Click to reopen, or drag to resize.</source>
-      <translation type="unfinished">Click to reopen, or drag to resize.</translation>
+      <translation>クリックして再開するか、ドラッグしてサイズを変更します。</translation>
     </message>
   </context>
   <context>
@@ -27912,11 +27912,11 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>ヘキシウム</translation>
     </message>
     <message>
       <source>Download package from Hexium</source>
-      <translation type="unfinished">Download package from Hexium</translation>
+      <translation>Hexiumからパッケージをダウンロード</translation>
     </message>
     <message>
       <source>Mod provider</source>
