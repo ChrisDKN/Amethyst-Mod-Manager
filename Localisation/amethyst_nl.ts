@@ -5395,7 +5395,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</source>
-      <translation type="unfinished">Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</translation>
+      <translation>Geordende regels toegepast na post-install stripping naar simpele archieven. Ondersteunt &lt;modname&gt; en &lt;random&gt; bestemmingen.</translation>
     </message>
     <message>
       <source>Conflicts &amp; Advanced Behaviour</source>
@@ -5403,11 +5403,11 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</source>
-      <translation type="unfinished">Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</translation>
+      <translation>Bewerk de standaard routing regels van het spel met dezelfde editor als de Data tab. Regels worden opgeslagen met de custom-game definitie.</translation>
     </message>
     <message>
       <source>Routing Rules (0)</source>
-      <translation type="unfinished">Routing Rules (0)</translation>
+      <translation>Routering Regels (0)</translation>
     </message>
     <message>
       <source>Game Sub-folder</source>
@@ -5419,11 +5419,11 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Routing Rules ({0})</source>
-      <translation type="unfinished">Routing Rules ({0})</translation>
+      <translation>Routeregels ({0})</translation>
     </message>
     <message>
       <source>Install Rules ({0})</source>
-      <translation type="unfinished">Install Rules ({0})</translation>
+      <translation>Installatieregels ({0})</translation>
     </message>
     <message>
       <source>Move up</source>
@@ -5471,7 +5471,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Hexium Community must be a community slug, for example 'valheim'.</source>
-      <translation type="unfinished">Hexium Community must be a community slug, for example 'valheim'.</translation>
+      <translation>Hexiumgemeenschap moet een gemeenschapsslug zijn, bijvoorbeeld "valheim".</translation>
     </message>
     <message>
       <source>Downloading image…</source>
@@ -5567,69 +5567,69 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     <name>DependencyInstallOverlay</name>
     <message>
       <source>Installing Windows dependencies</source>
-      <translation type="unfinished">Installing Windows dependencies</translation>
+      <translation>Windows afhankelijkheden installeren</translation>
     </message>
     <message>
       <source>{0}
 Prefix: {1}</source>
-      <translation type="unfinished">{0}
-Prefix: {1}</translation>
+      <translation>{0}
+Voorvoegsel: {1}</translation>
     </message>
     <message>
       <source>Dependency</source>
-      <translation type="unfinished">Dependency</translation>
+      <translation>Afhankelijkheid</translation>
     </message>
     <message>
       <source>Status</source>
-      <translation type="unfinished">Status</translation>
+      <translation>status</translation>
     </message>
     <message>
       <source>Waiting</source>
-      <translation type="unfinished">Waiting</translation>
+      <translation>Wachten</translation>
     </message>
     <message>
       <source>Checking Windows dependencies…</source>
-      <translation type="unfinished">Checking Windows dependencies…</translation>
+      <translation>Controleren van Windows afhankelijkheden…</translation>
     </message>
     <message>
       <source>%v of %m dependencies processed</source>
-      <translation type="unfinished">%v of %m dependencies processed</translation>
+      <translation>%v van %m afhankelijkheden verwerkt</translation>
     </message>
     <message>
       <source>Processed</source>
-      <translation type="unfinished">Processed</translation>
+      <translation>Verwerkt</translation>
     </message>
     <message>
       <source>Checking / installing</source>
-      <translation type="unfinished">Checking / installing</translation>
+      <translation>Controleren / installeren</translation>
     </message>
     <message>
       <source>Setting up {0} ({1} of {2})…</source>
-      <translation type="unfinished">Setting up {0} ({1} of {2})…</translation>
+      <translation>Instelling van {0} ({1} of {2})…</translation>
     </message>
     <message>
       <source>Failed</source>
-      <translation type="unfinished">Failed</translation>
+      <translation>Mislukt</translation>
     </message>
     <message>
       <source>Not run</source>
-      <translation type="unfinished">Not run</translation>
+      <translation>Niet uitgevoerd</translation>
     </message>
     <message>
       <source>Dependency setup failed: {0}</source>
-      <translation type="unfinished">Dependency setup failed: {0}</translation>
+      <translation>Afhankelijkheid instellen mislukt: {0}</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>Geinstalleerd</translation>
     </message>
     <message>
       <source>Skipped</source>
-      <translation type="unfinished">Skipped</translation>
+      <translation>Overgeslagen</translation>
     </message>
     <message>
       <source>Dependency setup finished: {0} installed, {1} skipped, {2} failed.</source>
-      <translation type="unfinished">Dependency setup finished: {0} installed, {1} skipped, {2} failed.</translation>
+      <translation>Afhankelijke instellingen voltooid: {0} geïnstalleerd, {1} overgeslagen, {2} mislukt.</translation>
     </message>
   </context>
   <context>
@@ -6045,27 +6045,27 @@ Controleer de uitvoer hierboven en het logboek.</translation>
     <name>DuplicateInstanceOverlay</name>
     <message>
       <source>Duplicate Instance</source>
-      <translation type="unfinished">Duplicate Instance</translation>
+      <translation>Duplicate Instance</translation>
     </message>
     <message>
       <source>Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</source>
-      <translation type="unfinished">Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</translation>
+      <translation>Maak een nieuw exemplaar aan met dezelfde handler en download de cache. Selecteer de installatie en launcher op het volgende scherm.</translation>
     </message>
     <message>
       <source>New instance name</source>
-      <translation type="unfinished">New instance name</translation>
+      <translation>Nieuwe exemplaar naam</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>annuleren</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Doorgaan</translation>
     </message>
     <message>
       <source>Instance ID: {0}</source>
-      <translation type="unfinished">Instance ID: {0}</translation>
+      <translation>Instantie-ID: {0}</translation>
     </message>
   </context>
   <context>
@@ -6238,7 +6238,7 @@ Start de wizard opnieuw en installeer eerst {1}.</translation>
     </message>
     <message>
       <source>Output folder: {0}</source>
-      <translation type="unfinished">Output folder: {0}</translation>
+      <translation>Uitvoer map: {0}</translation>
     </message>
     <message>
       <source>Checking generation inputs…</source>
@@ -6246,41 +6246,41 @@ Start de wizard opnieuw en installeer eerst {1}.</translation>
     </message>
     <message>
       <source>Preparing the tool prefix…</source>
-      <translation type="unfinished">Preparing the tool prefix…</translation>
+      <translation>Voorvoegsel van de tool voorbereiden…</translation>
     </message>
     <message>
       <source>Finishing the tool session…</source>
-      <translation type="unfinished">Finishing the tool session…</translation>
+      <translation>Sessie beëindigen van de tool…</translation>
     </message>
     <message>
       <source>Restoring the game after generation…</source>
-      <translation type="unfinished">Restoring the game after generation…</translation>
+      <translation>Het spel herstellen na generatie…</translation>
     </message>
     <message>
       <source>Validating generated output…</source>
-      <translation type="unfinished">Validating generated output…</translation>
+      <translation>Valideren van gegenereerde uitvoer…</translation>
     </message>
     <message>
       <source>Importing generated output as a new mod…</source>
-      <translation type="unfinished">Importing generated output as a new mod…</translation>
+      <translation>Gegenereerde output importeren als een nieuwe mod…</translation>
     </message>
     <message>
       <source>Indexing the new output mod…</source>
-      <translation type="unfinished">Indexing the new output mod…</translation>
+      <translation>Indexeren van de nieuwe output mod…</translation>
     </message>
     <message>
       <source>Synchronizing generated plugins…</source>
-      <translation type="unfinished">Synchronizing generated plugins…</translation>
+      <translation>Bezig met synchroniseren van gegenereerde plugins…</translation>
     </message>
     <message>
       <source>{0} finished. Created '{1}'.</source>
-      <translation type="unfinished">{0} finished. Created '{1}'.</translation>
+      <translation>{0} voltooid. Gemaakt '{1}'.</translation>
     </message>
     <message>
       <source>{0} is running.
 When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</source>
-      <translation type="unfinished">{0} is running.
-When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</translation>
+      <translation>{0} is actief.
+Als de generatie klaar is, kiest u voor Sluiten of opslaan en afsluiten zonder zipen. Houd het geselecteerde Output pad bij het laden van de voorinstellingen. De nieuwe output mod zal worden ingeschakeld als de generatie geslaagd is.</translation>
     </message>
     <message>
       <source>Searching Downloads folder…</source>
@@ -7185,11 +7185,11 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>Start-logs vastleggen</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>Opstart output en Proton diagnostische logs opslaan in de cache.</translation>
     </message>
     <message>
       <source>Hide from dropdown</source>
@@ -7288,7 +7288,7 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>Hexium</translation>
     </message>
     <message>
       <source>Thunderstore</source>
@@ -7464,7 +7464,7 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>This mod has no recorded package identity for this source.</source>
-      <translation type="unfinished">This mod has no recorded package identity for this source.</translation>
+      <translation>Deze mod heeft geen opgenomen pakket identiteit voor deze bron.</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -8799,34 +8799,34 @@ Beheerde map: {2}</translation>
     <name>LaunchLogEditor</name>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>Vernieuwen</translation>
     </message>
     <message>
       <source>No {0} log is available for the latest launch.
 Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</source>
-      <translation type="unfinished">No {0} log is available for the latest launch.
-Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</translation>
+      <translation>Er is geen {0} log beschikbaar voor de laatste lancering.
+Schakel Capture Start Logs in bij het opstarten instellingen en druk daarna op Afspelen. Oorspronkelijke en platte wijnlanceringen produceren geen Proton logs.</translation>
     </message>
     <message>
       <source>Showing the last 2 MiB.
 </source>
-      <translation type="unfinished">Showing the last 2 MiB.
+      <translation>Toont de laatste 2 MiB.
 </translation>
     </message>
     <message>
       <source>Could not read log: {0}</source>
-      <translation type="unfinished">Could not read log: {0}</translation>
+      <translation>Kan logboek niet lezen: {0}</translation>
     </message>
   </context>
   <context>
     <name>LauncherEntryOverlay</name>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>Start-logs vastleggen</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>Opstart output en Proton diagnostische logs opslaan in de cache.</translation>
     </message>
   </context>
   <context>
@@ -8873,11 +8873,11 @@ Enable Capture launch logs in launch settings, then press Play. Native and plain
     </message>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>Start-logs vastleggen</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>Opstart output en Proton diagnostische logs opslaan in de cache.</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -11335,75 +11335,75 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>The blacklist changed. Close and reopen the editor before saving.</source>
-      <translation type="unfinished">The blacklist changed. Close and reopen the editor before saving.</translation>
+      <translation>De zwarte lijst is veranderd. Sluit en open de editor opnieuw voordat u opslaat.</translation>
     </message>
     <message>
       <source>Install Rules</source>
-      <translation type="unfinished">Install Rules</translation>
+      <translation>Installeer regels</translation>
     </message>
     <message>
       <source>The selected game changed. Reopen the editor.</source>
-      <translation type="unfinished">The selected game changed. Reopen the editor.</translation>
+      <translation>Het geselecteerde spel is veranderd. Heropen de editor.</translation>
     </message>
     <message>
       <source>Install rules changed while the editor was open. Reopen it before saving.</source>
-      <translation type="unfinished">Install rules changed while the editor was open. Reopen it before saving.</translation>
+      <translation>Installeer regels veranderd terwijl de editor geopend was. Heropen het voordat u opslaat.</translation>
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>Hexium</translation>
     </message>
     <message>
       <source>Browse Hexium</source>
-      <translation type="unfinished">Browse Hexium</translation>
+      <translation>Blader door Hexium</translation>
     </message>
     <message>
       <source>Open game on Hexium</source>
-      <translation type="unfinished">Open game on Hexium</translation>
+      <translation>Open spel op Hexium</translation>
     </message>
     <message>
       <source>Select game instance</source>
-      <translation type="unfinished">Select game instance</translation>
+      <translation>Selecteer een game instantie</translation>
     </message>
     <message>
       <source>Received an invalid or unsupported repository install link.</source>
-      <translation type="unfinished">Received an invalid or unsupported repository install link.</translation>
+      <translation>Een ongeldige of niet-ondersteunde repository installatie link ontvangen.</translation>
     </message>
     <message>
       <source>Select and configure a game before installing repository mods.</source>
-      <translation type="unfinished">Select and configure a game before installing repository mods.</translation>
+      <translation>Selecteer en configureer een spel voordat je repository mods installeert.</translation>
     </message>
     <message>
       <source>Checking {0} dependencies…</source>
-      <translation type="unfinished">Checking {0} dependencies…</translation>
+      <translation>Controleren {0} afhankelijkheden…</translation>
     </message>
     <message>
       <source>This repository does not support the selected game.</source>
-      <translation type="unfinished">This repository does not support the selected game.</translation>
+      <translation>Deze repository ondersteunt het geselecteerde spel niet.</translation>
     </message>
     <message>
       <source>Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</source>
-      <translation type="unfinished">Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</translation>
+      <translation>Kon niet alle pakketafhankelijkheden oplossen. Installatie gestopt; probeer het opnieuw. Zie het logboek voor meer informatie.</translation>
     </message>
     <message>
       <source>Game or profile changed. Start the installation again.</source>
-      <translation type="unfinished">Game or profile changed. Start the installation again.</translation>
+      <translation>Spel of profiel gewijzigd. Start de installatie opnieuw.</translation>
     </message>
     <message>
       <source>Review package sources</source>
-      <translation type="unfinished">Review package sources</translation>
+      <translation>Controleer pakket bronnen</translation>
     </message>
     <message>
       <source>Replacements affect every profile using these mod folders. Continue?</source>
-      <translation type="unfinished">Replacements affect every profile using these mod folders. Continue?</translation>
+      <translation>Vervangingen hebben invloed op elk profiel met behulp van deze mod mappen. Doorgaan?</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Doorgaan</translation>
     </message>
     <message>
       <source>Downloading mod from {0}…</source>
-      <translation type="unfinished">Downloading mod from {0}…</translation>
+      <translation>Downloaden mod van {0}…</translation>
     </message>
     <message>
       <source>Remove game</source>
@@ -11419,27 +11419,27 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Select a configured game with {0} support first.</source>
-      <translation type="unfinished">Select a configured game with {0} support first.</translation>
+      <translation>Selecteer eerst een geconfigureerd spel met {0} ondersteuning.</translation>
     </message>
     <message>
       <source>A repository profile is already downloading.</source>
-      <translation type="unfinished">A repository profile is already downloading.</translation>
+      <translation>Een repository profiel is al aan het downloaden.</translation>
     </message>
     <message>
       <source>Downloading {0} profile…</source>
-      <translation type="unfinished">Downloading {0} profile…</translation>
+      <translation>Downloaden {0} profiel…</translation>
     </message>
     <message>
       <source>Import {0} share code</source>
-      <translation type="unfinished">Import {0} share code</translation>
+      <translation>Importeer {0} deelcode</translation>
     </message>
     <message>
       <source>Paste a share code from {0}:</source>
-      <translation type="unfinished">Paste a share code from {0}:</translation>
+      <translation>Plak een deelcode van {0}:</translation>
     </message>
     <message>
       <source>Select a configured game with Thunderstore or Hexium support first.</source>
-      <translation type="unfinished">Select a configured game with Thunderstore or Hexium support first.</translation>
+      <translation>Selecteer eerst een geconfigureerd spel met Thunderstore of Hexium ondersteuning.</translation>
     </message>
     <message>
       <source>Restoring {0}…</source>
@@ -12057,7 +12057,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>A package download failed. Completed archives were retained; installation stopped.</source>
-      <translation type="unfinished">A package download failed. Completed archives were retained; installation stopped.</translation>
+      <translation>Een pakketdownload is mislukt. Voltooide archieven zijn bewaard en de installatie is gestopt.</translation>
     </message>
     <message>
       <source>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</source>
@@ -12069,15 +12069,15 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Checking package repositories for updates ({0})…</source>
-      <translation type="unfinished">Checking package repositories for updates ({0})…</translation>
+      <translation>Controleren pakketopslagplaatsen op updates ({0})…</translation>
     </message>
     <message>
       <source>All checked packages are up to date.</source>
-      <translation type="unfinished">All checked packages are up to date.</translation>
+      <translation>Alle gecontroleerde pakketten zijn up-to-date.</translation>
     </message>
     <message>
       <source>The selected instance is no longer available.</source>
-      <translation type="unfinished">The selected instance is no longer available.</translation>
+      <translation>De geselecteerde instantie is niet langer beschikbaar.</translation>
     </message>
     <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
@@ -12085,11 +12085,11 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Finish the current operation before opening a Wabbajack list.</source>
-      <translation type="unfinished">Finish the current operation before opening a Wabbajack list.</translation>
+      <translation>Voltooi de huidige bewerking voordat u een Wabbajack lijst opent.</translation>
     </message>
     <message>
       <source>Finish the current Wabbajack operation before opening another list.</source>
-      <translation type="unfinished">Finish the current Wabbajack operation before opening another list.</translation>
+      <translation>Voltooi de huidige Wabbajack bewerking voordat u een andere lijst opent.</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -12101,7 +12101,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Game or profile changed. Start identification again.</source>
-      <translation type="unfinished">Game or profile changed. Start identification again.</translation>
+      <translation>Spel of profiel veranderd. Start identificatie opnieuw.</translation>
     </message>
     <message>
       <source>Identifying mods failed - see the log.</source>
@@ -12129,15 +12129,15 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Select a configured game with Hexium support first.</source>
-      <translation type="unfinished">Select a configured game with Hexium support first.</translation>
+      <translation>Selecteer eerst een geconfigureerd spel met Hexium ondersteuning.</translation>
     </message>
     <message>
       <source>Choose Hexium author</source>
-      <translation type="unfinished">Choose Hexium author</translation>
+      <translation>Kies Hexium auteur</translation>
     </message>
     <message>
       <source>Identify</source>
-      <translation type="unfinished">Identify</translation>
+      <translation>Identificeren</translation>
     </message>
     <message>
       <source>Another installation or deployment operation</source>
@@ -12377,11 +12377,11 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Nexus update check failed; see log</source>
-      <translation type="unfinished">Nexus update check failed; see log</translation>
+      <translation>Nexus update controle mislukt; zie log</translation>
     </message>
     <message>
       <source>Nexus: {0} mod(s) could not be checked; see log</source>
-      <translation type="unfinished">Nexus: {0} mod(s) could not be checked; see log</translation>
+      <translation>Nexus: {0} mod(s) konden niet worden gecontroleerd; zie log</translation>
     </message>
     <message>
       <source>Mod providers: {0} updates</source>
@@ -12417,7 +12417,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Nexus login is required for the selected Nexus mods.</source>
-      <translation type="unfinished">Nexus login is required for the selected Nexus mods.</translation>
+      <translation>Nexus login is vereist voor de geselecteerde Nexus mods.</translation>
     </message>
     <message>
       <source>Quick Update download cancelled.</source>
@@ -12541,7 +12541,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</source>
-      <translation type="unfinished">{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</translation>
+      <translation>{0} is niet beschikbaar en heeft nog steeds een actieve implementatie. Maak zijn station opnieuw verbinding als het is losgekoppeld. Om de locatie te wijzigen of te verwijderen, open het Reconfigeer spel en selecteer Herstel eerdere implementatie.</translation>
     </message>
     <message>
       <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
@@ -12637,7 +12637,7 @@ Druk Deploy om je mods toe te passen en start dan het spel van Steam, Heroic, Lu
     </message>
     <message>
       <source>Logs</source>
-      <translation type="unfinished">Logs</translation>
+      <translation>Logboeken</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -12807,7 +12807,7 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
     </message>
     <message>
       <source>Could not remove the previous version: {0}</source>
-      <translation type="unfinished">Could not remove the previous version: {0}</translation>
+      <translation>Kon de vorige versie niet verwijderen: {0}</translation>
     </message>
     <message>
       <source>Rename linked source</source>
@@ -12967,7 +12967,7 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
     </message>
     <message>
       <source>The active game or profile changed. Run LOOT again.</source>
-      <translation type="unfinished">The active game or profile changed. Run LOOT again.</translation>
+      <translation>Het actieve spel of profiel is veranderd. Voer opnieuw LOOT uit.</translation>
     </message>
     <message>
       <source>LOOT cancelled.</source>
@@ -14234,25 +14234,25 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Custom URL</source>
-      <translation type="unfinished">Custom URL</translation>
+      <translation>Aangepaste URL</translation>
     </message>
     <message>
       <source>Open URL</source>
-      <translation type="unfinished">Open URL</translation>
+      <translation>Open URL</translation>
     </message>
     <message>
       <source>Set URL</source>
-      <translation type="unfinished">Set URL</translation>
+      <translation>Stel URL in</translation>
     </message>
     <message>
       <source>URL for {0} selected mod(s) (leave blank to clear):</source>
-      <translation type="unfinished">URL for {0} selected mod(s) (leave blank to clear):</translation>
+      <translation>URL voor {0} geselecteerde mod(s) (laat leeg om te legen):</translation>
     </message>
     <message>
       <source>Could not set URL for "{0}":
 {1}</source>
-      <translation type="unfinished">Could not set URL for "{0}":
-{1}</translation>
+      <translation>Kan URL voor "{0}":
+{1} niet instellen</translation>
     </message>
     <message>
       <source>Could not save ignored updates for "{0}":
@@ -14624,15 +14624,15 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Open mod pages</source>
-      <translation type="unfinished">Open mod pages</translation>
+      <translation>Mod-pagina's openen</translation>
     </message>
     <message>
       <source>Open source pages for {0} selected mods in your browser?</source>
-      <translation type="unfinished">Open source pages for {0} selected mods in your browser?</translation>
+      <translation>Open bronpagina's voor {0} geselecteerde mods in uw browser?</translation>
     </message>
     <message>
       <source>Open pages</source>
-      <translation type="unfinished">Open pages</translation>
+      <translation>Open pagina's</translation>
     </message>
     <message>
       <source>Lock Separator - Mods in this separator are attached to it</source>
@@ -14770,7 +14770,7 @@ Klik op Gereed om te sluiten.</translation>
     </message>
     <message>
       <source>Update available on Hexium</source>
-      <translation type="unfinished">Update available on Hexium</translation>
+      <translation>Update beschikbaar op Hexium</translation>
     </message>
     <message>
       <source>Update available on Thunderstore</source>
@@ -15477,27 +15477,27 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <name>NewCaliforniaView</name>
     <message>
       <source>Install New California - {0}</source>
-      <translation type="unfinished">Install New California - {0}</translation>
+      <translation>Installeer Nieuw Californië - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download New California</source>
-      <translation type="unfinished">Step 1: Download New California</translation>
+      <translation>Stap 1: Download Nieuwe Californië</translation>
     </message>
     <message>
       <source>Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</source>
-      <translation type="unfinished">Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</translation>
+      <translation>Download de New California 2.3.1 volledig installer ZIP. Premium accounts worden automatisch gedownload; andere accounts kunnen in de browser worden gedownload en het archief wordt gedetecteerd.</translation>
     </message>
     <message>
       <source>Step 2: Extract the installer</source>
-      <translation type="unfinished">Step 2: Extract the installer</translation>
+      <translation>Stap 2: Pak het installatieprogramma uit</translation>
     </message>
     <message>
       <source>Installing New California</source>
-      <translation type="unfinished">Installing New California</translation>
+      <translation>Installeren Nieuwe Californië</translation>
     </message>
     <message>
       <source>Step 3: Create a New California profile</source>
-      <translation type="unfinished">Step 3: Create a New California profile</translation>
+      <translation>Stap 3: Maak een nieuw Californiëprofiel aan</translation>
     </message>
     <message>
       <source>The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
@@ -15505,35 +15505,35 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
 In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
 
 Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</source>
-      <translation type="unfinished">The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
+      <translation>De wizard herstelt de huidige implementatie, maakt een leeg profiel met zijn eigen mods, en voert het installatieprogramma uit. De bestanden worden een beheerde New California mod en de bewerkte INI's blijven in het nieuwe profiel. Uw oorspronkelijke INI's en spelbestanden worden achteraf hersteld.
 
-In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
+Bevestig in het installatieprogramma de nieuwe map Vegas hieronder weergegeven. Voltooi het installatieprogramma en sluit het zonder het spel te starten. De wizard eindigt met het spel hersteld; plaats het nieuwe profiel wanneer je klaar bent.
 
-Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</translation>
+Uitgepakt installatiebestanden worden verwijderd na de installatie of wanneer u deze wizard sluit. De gedownloade ZIP, Wijnvoorvoegsels en backups worden bewaard.</translation>
     </message>
     <message>
       <source>New profile name:</source>
-      <translation type="unfinished">New profile name:</translation>
+      <translation>Nieuwe profielnaam:</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Doorgaan</translation>
     </message>
     <message>
       <source>Profile selection and deployment are unavailable here.</source>
-      <translation type="unfinished">Profile selection and deployment are unavailable here.</translation>
+      <translation>Profiel selectie en implementatie zijn hier niet beschikbaar.</translation>
     </message>
     <message>
       <source>Select the New California installer ZIP</source>
-      <translation type="unfinished">Select the New California installer ZIP</translation>
+      <translation>Selecteer het nieuwe California-installer ZIP</translation>
     </message>
     <message>
       <source>Installer archive not found. Download it, then try again or browse.</source>
-      <translation type="unfinished">Installer archive not found. Download it, then try again or browse.</translation>
+      <translation>Installatiebestand niet gevonden. Download het en probeer het opnieuw of blader</translation>
     </message>
     <message>
       <source>Extracting installer into Applications…</source>
-      <translation type="unfinished">Extracting installer into Applications…</translation>
+      <translation>Installatieprogramma uitpakken in programma's…</translation>
     </message>
     <message>
       <source>Saving current INIs…</source>
@@ -15541,55 +15541,55 @@ Extracted installer files are removed after installation or when you close this 
     </message>
     <message>
       <source>Return to Fallout New Vegas before starting this wizard.</source>
-      <translation type="unfinished">Return to Fallout New Vegas before starting this wizard.</translation>
+      <translation>Keer terug naar Fallout Nieuwe Vega's voordat u deze wizard begint.</translation>
     </message>
     <message>
       <source>The game or prefix paths changed. Reopen the wizard to review them.</source>
-      <translation type="unfinished">The game or prefix paths changed. Reopen the wizard to review them.</translation>
+      <translation>De game of prefix paden zijn veranderd. Heropen de wizard om ze te bekijken.</translation>
     </message>
     <message>
       <source>Could not restore the original deployment.</source>
-      <translation type="unfinished">Could not restore the original deployment.</translation>
+      <translation>Kon de oorspronkelijke implementatie niet herstellen.</translation>
     </message>
     <message>
       <source>Creating the new profile…</source>
-      <translation type="unfinished">Creating the new profile…</translation>
+      <translation>Het nieuwe profiel aanmaken…</translation>
     </message>
     <message>
       <source>Could not select the new profile.</source>
-      <translation type="unfinished">Could not select the new profile.</translation>
+      <translation>Kon het nieuwe profiel niet selecteren.</translation>
     </message>
     <message>
       <source>Could not deploy the empty profile.</source>
-      <translation type="unfinished">Could not deploy the empty profile.</translation>
+      <translation>Kan het lege profiel niet deployen.</translation>
     </message>
     <message>
       <source>Complete the New California installer, then close it without launching the game.</source>
-      <translation type="unfinished">Complete the New California installer, then close it without launching the game.</translation>
+      <translation>Voltooi het nieuwe California installatieprogramma, sluit het vervolgens zonder het spel te starten.</translation>
     </message>
     <message>
       <source>Restore failed. Keep the recovery files and run Restore before continuing.</source>
-      <translation type="unfinished">Restore failed. Keep the recovery files and run Restore before continuing.</translation>
+      <translation>Herstellen is mislukt. Behoud de herstelbestanden en voer herstel uit voordat u doorgaat.</translation>
     </message>
     <message>
       <source>New California is installed. The game is restored. Deploy this profile when you are ready to play.</source>
-      <translation type="unfinished">New California is installed. The game is restored. Deploy this profile when you are ready to play.</translation>
+      <translation>Nieuwe Californië is geïnstalleerd. Het spel wordt hersteld. Installeer dit profiel wanneer je klaar bent om te spelen.</translation>
     </message>
     <message>
       <source>New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
 {1}</source>
-      <translation type="unfinished">New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
+      <translation>Nieuwe Californië is geïnstalleerd, maar de uitgepakte installatiebestanden konden niet verwijderd worden. Verwijder ze handmatig uit {0}.
 {1}</translation>
     </message>
     <message>
       <source>Extracted installer files could not be removed. Remove them manually from {0}.
 {1}</source>
-      <translation type="unfinished">Extracted installer files could not be removed. Remove them manually from {0}.
+      <translation>De installatiebestanden konden niet verwijderd worden. Verwijder ze handmatig uit {0}.
 {1}</translation>
     </message>
     <message>
       <source>Extracted installer files could not be removed from {0}: {1}</source>
-      <translation type="unfinished">Extracted installer files could not be removed from {0}: {1}</translation>
+      <translation>Uitgepakte installatiebestanden konden niet verwijderd worden van {0}: {1}</translation>
     </message>
   </context>
   <context>
@@ -18186,7 +18186,7 @@ Herscan om het te controleren.</translation>
     </message>
     <message>
       <source>Install Rules</source>
-      <translation type="unfinished">Install Rules</translation>
+      <translation>Installeer regels</translation>
     </message>
     <message>
       <source>⊟ Collapse all</source>
@@ -20163,19 +20163,19 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
     <message>
       <source>Manual downloads</source>
-      <translation type="unfinished">Manual downloads</translation>
+      <translation>Handmatige downloads</translation>
     </message>
     <message>
       <source>{0} files need to be downloaded through your browser during installation.</source>
-      <translation type="unfinished">{0} files need to be downloaded through your browser during installation.</translation>
+      <translation>{0} bestanden moeten worden gedownload via uw browser tijdens de installatie.</translation>
     </message>
     <message>
       <source>Free Nexus accounts and some download sites require browser downloads.</source>
-      <translation type="unfinished">Free Nexus accounts and some download sites require browser downloads.</translation>
+      <translation>Gratis Nexus accounts en sommige downloadsites vereisen een browser downloading.</translation>
     </message>
     <message>
       <source>Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</source>
-      <translation type="unfinished">Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</translation>
+      <translation>Start de installatie en volg elke browserprompt. Als Amethyst geen download vindt, kies dan een bestand en selecteer het zelf. Download de exacte versies hieronder</translation>
     </message>
     <message>
       <source>Stock game folder: Invalid</source>
@@ -20285,15 +20285,15 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
     <message>
       <source>Install Rules — {0}</source>
-      <translation type="unfinished">Install Rules — {0}</translation>
+      <translation>Installeren regels — {0}</translation>
     </message>
     <message>
       <source>Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</source>
-      <translation type="unfinished">Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</translation>
+      <translation>Van toepassing op toekomstige platte-archief installaties en herinstalleert alle profielen. Werkt na het afbreken van de prefix na installatie. Eerdere regels hebben voorrang. Bestemmingen zijn relatief ten opzichte van de voorgehouden root van het mod; &lt;modname&gt; gebruikt de installatienaam en &lt;random&gt; wordt opgeslagen bij herinstallaties en updates. Installer-driven en exact-layout installaties worden niet beïnvloed.</translation>
     </message>
     <message>
       <source>Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</source>
-      <translation type="unfinished">Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</translation>
+      <translation>Bewerk de standaard routeringsregels van het spel. Wijzigingen worden opgeslagen wanneer je de persoonlijke spel-definitie opslaat. Eerder overeenkomende regels krijgen voorrang. De Data tab kan deze standaardinstellingen afzonderlijk voor dit spel overschrijven.</translation>
     </message>
     <message>
       <source>Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</source>
@@ -20341,7 +20341,7 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
     <message>
       <source>e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</source>
-      <translation type="unfinished">e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</translation>
+      <translation>bijv. &lt;modname&gt; of plugins/&lt;random&gt;; leeg = mod staging root</translation>
     </message>
     <message>
       <source>Extensions, folders, and filenames are alternatives within one rule. For example, .asi, MyPlugins, and winmm.dll route all .asi files, everything inside MyPlugins, and winmm.dll to the same destination.</source>
@@ -20437,7 +20437,7 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
     <message>
       <source>Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</source>
-      <translation type="unfinished">Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</translation>
+      <translation>Breng het bovenste niveau met map; een losse match brengt alle mod inhouden, inclusief submappen, overschrijft Flatten.</translation>
     </message>
     <message>
       <source>Reset to built-in</source>
@@ -20465,7 +20465,7 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
     <message>
       <source>Staging</source>
-      <translation type="unfinished">Staging</translation>
+      <translation>Testboeking</translation>
     </message>
     <message>
       <source>Custom</source>
@@ -20505,7 +20505,7 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
     <message>
       <source>Could not save install rules: {0}</source>
-      <translation type="unfinished">Could not save install rules: {0}</translation>
+      <translation>Installatieregels konden niet worden opgeslagen: {0}</translation>
     </message>
   </context>
   <context>
@@ -21885,7 +21885,7 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>Hexium</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -25031,7 +25031,7 @@ of gebruik ‘Bladeren’ om het handmatig te selecteren.</translation>
     </message>
     <message>
       <source>Include prereleases</source>
-      <translation type="unfinished">Include prereleases</translation>
+      <translation>Inclusief prereleases</translation>
     </message>
     <message>
       <source>Refresh</source>
@@ -25701,11 +25701,11 @@ Probeer uw zoekopdracht of filters leeg te maken.</translation>
     </message>
     <message>
       <source>Finish the current operation before opening another list.</source>
-      <translation type="unfinished">Finish the current operation before opening another list.</translation>
+      <translation>Voltooi de huidige bewerking voordat u een andere lijst opent.</translation>
     </message>
     <message>
       <source>Log in to Nexus before loading this collection revision.</source>
-      <translation type="unfinished">Log in to Nexus before loading this collection revision.</translation>
+      <translation>Log in bij Nexus voor het laden van deze collectie revisie.</translation>
     </message>
     <message>
       <source>Downloading modlist package…</source>
@@ -25865,11 +25865,11 @@ Probeer uw zoekopdracht of filters leeg te maken.</translation>
     </message>
     <message>
       <source>Retry download</source>
-      <translation type="unfinished">Retry download</translation>
+      <translation>Opnieuw downloaden</translation>
     </message>
     <message>
       <source>{0} · Nexus revision {1}</source>
-      <translation type="unfinished">{0} · Nexus revision {1}</translation>
+      <translation>{0} · Nexus herziening {1}</translation>
     </message>
     <message>
       <source>Local installation</source>
@@ -26352,7 +26352,7 @@ Voorvoegsel: {1}</translation>
     </message>
     <message>
       <source>Install New California</source>
-      <translation type="unfinished">Install New California</translation>
+      <translation>Installeer New Californië</translation>
     </message>
     <message>
       <source>BSA Decompressor</source>
@@ -26516,7 +26516,7 @@ Voorvoegsel: {1}</translation>
     </message>
     <message>
       <source>Run the New California installer and capture its files and INIs in a dedicated profile.</source>
-      <translation type="unfinished">Run the New California installer and capture its files and INIs in a dedicated profile.</translation>
+      <translation>Voer het New California installatieprogramma uit en neem de bestanden en INI's op in een speciaal profiel.</translation>
     </message>
     <message>
       <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
@@ -27671,23 +27671,23 @@ Volg de aanwijzingen in het terminal venster. YeetPatch vereist curl, jq, xxhsum
     <name>_PanelHandle</name>
     <message>
       <source>Drag to resize panels. Double-click to reset the layout.</source>
-      <translation type="unfinished">Drag to resize panels. Double-click to reset the layout.</translation>
+      <translation>Sleep om panelen aan te passen. Dubbelklik om de lay-out te resetten.</translation>
     </message>
     <message>
       <source>Resize modlist and plugins panels</source>
-      <translation type="unfinished">Resize modlist and plugins panels</translation>
+      <translation>Wijzigen van modlist en plugins panelen</translation>
     </message>
     <message>
       <source>Show Modlist</source>
-      <translation type="unfinished">Show Modlist</translation>
+      <translation>Modlist weergeven</translation>
     </message>
     <message>
       <source>Show Plugins</source>
-      <translation type="unfinished">Show Plugins</translation>
+      <translation>Plugins tonen</translation>
     </message>
     <message>
       <source>Click to reopen, or drag to resize.</source>
-      <translation type="unfinished">Click to reopen, or drag to resize.</translation>
+      <translation>Klik om te heropenen, of sleep om de grootte aan te passen.</translation>
     </message>
   </context>
   <context>
@@ -27912,11 +27912,11 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>Hexium</translation>
     </message>
     <message>
       <source>Download package from Hexium</source>
-      <translation type="unfinished">Download package from Hexium</translation>
+      <translation>Download pakket van Hexium</translation>
     </message>
     <message>
       <source>Mod provider</source>
