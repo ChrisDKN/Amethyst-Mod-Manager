@@ -34,7 +34,8 @@ from gui_qt.appearance.theme import (
 )
 from gui_qt.runtime.safe_emit import safe_emit
 from Utils.wizards.archives import (
-    fetch_latest_github_asset, find_archive, get_downloads_dir,
+    fetch_latest_github_asset_checked, find_archive, get_downloads_dir,
+    verify_github_download,
     install_archive_payload,
 )
 
@@ -339,9 +340,10 @@ class ScriptExtenderView(QWidget):
                 if api_url:
                     safe_emit(self._dl_status_sig,
                               self.tr("Fetching release from GitHub…"), "")
-                    tag, url = fetch_latest_github_asset(api_url, keywords)
+                    tag, url, sha256 = fetch_latest_github_asset_checked(
+                        api_url, keywords)
                 elif direct:
-                    tag, url = self.tr("selected version"), direct
+                    tag, url, sha256 = self.tr("selected version"), direct, ""
                 else:
                     raise RuntimeError(self.tr("No download URL configured."))
                 filename = url.split("/")[-1]
@@ -357,6 +359,9 @@ class ScriptExtenderView(QWidget):
 
                 from Utils.ca_bundle import download_file
                 download_file(url, dest, reporthook=_reporthook)
+                if api_url:   # a direct (non-GitHub) URL has no published digest
+                    verify_github_download(
+                        dest, sha256, log_fn=lambda m: self._log(f"Wizard: {m}"))
                 self._archive_path = dest
                 safe_emit(self._dl_status_sig,
                     self.tr("Downloaded {0}.\nChoose the install destination, "

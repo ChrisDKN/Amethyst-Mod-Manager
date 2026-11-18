@@ -80,7 +80,9 @@ def install_ckpe_mod(game: "BaseGame", *,
     import tempfile
 
     from Utils.ca_bundle import download_file, get_ssl_context
-    from Utils.wizards.archives import extract_archive
+    from Utils.wizards.archives import (
+        extract_archive, github_asset_sha256, verify_github_download,
+    )
     from Utils.mods.install_as_mod import index_installed_mod, register_as_mod_neutral
 
     req = urllib.request.Request(
@@ -97,6 +99,8 @@ def install_ckpe_mod(game: "BaseGame", *,
         raise RuntimeError(
             f"No suitable SSE archive found in the latest CKPE release ({tag}).")
     asset_name, url = picked
+    sha256 = next((github_asset_sha256(a) for a in data.get("assets", [])
+                   if a.get("name") == asset_name), "")
 
     log_fn(f"downloading CKPE {tag} ({asset_name}) from {url}")
     status_fn(f"Downloading CKPE {tag}…")
@@ -105,6 +109,7 @@ def install_ckpe_mod(game: "BaseGame", *,
     archive = tmp_dir / asset_name
     try:
         download_file(url, archive)
+        verify_github_download(archive, sha256, log_fn=log_fn)
 
         mod_dir = register_as_mod_neutral(
             game, CKPE_MOD_NAME, archive, log_fn=log_fn, root_folder=True)
