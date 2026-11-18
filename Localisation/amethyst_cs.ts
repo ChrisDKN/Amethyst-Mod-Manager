@@ -5395,7 +5395,7 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</source>
-      <translation type="unfinished">Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</translation>
+      <translation>Objednaná pravidla aplikovaná po instalaci do prostých archivů. Podporuje destinace &lt;modname&gt; a &lt;random&gt;.</translation>
     </message>
     <message>
       <source>Conflicts &amp; Advanced Behaviour</source>
@@ -5403,11 +5403,11 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</source>
-      <translation type="unfinished">Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</translation>
+      <translation>Upravte výchozí pravidla pro směrování hry pomocí stejného editoru jako datové karty. Pravidla jsou uložena s definicí vlastní hry.</translation>
     </message>
     <message>
       <source>Routing Rules (0)</source>
-      <translation type="unfinished">Routing Rules (0)</translation>
+      <translation>Pravidla směrování (0)</translation>
     </message>
     <message>
       <source>Game Sub-folder</source>
@@ -5419,11 +5419,11 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>Routing Rules ({0})</source>
-      <translation type="unfinished">Routing Rules ({0})</translation>
+      <translation>Pravidla směrování ({0})</translation>
     </message>
     <message>
       <source>Install Rules ({0})</source>
-      <translation type="unfinished">Install Rules ({0})</translation>
+      <translation>Instalační pravidla ({0})</translation>
     </message>
     <message>
       <source>Move up</source>
@@ -5471,7 +5471,7 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
     <message>
       <source>Hexium Community must be a community slug, for example 'valheim'.</source>
-      <translation type="unfinished">Hexium Community must be a community slug, for example 'valheim'.</translation>
+      <translation>Společenství pro hexan musí být komunitní url, například "valheim".</translation>
     </message>
     <message>
       <source>Downloading image…</source>
@@ -5567,69 +5567,69 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     <name>DependencyInstallOverlay</name>
     <message>
       <source>Installing Windows dependencies</source>
-      <translation type="unfinished">Installing Windows dependencies</translation>
+      <translation>Instalace závislostí Windows</translation>
     </message>
     <message>
       <source>{0}
 Prefix: {1}</source>
-      <translation type="unfinished">{0}
-Prefix: {1}</translation>
+      <translation>Předpona {0}
+: {1}</translation>
     </message>
     <message>
       <source>Dependency</source>
-      <translation type="unfinished">Dependency</translation>
+      <translation>Závislost</translation>
     </message>
     <message>
       <source>Status</source>
-      <translation type="unfinished">Status</translation>
+      <translation>Stav</translation>
     </message>
     <message>
       <source>Waiting</source>
-      <translation type="unfinished">Waiting</translation>
+      <translation>Čekání</translation>
     </message>
     <message>
       <source>Checking Windows dependencies…</source>
-      <translation type="unfinished">Checking Windows dependencies…</translation>
+      <translation>Kontrola závislostí systému Windows…</translation>
     </message>
     <message>
       <source>%v of %m dependencies processed</source>
-      <translation type="unfinished">%v of %m dependencies processed</translation>
+      <translation>%v z %m zpracovaných závislostí</translation>
     </message>
     <message>
       <source>Processed</source>
-      <translation type="unfinished">Processed</translation>
+      <translation>Zpracováno</translation>
     </message>
     <message>
       <source>Checking / installing</source>
-      <translation type="unfinished">Checking / installing</translation>
+      <translation>Kontrola / instalace</translation>
     </message>
     <message>
       <source>Setting up {0} ({1} of {2})…</source>
-      <translation type="unfinished">Setting up {0} ({1} of {2})…</translation>
+      <translation>Nastavení {0} ({1} z {2})…</translation>
     </message>
     <message>
       <source>Failed</source>
-      <translation type="unfinished">Failed</translation>
+      <translation>Selhalo</translation>
     </message>
     <message>
       <source>Not run</source>
-      <translation type="unfinished">Not run</translation>
+      <translation>Není spuštěno</translation>
     </message>
     <message>
       <source>Dependency setup failed: {0}</source>
-      <translation type="unfinished">Dependency setup failed: {0}</translation>
+      <translation>Nastavení závislosti selhalo: {0}</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>Nainstalováno</translation>
     </message>
     <message>
       <source>Skipped</source>
-      <translation type="unfinished">Skipped</translation>
+      <translation>Přeskočeno</translation>
     </message>
     <message>
       <source>Dependency setup finished: {0} installed, {1} skipped, {2} failed.</source>
-      <translation type="unfinished">Dependency setup finished: {0} installed, {1} skipped, {2} failed.</translation>
+      <translation>Nastavení závislosti dokončeno: {0} nainstalováno, {1} přeskočeno, {2} se nezdařilo.</translation>
     </message>
   </context>
   <context>
@@ -6045,27 +6045,27 @@ Zkontrolujte výstup nahoře a záznam.</translation>
     <name>DuplicateInstanceOverlay</name>
     <message>
       <source>Duplicate Instance</source>
-      <translation type="unfinished">Duplicate Instance</translation>
+      <translation>Duplicate Instance</translation>
     </message>
     <message>
       <source>Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</source>
-      <translation type="unfinished">Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</translation>
+      <translation>Vytvořte novou instanci pomocí stejného handleru a stáhněte mezipaměti. Vyberte její instalaci a spouštěč na další obrazovce.</translation>
     </message>
     <message>
       <source>New instance name</source>
-      <translation type="unfinished">New instance name</translation>
+      <translation>Nový název instance</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>Zrušit</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Pokračovat</translation>
     </message>
     <message>
       <source>Instance ID: {0}</source>
-      <translation type="unfinished">Instance ID: {0}</translation>
+      <translation>ID instance: {0}</translation>
     </message>
   </context>
   <context>
@@ -6172,7 +6172,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</source>
-      <translation type="unfinished">Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</translation>
+      <translation>Zakázat předchozí '{0}' výstupy, včetně číslovaných kopií, před nasazením. Každý běh generuje do nového zakázaného režimu, přidávání (2), (3), atd. V případě potřeby. Nový mod je povolen po úspěšném generaci. Předchozí výstupy jsou uchovány pro odstranění ručně.</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -6238,49 +6238,49 @@ Spusťte prosím průvodce znovu a nejprve nainstalujte soubor {1}.</translation
     </message>
     <message>
       <source>Output folder: {0}</source>
-      <translation type="unfinished">Output folder: {0}</translation>
+      <translation>Výstupní složka: {0}</translation>
     </message>
     <message>
       <source>Checking generation inputs…</source>
-      <translation type="unfinished">Checking generation inputs…</translation>
+      <translation>Kontrola generačních vstupů…</translation>
     </message>
     <message>
       <source>Preparing the tool prefix…</source>
-      <translation type="unfinished">Preparing the tool prefix…</translation>
+      <translation>Příprava prefix nástroje…</translation>
     </message>
     <message>
       <source>Finishing the tool session…</source>
-      <translation type="unfinished">Finishing the tool session…</translation>
+      <translation>Dokončování relace nástroje…</translation>
     </message>
     <message>
       <source>Restoring the game after generation…</source>
-      <translation type="unfinished">Restoring the game after generation…</translation>
+      <translation>Obnovení hry po generaci…</translation>
     </message>
     <message>
       <source>Validating generated output…</source>
-      <translation type="unfinished">Validating generated output…</translation>
+      <translation>Ověřování generovaného výstupu…</translation>
     </message>
     <message>
       <source>Importing generated output as a new mod…</source>
-      <translation type="unfinished">Importing generated output as a new mod…</translation>
+      <translation>Importuji generovaný výstup jako nový mód…</translation>
     </message>
     <message>
       <source>Indexing the new output mod…</source>
-      <translation type="unfinished">Indexing the new output mod…</translation>
+      <translation>Indexování nového výstupního módu…</translation>
     </message>
     <message>
       <source>Synchronizing generated plugins…</source>
-      <translation type="unfinished">Synchronizing generated plugins…</translation>
+      <translation>Synchronizuji generované pluginy…</translation>
     </message>
     <message>
       <source>{0} finished. Created '{1}'.</source>
-      <translation type="unfinished">{0} finished. Created '{1}'.</translation>
+      <translation>{0} dokončen. Vytvořeno '{1}'.</translation>
     </message>
     <message>
       <source>{0} is running.
 When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</source>
-      <translation type="unfinished">{0} is running.
-When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</translation>
+      <translation>{0} běží.
+Po dokončení generace zvolte Ukončit nebo Uložit &amp; Ukončit bez zipu. Ponechat vybranou výstupní cestu při načítání přednastavení. Nový výstupní mód bude povolen po úspěšné generaci.</translation>
     </message>
     <message>
       <source>Searching Downloads folder…</source>
@@ -7185,11 +7185,11 @@ Předpona Protonu: jednou klikněte na 'Instalovat Java do prefixu', pak se spus
     </message>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>Zachytit protokoly spuštění</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>Uložte výstup pro spuštění a logy pro diagnostiku Proton do mezipaměti.</translation>
     </message>
     <message>
       <source>Hide from dropdown</source>
@@ -7288,7 +7288,7 @@ Předpona Protonu: jednou klikněte na 'Instalovat Java do prefixu', pak se spus
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>Oxidy a hydroxidy chromu</translation>
     </message>
     <message>
       <source>Thunderstore</source>
@@ -7464,7 +7464,7 @@ Předpona Protonu: jednou klikněte na 'Instalovat Java do prefixu', pak se spus
     </message>
     <message>
       <source>This mod has no recorded package identity for this source.</source>
-      <translation type="unfinished">This mod has no recorded package identity for this source.</translation>
+      <translation>Tento mod nemá žádnou nahranou identitu balíčku pro tento zdroj.</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -8799,13 +8799,13 @@ Spravovaný adresář: {2}</translation>
     <name>LaunchLogEditor</name>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>Aktualizovat</translation>
     </message>
     <message>
       <source>No {0} log is available for the latest launch.
 Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</source>
-      <translation type="unfinished">No {0} log is available for the latest launch.
-Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</translation>
+      <translation>Pro poslední spuštění není k dispozici žádný protokol {0} .
+Povolte záznamy o spuštění v nastavení spuštění a poté stiskněte tlačítko Play. Rodné a obyčejné spouštění vín neprodukuje logy Proton.</translation>
     </message>
     <message>
       <source>Showing the last 2 MiB.
@@ -8815,18 +8815,18 @@ Enable Capture launch logs in launch settings, then press Play. Native and plain
     </message>
     <message>
       <source>Could not read log: {0}</source>
-      <translation type="unfinished">Could not read log: {0}</translation>
+      <translation>Nelze číst protokol: {0}</translation>
     </message>
   </context>
   <context>
     <name>LauncherEntryOverlay</name>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>Zachytit protokoly spuštění</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>Uložte výstup pro spuštění a logy pro diagnostiku Proton do mezipaměti.</translation>
     </message>
   </context>
   <context>
@@ -8873,11 +8873,11 @@ Enable Capture launch logs in launch settings, then press Play. Native and plain
     </message>
     <message>
       <source>Capture launch logs</source>
-      <translation type="unfinished">Capture launch logs</translation>
+      <translation>Zachytit protokoly spuštění</translation>
     </message>
     <message>
       <source>Save launch output and Proton diagnostic logs in the cache.</source>
-      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+      <translation>Uložte výstup pro spuštění a logy pro diagnostiku Proton do mezipaměti.</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -11335,75 +11335,75 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>The blacklist changed. Close and reopen the editor before saving.</source>
-      <translation type="unfinished">The blacklist changed. Close and reopen the editor before saving.</translation>
+      <translation>Černá listina se změnila. Před uložením jej zavřete a znovu otevřete editor.</translation>
     </message>
     <message>
       <source>Install Rules</source>
-      <translation type="unfinished">Install Rules</translation>
+      <translation>Instalační pravidla</translation>
     </message>
     <message>
       <source>The selected game changed. Reopen the editor.</source>
-      <translation type="unfinished">The selected game changed. Reopen the editor.</translation>
+      <translation>Vybraná hra se změnila. Znovu otevřete editor.</translation>
     </message>
     <message>
       <source>Install rules changed while the editor was open. Reopen it before saving.</source>
-      <translation type="unfinished">Install rules changed while the editor was open. Reopen it before saving.</translation>
+      <translation>Instalační pravidla se změnila, když byl editor otevřen. Před uložením jej znovu otevřete.</translation>
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>Oxidy a hydroxidy chromu</translation>
     </message>
     <message>
       <source>Browse Hexium</source>
-      <translation type="unfinished">Browse Hexium</translation>
+      <translation>Procházet hexan</translation>
     </message>
     <message>
       <source>Open game on Hexium</source>
-      <translation type="unfinished">Open game on Hexium</translation>
+      <translation>Otevřít hru na hexiu</translation>
     </message>
     <message>
       <source>Select game instance</source>
-      <translation type="unfinished">Select game instance</translation>
+      <translation>Vybrat instanci hry</translation>
     </message>
     <message>
       <source>Received an invalid or unsupported repository install link.</source>
-      <translation type="unfinished">Received an invalid or unsupported repository install link.</translation>
+      <translation>Byl přijat neplatný nebo nepodporovaný instalační odkaz repozitáře.</translation>
     </message>
     <message>
       <source>Select and configure a game before installing repository mods.</source>
-      <translation type="unfinished">Select and configure a game before installing repository mods.</translation>
+      <translation>Vyberte a nakonfigurujte hru před instalací režimů repozitáře.</translation>
     </message>
     <message>
       <source>Checking {0} dependencies…</source>
-      <translation type="unfinished">Checking {0} dependencies…</translation>
+      <translation>Kontrola závislosti {0}…</translation>
     </message>
     <message>
       <source>This repository does not support the selected game.</source>
-      <translation type="unfinished">This repository does not support the selected game.</translation>
+      <translation>Tento repozitář nepodporuje vybranou hru.</translation>
     </message>
     <message>
       <source>Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</source>
-      <translation type="unfinished">Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</translation>
+      <translation>Nepodařilo se vyřešit všechny závislosti. Instalace byla zastavena. Zkuste to prosím znovu.</translation>
     </message>
     <message>
       <source>Game or profile changed. Start the installation again.</source>
-      <translation type="unfinished">Game or profile changed. Start the installation again.</translation>
+      <translation>Změněna hra nebo profil. Spusťte instalaci znovu.</translation>
     </message>
     <message>
       <source>Review package sources</source>
-      <translation type="unfinished">Review package sources</translation>
+      <translation>Zkontrolovat zdroje balíčků</translation>
     </message>
     <message>
       <source>Replacements affect every profile using these mod folders. Continue?</source>
-      <translation type="unfinished">Replacements affect every profile using these mod folders. Continue?</translation>
+      <translation>Nahrazení ovlivní každý profil pomocí těchto modifikačních složek. Pokračovat?</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Pokračovat</translation>
     </message>
     <message>
       <source>Downloading mod from {0}…</source>
-      <translation type="unfinished">Downloading mod from {0}…</translation>
+      <translation>Stahování modu z {0}…</translation>
     </message>
     <message>
       <source>Remove game</source>
@@ -11419,27 +11419,27 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Select a configured game with {0} support first.</source>
-      <translation type="unfinished">Select a configured game with {0} support first.</translation>
+      <translation>Nejprve vyberte nakonfigurovanou hru s podporou {0}.</translation>
     </message>
     <message>
       <source>A repository profile is already downloading.</source>
-      <translation type="unfinished">A repository profile is already downloading.</translation>
+      <translation>Profil repozitáře se již stahuje.</translation>
     </message>
     <message>
       <source>Downloading {0} profile…</source>
-      <translation type="unfinished">Downloading {0} profile…</translation>
+      <translation>Stahování profilu {0}…</translation>
     </message>
     <message>
       <source>Import {0} share code</source>
-      <translation type="unfinished">Import {0} share code</translation>
+      <translation>Importovat kód sdílení {0}</translation>
     </message>
     <message>
       <source>Paste a share code from {0}:</source>
-      <translation type="unfinished">Paste a share code from {0}:</translation>
+      <translation>Vložit kód sdílení z {0}:</translation>
     </message>
     <message>
       <source>Select a configured game with Thunderstore or Hexium support first.</source>
-      <translation type="unfinished">Select a configured game with Thunderstore or Hexium support first.</translation>
+      <translation>Nejprve vyberte konfigurovanou hru s podporou Thunderstore nebo Hexium.</translation>
     </message>
     <message>
       <source>Restoring {0}…</source>
@@ -12057,7 +12057,7 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>A package download failed. Completed archives were retained; installation stopped.</source>
-      <translation type="unfinished">A package download failed. Completed archives were retained; installation stopped.</translation>
+      <translation>Stahování balíčku se nezdařilo. Dokončené archivy byly zachovány, instalace byla zastavena.</translation>
     </message>
     <message>
       <source>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</source>
@@ -12069,15 +12069,15 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Checking package repositories for updates ({0})…</source>
-      <translation type="unfinished">Checking package repositories for updates ({0})…</translation>
+      <translation>Kontrola aktualizací balíčků ({0})…</translation>
     </message>
     <message>
       <source>All checked packages are up to date.</source>
-      <translation type="unfinished">All checked packages are up to date.</translation>
+      <translation>Všechny označené balíčky jsou aktuální.</translation>
     </message>
     <message>
       <source>The selected instance is no longer available.</source>
-      <translation type="unfinished">The selected instance is no longer available.</translation>
+      <translation>Vybraná instance již není k dispozici.</translation>
     </message>
     <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
@@ -12085,11 +12085,11 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Finish the current operation before opening a Wabbajack list.</source>
-      <translation type="unfinished">Finish the current operation before opening a Wabbajack list.</translation>
+      <translation>Dokončete aktuální operaci před otevřením seznamu Wabbajack.</translation>
     </message>
     <message>
       <source>Finish the current Wabbajack operation before opening another list.</source>
-      <translation type="unfinished">Finish the current Wabbajack operation before opening another list.</translation>
+      <translation>Dokončete aktuální operaci Wabbajack před otevřením dalšího seznamu.</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -12101,7 +12101,7 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Game or profile changed. Start identification again.</source>
-      <translation type="unfinished">Game or profile changed. Start identification again.</translation>
+      <translation>Změněna hra nebo profil. Začněte znovu identifikovat.</translation>
     </message>
     <message>
       <source>Identifying mods failed - see the log.</source>
@@ -12129,15 +12129,15 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Select a configured game with Hexium support first.</source>
-      <translation type="unfinished">Select a configured game with Hexium support first.</translation>
+      <translation>Nejprve vyberte konfigurovanou hru s podporou hexa.</translation>
     </message>
     <message>
       <source>Choose Hexium author</source>
-      <translation type="unfinished">Choose Hexium author</translation>
+      <translation>Zvolte šestičlenného autora</translation>
     </message>
     <message>
       <source>Identify</source>
-      <translation type="unfinished">Identify</translation>
+      <translation>Identifikovat</translation>
     </message>
     <message>
       <source>Another installation or deployment operation</source>
@@ -12377,11 +12377,11 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Nexus update check failed; see log</source>
-      <translation type="unfinished">Nexus update check failed; see log</translation>
+      <translation>Kontrola aktualizací Nexus se nezdařila; viz protokol</translation>
     </message>
     <message>
       <source>Nexus: {0} mod(s) could not be checked; see log</source>
-      <translation type="unfinished">Nexus: {0} mod(s) could not be checked; see log</translation>
+      <translation>Nexus: Režim {0} nemohl být zkontrolován; viz protokol</translation>
     </message>
     <message>
       <source>Mod providers: {0} updates</source>
@@ -12417,7 +12417,7 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Nexus login is required for the selected Nexus mods.</source>
-      <translation type="unfinished">Nexus login is required for the selected Nexus mods.</translation>
+      <translation>Pro vybrané Nexus módy je vyžadováno přihlášení Nexus.</translation>
     </message>
     <message>
       <source>Quick Update download cancelled.</source>
@@ -12541,7 +12541,7 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</source>
-      <translation type="unfinished">{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</translation>
+      <translation>{0} je nedostupný a stále má aktivní nasazení. Pokud je odpojen, znovu připojte svůj disk. Chcete-li změnit jeho umístění nebo jej odstranit, otevřete znovu hru a vyberte Obnovit předchozí umístění.</translation>
     </message>
     <message>
       <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
@@ -12637,7 +12637,7 @@ Stiskněte pro použití vašich modů, poté spusťte hru ze Steamu, Heroic, Lu
     </message>
     <message>
       <source>Logs</source>
-      <translation type="unfinished">Logs</translation>
+      <translation>Logy</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -12807,7 +12807,7 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
     </message>
     <message>
       <source>Could not remove the previous version: {0}</source>
-      <translation type="unfinished">Could not remove the previous version: {0}</translation>
+      <translation>Nelze odstranit předchozí verzi: {0}</translation>
     </message>
     <message>
       <source>Rename linked source</source>
@@ -12967,7 +12967,7 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
     </message>
     <message>
       <source>The active game or profile changed. Run LOOT again.</source>
-      <translation type="unfinished">The active game or profile changed. Run LOOT again.</translation>
+      <translation>Aktivní hra nebo profil byl změněn. Spustit LOOT znovu.</translation>
     </message>
     <message>
       <source>LOOT cancelled.</source>
@@ -14234,24 +14234,24 @@ Tuto akci nelze vrátit zpět.</translation>
     </message>
     <message>
       <source>Custom URL</source>
-      <translation type="unfinished">Custom URL</translation>
+      <translation>Vlastní URL</translation>
     </message>
     <message>
       <source>Open URL</source>
-      <translation type="unfinished">Open URL</translation>
+      <translation>Otevřít URL</translation>
     </message>
     <message>
       <source>Set URL</source>
-      <translation type="unfinished">Set URL</translation>
+      <translation>Nastavit URL</translation>
     </message>
     <message>
       <source>URL for {0} selected mod(s) (leave blank to clear):</source>
-      <translation type="unfinished">URL for {0} selected mod(s) (leave blank to clear):</translation>
+      <translation>URL pro vybrané režimy {0} (nechte prázdné pro vymazání):</translation>
     </message>
     <message>
       <source>Could not set URL for "{0}":
 {1}</source>
-      <translation type="unfinished">Could not set URL for "{0}":
+      <translation>Nelze nastavit URL pro "{0}":
 {1}</translation>
     </message>
     <message>
@@ -14624,15 +14624,15 @@ Tuto akci nelze vrátit zpět.</translation>
     </message>
     <message>
       <source>Open mod pages</source>
-      <translation type="unfinished">Open mod pages</translation>
+      <translation>Otevřít modifikace stránky</translation>
     </message>
     <message>
       <source>Open source pages for {0} selected mods in your browser?</source>
-      <translation type="unfinished">Open source pages for {0} selected mods in your browser?</translation>
+      <translation>Otevřít zdrojové stránky pro {0} vybrané mody ve vašem prohlížeči?</translation>
     </message>
     <message>
       <source>Open pages</source>
-      <translation type="unfinished">Open pages</translation>
+      <translation>Otevřené stránky</translation>
     </message>
     <message>
       <source>Lock Separator - Mods in this separator are attached to it</source>
@@ -14770,7 +14770,7 @@ Klepněte na tlačítko Hotovo pro uzavření.</translation>
     </message>
     <message>
       <source>Update available on Hexium</source>
-      <translation type="unfinished">Update available on Hexium</translation>
+      <translation>Aktualizace je k dispozici na hexiu</translation>
     </message>
     <message>
       <source>Update available on Thunderstore</source>
@@ -15477,27 +15477,27 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <name>NewCaliforniaView</name>
     <message>
       <source>Install New California - {0}</source>
-      <translation type="unfinished">Install New California - {0}</translation>
+      <translation>Nainstalovat novou Kalifornii - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download New California</source>
-      <translation type="unfinished">Step 1: Download New California</translation>
+      <translation>Krok 1: Stáhnout novou Kalifornii</translation>
     </message>
     <message>
       <source>Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</source>
-      <translation type="unfinished">Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</translation>
+      <translation>Stáhněte si novou Kalifornii 2.3.1 plnou instalační verzi ZIP. Prémiové účty se stahují automaticky; ostatní účty lze stáhnout v prohlížeči a archiv bude zjištěn.</translation>
     </message>
     <message>
       <source>Step 2: Extract the installer</source>
-      <translation type="unfinished">Step 2: Extract the installer</translation>
+      <translation>Krok 2: Extrahovat instalační program</translation>
     </message>
     <message>
       <source>Installing New California</source>
-      <translation type="unfinished">Installing New California</translation>
+      <translation>Instalace nové Kalifornie</translation>
     </message>
     <message>
       <source>Step 3: Create a New California profile</source>
-      <translation type="unfinished">Step 3: Create a New California profile</translation>
+      <translation>Krok 3: Vytvoření nového kalifornského profilu</translation>
     </message>
     <message>
       <source>The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
@@ -15505,91 +15505,91 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
 In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
 
 Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</source>
-      <translation type="unfinished">The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
+      <translation>Průvodce obnoví aktuální nasazení, vytvoří prázdný profil s vlastními mody a spustí instalační program. Jeho soubory se stanou spravovaným Novým Kalifornia mod a jeho upravené INI zůstanou v novém profilu. Vaše původní INI a herní soubory jsou poté obnoveny.
 
-In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
+V instalačním systému potvrďte novou složku Vegas zobrazenou níže. Dokončete instalační program a zavřete ho bez spuštění hry. Průvodce končí obnovením hry; nový profil nasazte, jakmile je připraven.
 
-Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</translation>
+Extrahované instalační soubory jsou po instalaci odstraněny nebo při zavření průvodce. Stažené ZIP, prefixy vín a recovery zálohy jsou zachovány.</translation>
     </message>
     <message>
       <source>New profile name:</source>
-      <translation type="unfinished">New profile name:</translation>
+      <translation>Nový název profilu:</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Pokračovat</translation>
     </message>
     <message>
       <source>Profile selection and deployment are unavailable here.</source>
-      <translation type="unfinished">Profile selection and deployment are unavailable here.</translation>
+      <translation>Výběr a nasazení profilu nejsou k dispozici zde.</translation>
     </message>
     <message>
       <source>Select the New California installer ZIP</source>
-      <translation type="unfinished">Select the New California installer ZIP</translation>
+      <translation>Vyberte nový Kalifornii instalátor ZIP</translation>
     </message>
     <message>
       <source>Installer archive not found. Download it, then try again or browse.</source>
-      <translation type="unfinished">Installer archive not found. Download it, then try again or browse.</translation>
+      <translation>Instalační archiv nebyl nalezen. Stáhněte jej, zkuste to znovu nebo procházejte.</translation>
     </message>
     <message>
       <source>Extracting installer into Applications…</source>
-      <translation type="unfinished">Extracting installer into Applications…</translation>
+      <translation>Rozbaluji instalační program do aplikací…</translation>
     </message>
     <message>
       <source>Saving current INIs…</source>
-      <translation type="unfinished">Saving current INIs…</translation>
+      <translation>Ukládání aktuálních INIs…</translation>
     </message>
     <message>
       <source>Return to Fallout New Vegas before starting this wizard.</source>
-      <translation type="unfinished">Return to Fallout New Vegas before starting this wizard.</translation>
+      <translation>Před spuštěním průvodce se vraťte na Fallout New Vegas.</translation>
     </message>
     <message>
       <source>The game or prefix paths changed. Reopen the wizard to review them.</source>
-      <translation type="unfinished">The game or prefix paths changed. Reopen the wizard to review them.</translation>
+      <translation>Cesty hry nebo prefixu se změnily. Znovu otevřete průvodce a zkontrolujte je.</translation>
     </message>
     <message>
       <source>Could not restore the original deployment.</source>
-      <translation type="unfinished">Could not restore the original deployment.</translation>
+      <translation>Nepodařilo se obnovit původní nasazení.</translation>
     </message>
     <message>
       <source>Creating the new profile…</source>
-      <translation type="unfinished">Creating the new profile…</translation>
+      <translation>Vytváření nového profilu…</translation>
     </message>
     <message>
       <source>Could not select the new profile.</source>
-      <translation type="unfinished">Could not select the new profile.</translation>
+      <translation>Nelze vybrat nový profil.</translation>
     </message>
     <message>
       <source>Could not deploy the empty profile.</source>
-      <translation type="unfinished">Could not deploy the empty profile.</translation>
+      <translation>Nelze použít prázdný profil.</translation>
     </message>
     <message>
       <source>Complete the New California installer, then close it without launching the game.</source>
-      <translation type="unfinished">Complete the New California installer, then close it without launching the game.</translation>
+      <translation>Dokončete nový Kaliforniový instalátor a zavřete ho bez spuštění hry.</translation>
     </message>
     <message>
       <source>Restore failed. Keep the recovery files and run Restore before continuing.</source>
-      <translation type="unfinished">Restore failed. Keep the recovery files and run Restore before continuing.</translation>
+      <translation>Obnovení se nezdařilo. Zachovejte obnovovací soubory a spusťte obnovení, než budete pokračovat.</translation>
     </message>
     <message>
       <source>New California is installed. The game is restored. Deploy this profile when you are ready to play.</source>
-      <translation type="unfinished">New California is installed. The game is restored. Deploy this profile when you are ready to play.</translation>
+      <translation>Nová Kalifornie je nainstalována. Hra je obnovena. Tento profil uvolněte, až budete připraveni hrát.</translation>
     </message>
     <message>
       <source>New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
 {1}</source>
-      <translation type="unfinished">New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
+      <translation>Nová Kalifornie je nainstalována, ale extrahované instalační soubory nelze odstranit. Odstraňte je ručně z {0}.
 {1}</translation>
     </message>
     <message>
       <source>Extracted installer files could not be removed. Remove them manually from {0}.
 {1}</source>
-      <translation type="unfinished">Extracted installer files could not be removed. Remove them manually from {0}.
+      <translation>Rozbalené instalační soubory nelze odstranit. Odstraňte je ručně z {0}.
 {1}</translation>
     </message>
     <message>
       <source>Extracted installer files could not be removed from {0}: {1}</source>
-      <translation type="unfinished">Extracted installer files could not be removed from {0}: {1}</translation>
+      <translation>Rozbalené instalační soubory nelze odstranit z {0}: {1}</translation>
     </message>
   </context>
   <context>
@@ -18186,7 +18186,7 @@ Přeskenujte to.</translation>
     </message>
     <message>
       <source>Install Rules</source>
-      <translation type="unfinished">Install Rules</translation>
+      <translation>Instalační pravidla</translation>
     </message>
     <message>
       <source>⊟ Collapse all</source>
@@ -20163,19 +20163,19 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>Manual downloads</source>
-      <translation type="unfinished">Manual downloads</translation>
+      <translation>Ruční stahování</translation>
     </message>
     <message>
       <source>{0} files need to be downloaded through your browser during installation.</source>
-      <translation type="unfinished">{0} files need to be downloaded through your browser during installation.</translation>
+      <translation>{0} soubory je třeba stáhnout přes váš prohlížeč během instalace.</translation>
     </message>
     <message>
       <source>Free Nexus accounts and some download sites require browser downloads.</source>
-      <translation type="unfinished">Free Nexus accounts and some download sites require browser downloads.</translation>
+      <translation>Bezplatné Nexus účty a některé stránky ke stažení vyžadují stahování prohlížeče.</translation>
     </message>
     <message>
       <source>Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</source>
-      <translation type="unfinished">Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</translation>
+      <translation>Spusťte instalaci a postupujte podle každé výzvy prohlížeče. Pokud Amethyst nenalezne stahování, vyberte Vyberte soubor a vyberte si jej. Stáhněte si přesné verze uvedené níže.</translation>
     </message>
     <message>
       <source>Stock game folder: Invalid</source>
@@ -20285,15 +20285,15 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>Install Rules — {0}</source>
-      <translation type="unfinished">Install Rules — {0}</translation>
+      <translation>Instalační pravidla — {0}</translation>
     </message>
     <message>
       <source>Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</source>
-      <translation type="unfinished">Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</translation>
+      <translation>Použije se na budoucí instalační a reinstalační systémy pro všechny profily. Po instalaci se spustí prefix. Předchozí pravidla mají přednost. Místo určení je relativní k kořenovému adresáři módu; &lt;modname&gt; používá jeho název instalace a &lt;random&gt; je uloženo napříč reinstalacemi a aktualizacemi. Instalační a přesně uspořádané instalace nejsou dotčeny.</translation>
     </message>
     <message>
       <source>Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</source>
-      <translation type="unfinished">Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</translation>
+      <translation>Upravit pravidla výchozí směrování hry. Změny jsou uloženy, když uložíte definici vlastní hry. Přednost mají dříve odpovídající pravidla. Záložka Data může pro tuto hru přepsat tyto výchozí hodnoty zvlášť.</translation>
     </message>
     <message>
       <source>Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</source>
@@ -20341,7 +20341,7 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</source>
-      <translation type="unfinished">e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</translation>
+      <translation>např. &lt;modname&gt; nebo pluginy/&lt;random&gt;; prázdné = kořenový adresář přípravných modů</translation>
     </message>
     <message>
       <source>Extensions, folders, and filenames are alternatives within one rule. For example, .asi, MyPlugins, and winmm.dll route all .asi files, everything inside MyPlugins, and winmm.dll to the same destination.</source>
@@ -20437,7 +20437,7 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</source>
-      <translation type="unfinished">Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</translation>
+      <translation>Přineste nejvyšší úroveň obsahující složku; volná shoda přináší veškerý obsah módu, včetně podsložek. Přepsá Flatten.</translation>
     </message>
     <message>
       <source>Reset to built-in</source>
@@ -20465,7 +20465,7 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>Staging</source>
-      <translation type="unfinished">Staging</translation>
+      <translation>Fungování</translation>
     </message>
     <message>
       <source>Custom</source>
@@ -20505,7 +20505,7 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
     </message>
     <message>
       <source>Could not save install rules: {0}</source>
-      <translation type="unfinished">Could not save install rules: {0}</translation>
+      <translation>Nelze uložit pravidla instalace: {0}</translation>
     </message>
   </context>
   <context>
@@ -21885,7 +21885,7 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>Oxidy a hydroxidy chromu</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -25031,7 +25031,7 @@ nebo použijte tlačítko „Procházet“ a vyberte jej ručně.</translation>
     </message>
     <message>
       <source>Include prereleases</source>
-      <translation type="unfinished">Include prereleases</translation>
+      <translation>Zahrnout prereleases</translation>
     </message>
     <message>
       <source>Refresh</source>
@@ -25701,11 +25701,11 @@ Zkuste vymazat vyhledávání nebo filtry.</translation>
     </message>
     <message>
       <source>Finish the current operation before opening another list.</source>
-      <translation type="unfinished">Finish the current operation before opening another list.</translation>
+      <translation>Dokončete aktuální operaci před otevřením dalšího seznamu.</translation>
     </message>
     <message>
       <source>Log in to Nexus before loading this collection revision.</source>
-      <translation type="unfinished">Log in to Nexus before loading this collection revision.</translation>
+      <translation>Přihlaste se do Nexus před načtením této revize kolekce.</translation>
     </message>
     <message>
       <source>Downloading modlist package…</source>
@@ -25865,11 +25865,11 @@ Zkuste vymazat vyhledávání nebo filtry.</translation>
     </message>
     <message>
       <source>Retry download</source>
-      <translation type="unfinished">Retry download</translation>
+      <translation>Opakovat stahování</translation>
     </message>
     <message>
       <source>{0} · Nexus revision {1}</source>
-      <translation type="unfinished">{0} · Nexus revision {1}</translation>
+      <translation>{0} · Nexus revize {1}</translation>
     </message>
     <message>
       <source>Local installation</source>
@@ -26352,7 +26352,7 @@ Prefix: {1}</source>
     </message>
     <message>
       <source>Install New California</source>
-      <translation type="unfinished">Install New California</translation>
+      <translation>Instalovat novou Kalifornii</translation>
     </message>
     <message>
       <source>BSA Decompressor</source>
@@ -26516,7 +26516,7 @@ Prefix: {1}</source>
     </message>
     <message>
       <source>Run the New California installer and capture its files and INIs in a dedicated profile.</source>
-      <translation type="unfinished">Run the New California installer and capture its files and INIs in a dedicated profile.</translation>
+      <translation>Spusťte instalátor Nové Kalifornie a zachyťte své soubory a INI ve vyhrazeném profilu.</translation>
     </message>
     <message>
       <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
@@ -27671,23 +27671,23 @@ Postupujte podle požadavků v okně terminálu. YeetPatch vyžaduje curl, jq, x
     <name>_PanelHandle</name>
     <message>
       <source>Drag to resize panels. Double-click to reset the layout.</source>
-      <translation type="unfinished">Drag to resize panels. Double-click to reset the layout.</translation>
+      <translation>Přetažením změníte velikost panelů. Dvojitým klepnutím resetujete rozvržení.</translation>
     </message>
     <message>
       <source>Resize modlist and plugins panels</source>
-      <translation type="unfinished">Resize modlist and plugins panels</translation>
+      <translation>Změnit velikost panelů seznamu modů a pluginů</translation>
     </message>
     <message>
       <source>Show Modlist</source>
-      <translation type="unfinished">Show Modlist</translation>
+      <translation>Zobrazit seznam modifikací</translation>
     </message>
     <message>
       <source>Show Plugins</source>
-      <translation type="unfinished">Show Plugins</translation>
+      <translation>Zobrazit pluginy</translation>
     </message>
     <message>
       <source>Click to reopen, or drag to resize.</source>
-      <translation type="unfinished">Click to reopen, or drag to resize.</translation>
+      <translation>Kliknutím znovu otevřete, nebo přetažením změníte velikost.</translation>
     </message>
   </context>
   <context>
@@ -27912,11 +27912,11 @@ Publikace dělá tuto revizi jeden uživatel nainstalovat. Nelze ho nepublikovat
     </message>
     <message>
       <source>Hexium</source>
-      <translation type="unfinished">Hexium</translation>
+      <translation>Oxidy a hydroxidy chromu</translation>
     </message>
     <message>
       <source>Download package from Hexium</source>
-      <translation type="unfinished">Download package from Hexium</translation>
+      <translation>Stáhnout balíček z hexia</translation>
     </message>
     <message>
       <source>Mod provider</source>
