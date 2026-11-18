@@ -1237,24 +1237,40 @@ Configure your INI settings, then close it and click Done.</source>
       <translation>黑名单 — {0}</translation>
     </message>
     <message>
-      <source>Applies to all profiles for this game. Matching files and folders are excluded from deployment and conflict tracking; files remain in staging. Changes apply on the next deploy, or automatically when auto-deploy is enabled.</source>
-      <translation>应用于此游戏的所有配置文件。匹配的文件和文件夹被排除在部署和冲突跟踪之外；文件仍然处于挂起状态。 在下次部署时应用更改，或在启用自动部署时自动应用。</translation>
+      <source>Applies to all profiles for this game. Exclusions prevent deployment. Conflict-only rules keep files deployed and hide their conflicts. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Deployment exclusions take precedence.</source>
+      <translation>应用于这场游戏的所有配置文件。排除会阻止部署。仅限冲突规则会保留文件部署并隐藏其冲突。 在下次部署时适用更改，或在启用自动部署时自动适用。部署排除占优先。</translation>
     </message>
     <message>
-      <source>Files</source>
-      <translation>文件</translation>
+      <source>Exclude Files</source>
+      <translation>排除文件</translation>
     </message>
     <message>
-      <source>Case-insensitive filename patterns, e.g. *.txt or readme*.</source>
-      <translation>大小写不敏感的文件名模式，例如 *.txt 或 readme*。</translation>
+      <source>Case-insensitive filename patterns excluded from deployment and conflict tracking, e.g. *.txt or readme*.</source>
+      <translation>不区分大小写的文件名模式被排除在部署和冲突跟踪之外，例如：*.txt 或 readme*。</translation>
     </message>
     <message>
-      <source>Folders</source>
-      <translation>文件夹</translation>
+      <source>Exclude Folders</source>
+      <translation>排除文件夹</translation>
     </message>
     <message>
-      <source>Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Matching folders exclude their entire contents.</source>
-      <translation>在任何深度，例如docs或*_backup，都不区分大小写的文件夹名称模式。匹配的文件夹排除了它们的全部内容。</translation>
+      <source>Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Their entire contents are excluded from deployment and conflict tracking.</source>
+      <translation>在任何深度，例如docs或*_backup，都没有区分大小写的文件夹名称模式。它们的全部内容都被排除在部署和冲突跟踪之外。</translation>
+    </message>
+    <message>
+      <source>Ignore File Conflicts</source>
+      <translation>忽略文件冲突</translation>
+    </message>
+    <message>
+      <source>Case-insensitive destination filename patterns, e.g. readme*.txt. Matching files deploy normally without conflict reporting.</source>
+      <translation>大小写不敏感的目标文件名模式，例如readme*.txt。匹配文件正常部署，无冲突报告。</translation>
+    </message>
+    <message>
+      <source>Ignore Folder Conflicts</source>
+      <translation>忽略文件夹冲突</translation>
+    </message>
+    <message>
+      <source>Case-insensitive destination folder-name patterns at any depth, e.g. docs or *_info. Their contents and subfolders deploy normally without conflict reporting.</source>
+      <translation>在任何深度，例如文档或 *_info，都不区分大小写的目标文件夹名称模式。它们的内容和子文件夹通常在没有冲突报告的情况下部署。</translation>
     </message>
     <message>
       <source>Pattern</source>
@@ -2109,6 +2125,10 @@ Press Try Again, or use Browse to select it manually.</source>
     <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack 库和软件包</translation>
+    </message>
+    <message>
+      <source>{0} (shared with {1})</source>
+      <translation>{0} (与 {1} 共享)</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -3580,6 +3600,18 @@ The default profile's settings are not affected.</source>
       <translation>恢复先前的部署</translation>
     </message>
     <message>
+      <source>Duplicate Instance…</source>
+      <translation>Duplicate Instance…</translation>
+    </message>
+    <message>
+      <source>Create a fresh instance with independent locations, mods and profiles.</source>
+      <translation>创建一个具有独立位置、模组和配置文件的新实例。</translation>
+    </message>
+    <message>
+      <source>This handler must declare independent instance support and its write targets.</source>
+      <translation>此处理程序必须声明独立实例支持及其写入目标。</translation>
+    </message>
+    <message>
       <source>Configured</source>
       <translation>已配置</translation>
     </message>
@@ -3630,6 +3662,14 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Mod staging</source>
       <translation>Mod staging</translation>
+    </message>
+    <message>
+      <source>Each instance needs its own configuration file.</source>
+      <translation>每个实例需要自己的配置文件。</translation>
+    </message>
+    <message>
+      <source>OpenMW config</source>
+      <translation>OpenMW 配置</translation>
     </message>
     <message>
       <source>Previous deployment's staging folder. Restore before changing it.</source>
@@ -3696,6 +3736,10 @@ Flatpak在下一次发射时应用了新的文件系统访问. 现在重新开�
       <translation>稍后再说</translation>
     </message>
     <message>
+      <source>Creating instance…</source>
+      <translation>正在创建实例…</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>请先设置游戏的安装文件夹。</translation>
     </message>
@@ -3714,6 +3758,10 @@ Flatpak在下一次发射时应用了新的文件系统访问. 现在重新开�
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod 中转文件夹不能是游戏文件夹或包含在内 。 选择单独的位置 .</translation>
+    </message>
+    <message>
+      <source>Enter an absolute OpenMW configuration path.</source>
+      <translation>输入绝对的 OpenMW 配置路径。</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -3776,6 +3824,22 @@ Flatpak在下一次发射时应用了新的文件系统访问. 现在重新开�
       <translation>移动模式显示文件</translation>
     </message>
     <message>
+      <source>Restore without the original installation?</source>
+      <translation>恢复时不使用原始安装？</translation>
+    </message>
+    <message>
+      <source>Amethyst could not find the previous game folder at {0}.
+
+If the drive is temporarily disconnected, reconnect it before restoring. If the installation is gone, continue to recover the previous deployment. Amethyst will restore files at available locations and keep backups for missing locations in staging.</source>
+      <translation>Amethyst 无法在 {0}找到上一个游戏文件夹。
+
+如果驱动器暂时断开连接，在恢复前重新连接。 如果安装已经停止，继续恢复先前的部署。 Amethyst将恢复现有位置的文件并保存丢失位置的备份。</translation>
+    </message>
+    <message>
+      <source>Restore</source>
+      <translation>恢复</translation>
+    </message>
+    <message>
       <source>Restore the previous deployment of {0} using its saved locations?
 
 Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</source>
@@ -3800,6 +3864,10 @@ Your unsaved location changes will be kept in this form. After Restore succeeds,
     <message>
       <source>Restore failed: {0}</source>
       <translation>还原失败: {0}</translation>
+    </message>
+    <message>
+      <source>Deployment state repaired. Review the recovery advice before deploying.</source>
+      <translation>部署状态已修复。部署前审查恢复咨询意见。</translation>
     </message>
     <message>
       <source>Yes</source>
@@ -4910,6 +4978,14 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>雷店社区</translation>
     </message>
     <message>
+      <source>Hexium Community</source>
+      <translation>Hexium 社区</translation>
+    </message>
+    <message>
+      <source>The game's community slug on hexium.gg. e.g. 'valheim'. Leave empty if the game has no Hexium page.</source>
+      <translation>游戏的 hexium.gg 上的社区群落地址。例如“valheim”。如果游戏没有 Hexium 页面则留空。</translation>
+    </message>
+    <message>
       <source>The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page.</source>
       <translation>游戏的社区弹道在雷克斯托克.io上,例如"致命公司". 如果游戏没有雷克斯托尔的页面, 请留空 .</translation>
     </message>
@@ -5162,16 +5238,8 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>自定义路由规则</translation>
     </message>
     <message>
-      <source>Route specific files to alternate destinations during deploy. Each rule maps files (by extension, folder or filename) to a game-root-relative directory. For extensions, append (.ext, .ext) to also route same-stem siblings (e.g. .asi (.ini) sends Foo.ini alongside Foo.asi). Flatten drops subfolders below the matched folder. To Prefix routes relative to the Proton/Wine prefix root instead of the game install root.</source>
-      <translation>在部署过程中将特定文件重定向到其他目标位置。 每条规则会将文件（按扩展名、文件夹或文件名）映射到相对于游戏根目录的目录中。对于扩展名，若在后缀后追加 (.ext, .ext)，则也会将同根目录下的同干文件一并路由（例如，.asi (.ini) 会将 Foo.ini 与 Foo.asi 一起发送）。 “Flatten”会删除匹配文件夹下的子文件夹。“To Prefix”将路由路径相对于 Proton/Wine 前缀根目录，而非游戏安装根目录。</translation>
-    </message>
-    <message>
       <source>+ Add Rule</source>
       <translation>+ 添加规则</translation>
-    </message>
-    <message>
-      <source>Destination</source>
-      <translation>目的地</translation>
     </message>
     <message>
       <source>File/folder</source>
@@ -5302,6 +5370,10 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>例如,致命公司</translation>
     </message>
     <message>
+      <source>e.g. valheim</source>
+      <translation>e.g. valheim</translation>
+    </message>
+    <message>
       <source>Banner Image URL</source>
       <translation>屏蔽图像 URL</translation>
     </message>
@@ -5310,8 +5382,28 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>安装调试</translation>
     </message>
     <message>
+      <source>Install Rules (0)</source>
+      <translation>安装规则 (0)</translation>
+    </message>
+    <message>
+      <source>Install Rules</source>
+      <translation>安装规则</translation>
+    </message>
+    <message>
+      <source>Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</source>
+      <translation type="unfinished">Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</translation>
+    </message>
+    <message>
       <source>Conflicts &amp; Advanced Behaviour</source>
       <translation>冲突高级行为( A)</translation>
+    </message>
+    <message>
+      <source>Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</source>
+      <translation type="unfinished">Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</translation>
+    </message>
+    <message>
+      <source>Routing Rules (0)</source>
+      <translation type="unfinished">Routing Rules (0)</translation>
     </message>
     <message>
       <source>Game Sub-folder</source>
@@ -5320,6 +5412,14 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>e.g. Data   (leave empty for game root)</source>
       <translation>例如：数据  （若为游戏根目录，请留空）</translation>
+    </message>
+    <message>
+      <source>Routing Rules ({0})</source>
+      <translation type="unfinished">Routing Rules ({0})</translation>
+    </message>
+    <message>
+      <source>Install Rules ({0})</source>
+      <translation type="unfinished">Install Rules ({0})</translation>
     </message>
     <message>
       <source>Move up</source>
@@ -5346,22 +5446,6 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>文件/文件夹</translation>
     </message>
     <message>
-      <source>Loose only</source>
-      <translation>仅限散装</translation>
-    </message>
-    <message>
-      <source>Flatten</source>
-      <translation>展平</translation>
-    </message>
-    <message>
-      <source>Include Siblings</source>
-      <translation>包含兄弟姐妹</translation>
-    </message>
-    <message>
-      <source>To Prefix</source>
-      <translation>前缀</translation>
-    </message>
-    <message>
       <source>Remove rule</source>
       <translation>删除规则</translation>
     </message>
@@ -5380,6 +5464,10 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>Remove framework</source>
       <translation>移除框架</translation>
+    </message>
+    <message>
+      <source>Hexium Community must be a community slug, for example 'valheim'.</source>
+      <translation type="unfinished">Hexium Community must be a community slug, for example 'valheim'.</translation>
     </message>
     <message>
       <source>Downloading image…</source>
@@ -5469,6 +5557,75 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>OK</source>
       <translation>好的</translation>
+    </message>
+  </context>
+  <context>
+    <name>DependencyInstallOverlay</name>
+    <message>
+      <source>Installing Windows dependencies</source>
+      <translation type="unfinished">Installing Windows dependencies</translation>
+    </message>
+    <message>
+      <source>{0}
+Prefix: {1}</source>
+      <translation type="unfinished">{0}
+Prefix: {1}</translation>
+    </message>
+    <message>
+      <source>Dependency</source>
+      <translation type="unfinished">Dependency</translation>
+    </message>
+    <message>
+      <source>Status</source>
+      <translation type="unfinished">Status</translation>
+    </message>
+    <message>
+      <source>Waiting</source>
+      <translation type="unfinished">Waiting</translation>
+    </message>
+    <message>
+      <source>Checking Windows dependencies…</source>
+      <translation type="unfinished">Checking Windows dependencies…</translation>
+    </message>
+    <message>
+      <source>%v of %m dependencies processed</source>
+      <translation type="unfinished">%v of %m dependencies processed</translation>
+    </message>
+    <message>
+      <source>Processed</source>
+      <translation type="unfinished">Processed</translation>
+    </message>
+    <message>
+      <source>Checking / installing</source>
+      <translation type="unfinished">Checking / installing</translation>
+    </message>
+    <message>
+      <source>Setting up {0} ({1} of {2})…</source>
+      <translation type="unfinished">Setting up {0} ({1} of {2})…</translation>
+    </message>
+    <message>
+      <source>Failed</source>
+      <translation type="unfinished">Failed</translation>
+    </message>
+    <message>
+      <source>Not run</source>
+      <translation type="unfinished">Not run</translation>
+    </message>
+    <message>
+      <source>Dependency setup failed: {0}</source>
+      <translation type="unfinished">Dependency setup failed: {0}</translation>
+    </message>
+    <message>
+      <source>Installed</source>
+      <translation type="unfinished">Installed</translation>
+    </message>
+    <message>
+      <source>Skipped</source>
+      <translation type="unfinished">Skipped</translation>
+    </message>
+    <message>
+      <source>Dependency setup finished: {0} installed, {1} skipped, {2} failed.</source>
+      <translation type="unfinished">Dependency setup finished: {0} installed, {1} skipped, {2} failed.</translation>
     </message>
   </context>
   <context>
@@ -5881,6 +6038,33 @@ Check the output above and the log.</source>
     </message>
   </context>
   <context>
+    <name>DuplicateInstanceOverlay</name>
+    <message>
+      <source>Duplicate Instance</source>
+      <translation type="unfinished">Duplicate Instance</translation>
+    </message>
+    <message>
+      <source>Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</source>
+      <translation type="unfinished">Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</translation>
+    </message>
+    <message>
+      <source>New instance name</source>
+      <translation type="unfinished">New instance name</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation type="unfinished">Continue</translation>
+    </message>
+    <message>
+      <source>Instance ID: {0}</source>
+      <translation type="unfinished">Instance ID: {0}</translation>
+    </message>
+  </context>
+  <context>
     <name>DynDOLODView</name>
     <message>
       <source>{0} - {1}</source>
@@ -5983,6 +6167,10 @@ or use Browse to select it manually.</source>
       <translation>第 4 步：部署模组列表</translation>
     </message>
     <message>
+      <source>Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</source>
+      <translation type="unfinished">Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</translation>
+    </message>
+    <message>
       <source>Skip</source>
       <translation>跳过</translation>
     </message>
@@ -6037,10 +6225,6 @@ Please restart the wizard and install {1} first.</source>
       <translation>正在启动 {0}…</translation>
     </message>
     <message>
-      <source>{0} finished.</source>
-      <translation>{0}完成了.</translation>
-    </message>
-    <message>
       <source>Launch error: {0}</source>
       <translation>发射错误: {0}</translation>
     </message>
@@ -6049,25 +6233,58 @@ Please restart the wizard and install {1} first.</source>
       <translation>正在从 GitHub 获取最新版本……</translation>
     </message>
     <message>
+      <source>Output folder: {0}</source>
+      <translation type="unfinished">Output folder: {0}</translation>
+    </message>
+    <message>
+      <source>Checking generation inputs…</source>
+      <translation type="unfinished">Checking generation inputs…</translation>
+    </message>
+    <message>
+      <source>Preparing the tool prefix…</source>
+      <translation type="unfinished">Preparing the tool prefix…</translation>
+    </message>
+    <message>
+      <source>Finishing the tool session…</source>
+      <translation type="unfinished">Finishing the tool session…</translation>
+    </message>
+    <message>
+      <source>Restoring the game after generation…</source>
+      <translation type="unfinished">Restoring the game after generation…</translation>
+    </message>
+    <message>
+      <source>Validating generated output…</source>
+      <translation type="unfinished">Validating generated output…</translation>
+    </message>
+    <message>
+      <source>Importing generated output as a new mod…</source>
+      <translation type="unfinished">Importing generated output as a new mod…</translation>
+    </message>
+    <message>
+      <source>Indexing the new output mod…</source>
+      <translation type="unfinished">Indexing the new output mod…</translation>
+    </message>
+    <message>
+      <source>Synchronizing generated plugins…</source>
+      <translation type="unfinished">Synchronizing generated plugins…</translation>
+    </message>
+    <message>
+      <source>{0} finished. Created '{1}'.</source>
+      <translation type="unfinished">{0} finished. Created '{1}'.</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</source>
+      <translation type="unfinished">{0} is running.
+When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</translation>
+    </message>
+    <message>
       <source>Searching Downloads folder…</source>
       <translation>正在搜索“下载”文件夹……</translation>
     </message>
     <message>
       <source>Extracting…</source>
       <translation>正在提取……</translation>
-    </message>
-    <message>
-      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
-      <translation>在部署前禁用或删除上一个 '{0}' 输出模组。新的输出在生成成功后导入。</translation>
-    </message>
-    <message>
-      <source>Replace the disabled output after generation succeeds</source>
-      <translation>生成成功后替换禁用的输出</translation>
-    </message>
-    <message>
-      <source>{0} is running.
-Close the tool when generation finishes; its output will then be imported.</source>
-      <translation/>
     </message>
   </context>
   <context>
@@ -6963,6 +7180,14 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
       <translation>质子工具</translation>
     </message>
     <message>
+      <source>Capture launch logs</source>
+      <translation type="unfinished">Capture launch logs</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+    </message>
+    <message>
       <source>Hide from dropdown</source>
       <translation>隐藏下拉</translation>
     </message>
@@ -7056,6 +7281,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
       <source>Nexus</source>
       <translation>Nexus</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation type="unfinished">Hexium</translation>
     </message>
     <message>
       <source>Thunderstore</source>
@@ -7228,6 +7457,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
       <source>This mod has no portable provider source.</source>
       <translation>此模组没有便携源.</translation>
+    </message>
+    <message>
+      <source>This mod has no recorded package identity for this source.</source>
+      <translation type="unfinished">This mod has no recorded package identity for this source.</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -8559,6 +8792,40 @@ Managed directory: {2}</source>
     </message>
   </context>
   <context>
+    <name>LaunchLogEditor</name>
+    <message>
+      <source>Refresh</source>
+      <translation type="unfinished">Refresh</translation>
+    </message>
+    <message>
+      <source>No {0} log is available for the latest launch.
+Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</source>
+      <translation type="unfinished">No {0} log is available for the latest launch.
+Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</translation>
+    </message>
+    <message>
+      <source>Showing the last 2 MiB.
+</source>
+      <translation type="unfinished">Showing the last 2 MiB.
+</translation>
+    </message>
+    <message>
+      <source>Could not read log: {0}</source>
+      <translation type="unfinished">Could not read log: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>LauncherEntryOverlay</name>
+    <message>
+      <source>Capture launch logs</source>
+      <translation type="unfinished">Capture launch logs</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
+    </message>
+  </context>
+  <context>
     <name>LauncherSettingsOverlay</name>
     <message>
       <source>Launch settings - {0}</source>
@@ -8599,6 +8866,14 @@ Managed directory: {2}</source>
     <message>
       <source>Deploy mods before launching</source>
       <translation>在启动前部署模组</translation>
+    </message>
+    <message>
+      <source>Capture launch logs</source>
+      <translation type="unfinished">Capture launch logs</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation type="unfinished">Save launch output and Proton diagnostic logs in the cache.</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -11055,6 +11330,78 @@ Run Quick Update on all of them now?</source>
       <translation>游戏不可用</translation>
     </message>
     <message>
+      <source>The blacklist changed. Close and reopen the editor before saving.</source>
+      <translation type="unfinished">The blacklist changed. Close and reopen the editor before saving.</translation>
+    </message>
+    <message>
+      <source>Install Rules</source>
+      <translation type="unfinished">Install Rules</translation>
+    </message>
+    <message>
+      <source>The selected game changed. Reopen the editor.</source>
+      <translation type="unfinished">The selected game changed. Reopen the editor.</translation>
+    </message>
+    <message>
+      <source>Install rules changed while the editor was open. Reopen it before saving.</source>
+      <translation type="unfinished">Install rules changed while the editor was open. Reopen it before saving.</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation type="unfinished">Hexium</translation>
+    </message>
+    <message>
+      <source>Browse Hexium</source>
+      <translation type="unfinished">Browse Hexium</translation>
+    </message>
+    <message>
+      <source>Open game on Hexium</source>
+      <translation type="unfinished">Open game on Hexium</translation>
+    </message>
+    <message>
+      <source>Select game instance</source>
+      <translation type="unfinished">Select game instance</translation>
+    </message>
+    <message>
+      <source>Received an invalid or unsupported repository install link.</source>
+      <translation type="unfinished">Received an invalid or unsupported repository install link.</translation>
+    </message>
+    <message>
+      <source>Select and configure a game before installing repository mods.</source>
+      <translation type="unfinished">Select and configure a game before installing repository mods.</translation>
+    </message>
+    <message>
+      <source>Checking {0} dependencies…</source>
+      <translation type="unfinished">Checking {0} dependencies…</translation>
+    </message>
+    <message>
+      <source>This repository does not support the selected game.</source>
+      <translation type="unfinished">This repository does not support the selected game.</translation>
+    </message>
+    <message>
+      <source>Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</source>
+      <translation type="unfinished">Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</translation>
+    </message>
+    <message>
+      <source>Game or profile changed. Start the installation again.</source>
+      <translation type="unfinished">Game or profile changed. Start the installation again.</translation>
+    </message>
+    <message>
+      <source>Review package sources</source>
+      <translation type="unfinished">Review package sources</translation>
+    </message>
+    <message>
+      <source>Replacements affect every profile using these mod folders. Continue?</source>
+      <translation type="unfinished">Replacements affect every profile using these mod folders. Continue?</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation type="unfinished">Continue</translation>
+    </message>
+    <message>
+      <source>Downloading mod from {0}…</source>
+      <translation type="unfinished">Downloading mod from {0}…</translation>
+    </message>
+    <message>
       <source>Remove game</source>
       <translation>移除游戏</translation>
     </message>
@@ -11065,6 +11412,30 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Removed {0} from Amethyst.</source>
       <translation>从 Amethysty 中删除 {0}。</translation>
+    </message>
+    <message>
+      <source>Select a configured game with {0} support first.</source>
+      <translation type="unfinished">Select a configured game with {0} support first.</translation>
+    </message>
+    <message>
+      <source>A repository profile is already downloading.</source>
+      <translation type="unfinished">A repository profile is already downloading.</translation>
+    </message>
+    <message>
+      <source>Downloading {0} profile…</source>
+      <translation type="unfinished">Downloading {0} profile…</translation>
+    </message>
+    <message>
+      <source>Import {0} share code</source>
+      <translation type="unfinished">Import {0} share code</translation>
+    </message>
+    <message>
+      <source>Paste a share code from {0}:</source>
+      <translation type="unfinished">Paste a share code from {0}:</translation>
+    </message>
+    <message>
+      <source>Select a configured game with Thunderstore or Hexium support first.</source>
+      <translation type="unfinished">Select a configured game with Thunderstore or Hexium support first.</translation>
     </message>
     <message>
       <source>Restoring {0}…</source>
@@ -11367,22 +11738,6 @@ Run Quick Update on all of them now?</source>
       <translation>在雷神店上打开游戏</translation>
     </message>
     <message>
-      <source>Received a malformed Thunderstore link.</source>
-      <translation>接收到一个畸形的雷克店链接.</translation>
-    </message>
-    <message>
-      <source>Select and configure a game before installing Thunderstore mods.</source>
-      <translation>在安装 Sunderstore mods 之前选择并配置游戏 .</translation>
-    </message>
-    <message>
-      <source>Checking Thunderstore dependencies…</source>
-      <translation>正在检查雷克斯托尔的依赖性..</translation>
-    </message>
-    <message>
-      <source>Downloading mod from Thunderstore…</source>
-      <translation>从雷克斯托尔下载模式..</translation>
-    </message>
-    <message>
       <source>Thunderstore download failed - {0}</source>
       <translation>雷神店下载失败 - {0}</translation>
     </message>
@@ -11393,10 +11748,6 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>all</source>
       <translation>全部</translation>
-    </message>
-    <message>
-      <source>Checking Thunderstore for updates ({0})…</source>
-      <translation>正在检查雷克店的更新( {0})..</translation>
     </message>
     <message>
       <source>Thunderstore update check failed - see the log.</source>
@@ -11413,10 +11764,6 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>{0} package(s) could not be checked.</source>
       <translation>{0} 包无法检查 .</translation>
-    </message>
-    <message>
-      <source>All Thunderstore mods are up to date.</source>
-      <translation>所有雷克斯托克Mod都是最新的.</translation>
     </message>
     <message>
       <source>This mod has no Thunderstore metadata.</source>
@@ -11605,28 +11952,12 @@ Run Quick Update on all of them now?</source>
       <translation>导入共享代码…</translation>
     </message>
     <message>
-      <source>Import Thunderstore share code</source>
-      <translation>导入雷暴分享代码</translation>
-    </message>
-    <message>
-      <source>Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:</source>
-      <translation>从 r2modman、Thrireore Mod Manager 或 Gale粘贴雷奥雷诺共享代码：</translation>
-    </message>
-    <message>
-      <source>A Thunderstore profile is already downloading.</source>
-      <translation>雷暴的个人资料已经下载。</translation>
-    </message>
-    <message>
       <source>Could not import share code: {0}</source>
       <translation>无法导入共享代码: {0}</translation>
     </message>
     <message>
       <source>Game changed. Enter the code again for the selected game.</source>
       <translation>游戏已更改。为选中的游戏再次输入代码。</translation>
-    </message>
-    <message>
-      <source>Downloading Thunderstore profile…</source>
-      <translation/>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -11717,12 +12048,12 @@ Run Quick Update on all of them now?</source>
       <translation>所选游戏已更改；重新启动版本更改。</translation>
     </message>
     <message>
-      <source>Could not resolve all Thunderstore dependencies. Installation stopped; please try again. See the log for details.</source>
-      <translation>无法解析所有雷暴依赖关系。安装已停止，请再试一次。详情请查看日志。</translation>
-    </message>
-    <message>
       <source>{0} ({1}/{2} downloaded)</source>
       <translation>{0} ({1}/{2} 下载)</translation>
+    </message>
+    <message>
+      <source>A package download failed. Completed archives were retained; installation stopped.</source>
+      <translation type="unfinished">A package download failed. Completed archives were retained; installation stopped.</translation>
     </message>
     <message>
       <source>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</source>
@@ -11733,8 +12064,28 @@ Run Quick Update on all of them now?</source>
       <translation>无法启动版本更改 - 查看日志。</translation>
     </message>
     <message>
+      <source>Checking package repositories for updates ({0})…</source>
+      <translation type="unfinished">Checking package repositories for updates ({0})…</translation>
+    </message>
+    <message>
+      <source>All checked packages are up to date.</source>
+      <translation type="unfinished">All checked packages are up to date.</translation>
+    </message>
+    <message>
+      <source>The selected instance is no longer available.</source>
+      <translation type="unfinished">The selected instance is no longer available.</translation>
+    </message>
+    <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
       <translation>请先登录：设置连接后通过SSO登录。</translation>
+    </message>
+    <message>
+      <source>Finish the current operation before opening a Wabbajack list.</source>
+      <translation type="unfinished">Finish the current operation before opening a Wabbajack list.</translation>
+    </message>
+    <message>
+      <source>Finish the current Wabbajack operation before opening another list.</source>
+      <translation type="unfinished">Finish the current Wabbajack operation before opening another list.</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -11743,6 +12094,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Identifying Thunderstore mods…</source>
       <translation>识别出雷克斯托克的模型..</translation>
+    </message>
+    <message>
+      <source>Game or profile changed. Start identification again.</source>
+      <translation type="unfinished">Game or profile changed. Start identification again.</translation>
     </message>
     <message>
       <source>Identifying mods failed - see the log.</source>
@@ -11767,6 +12122,18 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Could not identify any of the {0} mod(s) found.</source>
       <translation>无法识别找到的 {0} mod(s) .</translation>
+    </message>
+    <message>
+      <source>Select a configured game with Hexium support first.</source>
+      <translation type="unfinished">Select a configured game with Hexium support first.</translation>
+    </message>
+    <message>
+      <source>Choose Hexium author</source>
+      <translation type="unfinished">Choose Hexium author</translation>
+    </message>
+    <message>
+      <source>Identify</source>
+      <translation type="unfinished">Identify</translation>
     </message>
     <message>
       <source>Another installation or deployment operation</source>
@@ -12005,6 +12372,14 @@ Run Quick Update on all of them now?</source>
       <translation>mod.io更新检查被禁用,直到它的API路径被添加到mod.io API密钥工具中.</translation>
     </message>
     <message>
+      <source>Nexus update check failed; see log</source>
+      <translation type="unfinished">Nexus update check failed; see log</translation>
+    </message>
+    <message>
+      <source>Nexus: {0} mod(s) could not be checked; see log</source>
+      <translation type="unfinished">Nexus: {0} mod(s) could not be checked; see log</translation>
+    </message>
+    <message>
       <source>Mod providers: {0} updates</source>
       <translation>Mod providers: {0} updates</translation>
     </message>
@@ -12035,6 +12410,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Reinstall download</source>
       <translation>Reinstall 下载</translation>
+    </message>
+    <message>
+      <source>Nexus login is required for the selected Nexus mods.</source>
+      <translation type="unfinished">Nexus login is required for the selected Nexus mods.</translation>
     </message>
     <message>
       <source>Quick Update download cancelled.</source>
@@ -12157,6 +12536,10 @@ Run Quick Update on all of them now?</source>
       <translation>等待 {0} 在更改已保存的游戏之前完成。</translation>
     </message>
     <message>
+      <source>{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</source>
+      <translation type="unfinished">{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</translation>
+    </message>
+    <message>
       <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
 
 If the game has moved, choose Reconfigure game to update its location.
@@ -12171,10 +12554,6 @@ Remove this game from Amethyst? Only its saved configuration will be deleted. Yo
     <message>
       <source>Reconfigure game</source>
       <translation>重新配置游戏</translation>
-    </message>
-    <message>
-      <source>Select a configured Thunderstore game first.</source>
-      <translation>首先选择一个配置的雷雷奥尔游戏。</translation>
     </message>
     <message>
       <source>Game changed. Open the manifest again for the selected game.</source>
@@ -12251,6 +12630,10 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     <message>
       <source>MangoHud controls</source>
       <translation>Mangohud控制</translation>
+    </message>
+    <message>
+      <source>Logs</source>
+      <translation type="unfinished">Logs</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -12419,6 +12802,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>删除链接的源</translation>
     </message>
     <message>
+      <source>Could not remove the previous version: {0}</source>
+      <translation type="unfinished">Could not remove the previous version: {0}</translation>
+    </message>
+    <message>
       <source>Rename linked source</source>
       <translation>重命名链接源</translation>
     </message>
@@ -12573,6 +12960,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
       <translation>正在刷新 {0} 插件的 LOOT 元数据..</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Run LOOT again.</source>
+      <translation type="unfinished">The active game or profile changed. Run LOOT again.</translation>
     </message>
     <message>
       <source>LOOT cancelled.</source>
@@ -13838,6 +14229,28 @@ This cannot be undone.</source>
 {0}</translation>
     </message>
     <message>
+      <source>Custom URL</source>
+      <translation type="unfinished">Custom URL</translation>
+    </message>
+    <message>
+      <source>Open URL</source>
+      <translation type="unfinished">Open URL</translation>
+    </message>
+    <message>
+      <source>Set URL</source>
+      <translation type="unfinished">Set URL</translation>
+    </message>
+    <message>
+      <source>URL for {0} selected mod(s) (leave blank to clear):</source>
+      <translation type="unfinished">URL for {0} selected mod(s) (leave blank to clear):</translation>
+    </message>
+    <message>
+      <source>Could not set URL for "{0}":
+{1}</source>
+      <translation type="unfinished">Could not set URL for "{0}":
+{1}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>无法保存忽略的更新 "{0}":
@@ -14206,6 +14619,18 @@ This cannot be undone.</source>
       <translation>以标签形式打开</translation>
     </message>
     <message>
+      <source>Open mod pages</source>
+      <translation type="unfinished">Open mod pages</translation>
+    </message>
+    <message>
+      <source>Open source pages for {0} selected mods in your browser?</source>
+      <translation type="unfinished">Open source pages for {0} selected mods in your browser?</translation>
+    </message>
+    <message>
+      <source>Open pages</source>
+      <translation type="unfinished">Open pages</translation>
+    </message>
+    <message>
       <source>Lock Separator - Mods in this separator are attached to it</source>
       <translation>锁定分隔符 - 此分隔符中的 Mods 附加在它上</translation>
     </message>
@@ -14338,6 +14763,10 @@ Click Done to close.</source>
     <message>
       <source>Update available on mod.io</source>
       <translation>关于mod.io的更新</translation>
+    </message>
+    <message>
+      <source>Update available on Hexium</source>
+      <translation type="unfinished">Update available on Hexium</translation>
     </message>
     <message>
       <source>Update available on Thunderstore</source>
@@ -15038,6 +15467,125 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <message>
       <source>Suggested names</source>
       <translation>建议名称</translation>
+    </message>
+  </context>
+  <context>
+    <name>NewCaliforniaView</name>
+    <message>
+      <source>Install New California - {0}</source>
+      <translation type="unfinished">Install New California - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Download New California</source>
+      <translation type="unfinished">Step 1: Download New California</translation>
+    </message>
+    <message>
+      <source>Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</source>
+      <translation type="unfinished">Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</translation>
+    </message>
+    <message>
+      <source>Step 2: Extract the installer</source>
+      <translation type="unfinished">Step 2: Extract the installer</translation>
+    </message>
+    <message>
+      <source>Installing New California</source>
+      <translation type="unfinished">Installing New California</translation>
+    </message>
+    <message>
+      <source>Step 3: Create a New California profile</source>
+      <translation type="unfinished">Step 3: Create a New California profile</translation>
+    </message>
+    <message>
+      <source>The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
+
+In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
+
+Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</source>
+      <translation type="unfinished">The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
+
+In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
+
+Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</translation>
+    </message>
+    <message>
+      <source>New profile name:</source>
+      <translation type="unfinished">New profile name:</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation type="unfinished">Continue</translation>
+    </message>
+    <message>
+      <source>Profile selection and deployment are unavailable here.</source>
+      <translation type="unfinished">Profile selection and deployment are unavailable here.</translation>
+    </message>
+    <message>
+      <source>Select the New California installer ZIP</source>
+      <translation type="unfinished">Select the New California installer ZIP</translation>
+    </message>
+    <message>
+      <source>Installer archive not found. Download it, then try again or browse.</source>
+      <translation type="unfinished">Installer archive not found. Download it, then try again or browse.</translation>
+    </message>
+    <message>
+      <source>Extracting installer into Applications…</source>
+      <translation type="unfinished">Extracting installer into Applications…</translation>
+    </message>
+    <message>
+      <source>Saving current INIs…</source>
+      <translation type="unfinished">Saving current INIs…</translation>
+    </message>
+    <message>
+      <source>Return to Fallout New Vegas before starting this wizard.</source>
+      <translation type="unfinished">Return to Fallout New Vegas before starting this wizard.</translation>
+    </message>
+    <message>
+      <source>The game or prefix paths changed. Reopen the wizard to review them.</source>
+      <translation type="unfinished">The game or prefix paths changed. Reopen the wizard to review them.</translation>
+    </message>
+    <message>
+      <source>Could not restore the original deployment.</source>
+      <translation type="unfinished">Could not restore the original deployment.</translation>
+    </message>
+    <message>
+      <source>Creating the new profile…</source>
+      <translation type="unfinished">Creating the new profile…</translation>
+    </message>
+    <message>
+      <source>Could not select the new profile.</source>
+      <translation type="unfinished">Could not select the new profile.</translation>
+    </message>
+    <message>
+      <source>Could not deploy the empty profile.</source>
+      <translation type="unfinished">Could not deploy the empty profile.</translation>
+    </message>
+    <message>
+      <source>Complete the New California installer, then close it without launching the game.</source>
+      <translation type="unfinished">Complete the New California installer, then close it without launching the game.</translation>
+    </message>
+    <message>
+      <source>Restore failed. Keep the recovery files and run Restore before continuing.</source>
+      <translation type="unfinished">Restore failed. Keep the recovery files and run Restore before continuing.</translation>
+    </message>
+    <message>
+      <source>New California is installed. The game is restored. Deploy this profile when you are ready to play.</source>
+      <translation type="unfinished">New California is installed. The game is restored. Deploy this profile when you are ready to play.</translation>
+    </message>
+    <message>
+      <source>New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
+{1}</source>
+      <translation type="unfinished">New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
+{1}</translation>
+    </message>
+    <message>
+      <source>Extracted installer files could not be removed. Remove them manually from {0}.
+{1}</source>
+      <translation type="unfinished">Extracted installer files could not be removed. Remove them manually from {0}.
+{1}</translation>
+    </message>
+    <message>
+      <source>Extracted installer files could not be removed from {0}: {1}</source>
+      <translation type="unfinished">Extracted installer files could not be removed from {0}: {1}</translation>
     </message>
   </context>
   <context>
@@ -17633,6 +18181,10 @@ Re-scan to verify.</source>
       <translation>路由规则</translation>
     </message>
     <message>
+      <source>Install Rules</source>
+      <translation type="unfinished">Install Rules</translation>
+    </message>
+    <message>
       <source>⊟ Collapse all</source>
       <translation>收起所有</translation>
     </message>
@@ -19606,6 +20158,22 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>检查要求以验证游戏文件、 可用空间和运行时间要求。在安装前审查结果。</translation>
     </message>
     <message>
+      <source>Manual downloads</source>
+      <translation type="unfinished">Manual downloads</translation>
+    </message>
+    <message>
+      <source>{0} files need to be downloaded through your browser during installation.</source>
+      <translation type="unfinished">{0} files need to be downloaded through your browser during installation.</translation>
+    </message>
+    <message>
+      <source>Free Nexus accounts and some download sites require browser downloads.</source>
+      <translation type="unfinished">Free Nexus accounts and some download sites require browser downloads.</translation>
+    </message>
+    <message>
+      <source>Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</source>
+      <translation type="unfinished">Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</translation>
+    </message>
+    <message>
       <source>Stock game folder: Invalid</source>
       <translation>库存游戏文件夹：无效</translation>
     </message>
@@ -19712,6 +20280,18 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>路由规则 — {0}</translation>
     </message>
     <message>
+      <source>Install Rules — {0}</source>
+      <translation type="unfinished">Install Rules — {0}</translation>
+    </message>
+    <message>
+      <source>Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</source>
+      <translation type="unfinished">Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</translation>
+    </message>
+    <message>
+      <source>Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</source>
+      <translation type="unfinished">Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</translation>
+    </message>
+    <message>
       <source>Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</source>
       <translation>应用于这场游戏的所有配置文件。先前匹配的规则会有优先级。下次部署时会有变动，或者自动部署时会有变动。 黑名单排除仍然适用。已删除的内置仍可恢复。</translation>
     </message>
@@ -19754,6 +20334,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>Empty = root of the selected destination base</source>
       <translation>空 = 所选目标基准的根目录</translation>
+    </message>
+    <message>
+      <source>e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</source>
+      <translation type="unfinished">e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</translation>
     </message>
     <message>
       <source>Extensions, folders, and filenames are alternatives within one rule. For example, .asi, MyPlugins, and winmm.dll route all .asi files, everything inside MyPlugins, and winmm.dll to the same destination.</source>
@@ -19848,6 +20432,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>目标相对于Proton/Wine 前缀根而不是游戏根目录。需要配置前缀。</translation>
     </message>
     <message>
+      <source>Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</source>
+      <translation type="unfinished">Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</translation>
+    </message>
+    <message>
       <source>Reset to built-in</source>
       <translation>重置为内置</translation>
     </message>
@@ -19870,6 +20458,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>Game</source>
       <translation>游戏</translation>
+    </message>
+    <message>
+      <source>Staging</source>
+      <translation type="unfinished">Staging</translation>
     </message>
     <message>
       <source>Custom</source>
@@ -19906,6 +20498,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>Could not save routing rules: {0}</source>
       <translation>无法保存路由规则: {0}</translation>
+    </message>
+    <message>
+      <source>Could not save install rules: {0}</source>
+      <translation type="unfinished">Could not save install rules: {0}</translation>
     </message>
   </context>
   <context>
@@ -21282,6 +21878,10 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Thunderstore</source>
       <translation>Thunderstore</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation type="unfinished">Hexium</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -24426,6 +25026,10 @@ or use Browse to select it manually.</source>
       <translation>NSFW </translation>
     </message>
     <message>
+      <source>Include prereleases</source>
+      <translation type="unfinished">Include prereleases</translation>
+    </message>
+    <message>
       <source>Refresh</source>
       <translation>刷新</translation>
     </message>
@@ -25092,6 +25696,14 @@ Try clearing your search or filters.</source>
       <translation>此条目没有软件包下载 URL。打开本地.wabbajack文件。</translation>
     </message>
     <message>
+      <source>Finish the current operation before opening another list.</source>
+      <translation type="unfinished">Finish the current operation before opening another list.</translation>
+    </message>
+    <message>
+      <source>Log in to Nexus before loading this collection revision.</source>
+      <translation type="unfinished">Log in to Nexus before loading this collection revision.</translation>
+    </message>
+    <message>
       <source>Downloading modlist package…</source>
       <translation>正在下载 modlist 软件包…</translation>
     </message>
@@ -25246,6 +25858,14 @@ Try clearing your search or filters.</source>
     <message>
       <source>Check requirements first, then run the developer texture test.</source>
       <translation>首先检查要求，然后运行开发者纹理测试。</translation>
+    </message>
+    <message>
+      <source>Retry download</source>
+      <translation type="unfinished">Retry download</translation>
+    </message>
+    <message>
+      <source>{0} · Nexus revision {1}</source>
+      <translation type="unfinished">{0} · Nexus revision {1}</translation>
     </message>
     <message>
       <source>Local installation</source>
@@ -25727,6 +26347,10 @@ Prefix: {1}</source>
       <translation>安装两个荒地的故事</translation>
     </message>
     <message>
+      <source>Install New California</source>
+      <translation type="unfinished">Install New California</translation>
+    </message>
+    <message>
       <source>BSA Decompressor</source>
       <translation>BSA 减压器</translation>
     </message>
@@ -25885,6 +26509,10 @@ Prefix: {1}</source>
     <message>
       <source>Install ReShade</source>
       <translation>安装再阴影</translation>
+    </message>
+    <message>
+      <source>Run the New California installer and capture its files and INIs in a dedicated profile.</source>
+      <translation type="unfinished">Run the New California installer and capture its files and INIs in a dedicated profile.</translation>
     </message>
     <message>
       <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
@@ -27036,6 +27664,29 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     </message>
   </context>
   <context>
+    <name>_PanelHandle</name>
+    <message>
+      <source>Drag to resize panels. Double-click to reset the layout.</source>
+      <translation type="unfinished">Drag to resize panels. Double-click to reset the layout.</translation>
+    </message>
+    <message>
+      <source>Resize modlist and plugins panels</source>
+      <translation type="unfinished">Resize modlist and plugins panels</translation>
+    </message>
+    <message>
+      <source>Show Modlist</source>
+      <translation type="unfinished">Show Modlist</translation>
+    </message>
+    <message>
+      <source>Show Plugins</source>
+      <translation type="unfinished">Show Plugins</translation>
+    </message>
+    <message>
+      <source>Click to reopen, or drag to resize.</source>
+      <translation type="unfinished">Click to reopen, or drag to resize.</translation>
+    </message>
+  </context>
+  <context>
     <name>_PolicyOverlay</name>
     <message>
       <source>Update policy - {0}</source>
@@ -27254,6 +27905,14 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
       <source>Download package from Thunderstore</source>
       <translation>从雷神店下载软件包</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation type="unfinished">Hexium</translation>
+    </message>
+    <message>
+      <source>Download package from Hexium</source>
+      <translation type="unfinished">Download package from Hexium</translation>
     </message>
     <message>
       <source>Mod provider</source>
