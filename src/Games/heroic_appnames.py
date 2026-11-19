@@ -57,6 +57,13 @@ HEROIC_APP_NAMES: dict[str, list[str]] = {
         "4fa3d8d9b2cb4714a19a38d1a598be8f",
         "b290229eb58045cbab9501640f3278f3",
         ],
+    # GOG product id, Epic appName.
+    "pathfinder_kingmaker": [
+        "1982293831", "b21f394024ef4b75afc2f09c04f0b9f1"],
+    "pathfinder_wotr": [
+        "1207187357", "e8d11bd4cb1f49d0a69a52fc09dbac6f"],
+    "rogue_trader": [
+        "1347700224", "bd9a502222954e3c9db5050dae41426c"],
 }
 
 
