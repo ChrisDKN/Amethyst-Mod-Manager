@@ -78,15 +78,16 @@ def records(path, file_states=None, *, mpi_paths=False, allow_case_variants=Fals
                 raise WabbajackError("Invalid BSA metadata sizes")
             stream.seek(0)
             if flags & 3 == 3:
-                info, rows = _parse_toc(stream, name_aliases=aliases)
+                info, rows = _parse_toc(stream, name_aliases=aliases,
+                    name_encoding="utf-8" if file_states is not None and version == 104 else None)
             else:
                 if file_states is None and not allow_hash_only:
                     raise WabbajackError("BSA member paths are absent from this source archive")
-                from Utils.bsa.writer import tes4_hash_file, tes4_hash_folder
+                from .bsa_names import hash_name
                 by_hash = None
                 if file_states is not None:
-                    by_hash = {(tes4_hash_folder(relative_path(f["Path"]).rpartition("/")[0].replace("/", "\\")),
-                                tes4_hash_file(relative_path(f["Path"]).rsplit("/", 1)[-1])): f["Path"] for f in file_states}
+                    by_hash = {(hash_name(relative_path(f["Path"]).rpartition("/")[0], version, folder=True),
+                                hash_name(relative_path(f["Path"]).rsplit("/", 1)[-1], version)): f["Path"] for f in file_states}
                 stream.seek(toc)
                 groups = []
                 for _ in range(folders):
