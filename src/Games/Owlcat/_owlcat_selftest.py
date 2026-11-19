@@ -370,6 +370,36 @@ def test_sync_reclaims_user_removed_entry() -> None:
     print("✓ user-removed entry becomes managed again")
 
 
+def test_flat_umm_wraps_into_id_folder() -> None:
+    _km, wotr, _rt = _games()
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp)
+        cases = {
+            "ToyBox-1.6.3": ({"Id": "ToyBox"}, "ToyBox"),
+            "NoId-1.0": ({"DisplayName": "x"}, "NoId-1.0"),
+            "Escape-1.0": ({"Id": "../evil"}, "Escape-1.0"),
+            "Slash-1.0": ({"Id": "a\\b"}, "Slash-1.0"),
+            "Dot-1.0": ({"Id": ".."}, "Dot-1.0"),
+        }
+        for folder, (info, _expected) in cases.items():
+            mod = staging / folder
+            mod.mkdir()
+            (mod / UMM_MANIFEST).write_bytes(b"\xef\xbb\xbf" + json.dumps(info).encode())
+            (mod / "Mod.dll").write_text("")
+            assert wotr.mod_staging_wrap_subdir_name(mod) == _expected, folder
+        tmpl = staging / "Tmpl-2.0"
+        tmpl.mkdir()
+        (tmpl / TEMPLATE_MANIFEST).write_text(json.dumps({"UniqueName": "T"}))
+        assert wotr.mod_staging_wrap_subdir_name(tmpl) == "Tmpl-2.0"
+        assert wotr.prepare_mod_staging(staging, lambda _m: None)
+        assert (staging / "ToyBox-1.6.3" / "ToyBox" / UMM_MANIFEST).is_file()
+        assert (staging / "ToyBox-1.6.3" / "ToyBox" / "Mod.dll").is_file()
+        assert (staging / "NoId-1.0" / "NoId-1.0" / UMM_MANIFEST).is_file()
+        assert (staging / "Escape-1.0" / "Escape-1.0" / UMM_MANIFEST).is_file()
+        assert (staging / "Tmpl-2.0" / "Modifications" / "Tmpl-2.0" / TEMPLATE_MANIFEST).is_file()
+    print("✓ flat UMM mods wrap into their Id folder")
+
+
 if __name__ == "__main__":
     test_locallow_rel_variants()
     test_classify()
@@ -392,4 +422,5 @@ if __name__ == "__main__":
     test_restore_whitelist_protects_umm()
     test_no_prefix_keeps_templates_out_of_mods()
     test_sync_reclaims_user_removed_entry()
+    test_flat_umm_wraps_into_id_folder()
     print("All Owlcat checks passed.")

@@ -291,6 +291,28 @@ class OwlcatBase(StandardCustomGame):
     def mod_staging_already_structured_markers(self) -> set[str]:
         return set(_MANIFEST_NAMES)
 
+    @staticmethod
+    def mod_staging_wrap_subdir_name(mod_dir: Path) -> str:
+        """Folder name for wrapping a flat mod: the UMM ``Id`` when usable.
+
+        UMM's own installer extracts a root-level ``Info.json`` archive to
+        ``Mods/<Id>/``; matching it keeps the folder (and the settings UMM mods
+        save inside it) stable across versions.  Anything else keeps the
+        staging folder's name.
+        """
+        try:
+            info = json.loads((mod_dir / UMM_MANIFEST).read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            return mod_dir.name
+        mod_id = info.get("Id") if isinstance(info, dict) else None
+        if not isinstance(mod_id, str):
+            return mod_dir.name
+        mod_id = mod_id.strip()
+        if (not mod_id or mod_id in {".", ".."} or "\\" in mod_id
+                or Path(mod_id).name != mod_id):
+            return mod_dir.name
+        return mod_id
+
     @property
     def additional_install_logic(self) -> list:
         return [self._flatten_bundle_wrapper]
@@ -349,7 +371,8 @@ class OwlcatBase(StandardCustomGame):
                 continue
             flattened = self._flatten_bundle_wrapper(mod_dir, mod_dir.name, log_fn)
             wrapped = wrap_flat_mod_dir(
-                mod_dir, set(_MANIFEST_NAMES), set(), set(_MANIFEST_NAMES))
+                mod_dir, set(_MANIFEST_NAMES), set(), set(_MANIFEST_NAMES),
+                self.mod_staging_wrap_subdir_name)
             with preserve_sources(mod_dir):
                 filed = self._move_templates(mod_dir, log_fn)
             changed = flattened or wrapped or filed or changed
