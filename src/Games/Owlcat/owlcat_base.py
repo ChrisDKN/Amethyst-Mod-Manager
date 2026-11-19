@@ -176,15 +176,44 @@ from Utils.mods.modlist import read_modlist  # noqa: E402
 
 _UMM_LABEL = "Unity Mod Manager"
 _MODIFICATIONS = "Modifications"
+_PORTRAITS = "Portraits"
+# A custom portrait is a folder holding these images (any subset), deployed to
+# LocalLow/.../Portraits/<folder>/ - the same in all three games.
+_PORTRAIT_FILES = {"fulllength.png", "medium.png", "small.png"}
 _MANIFEST_NAMES = {UMM_MANIFEST.lower(), TEMPLATE_MANIFEST.lower()}
 _BUNDLED_UMM_FILES = {"winhttp.dll", "doorstop_config.ini"}
 _SYNC_STATE = "owlcat_managed_modifications.json"
 # Folder names the handler strips, routes or excludes - never wrap a mod into one.
-_RESERVED_FOLDERS = {"mods", "unitymodmanager", _MODIFICATIONS.casefold(), "fomod"}
+_RESERVED_FOLDERS = {"mods", "unitymodmanager", _MODIFICATIONS.casefold(),
+                     _PORTRAITS.casefold(), "fomod"}
 
 
 def _has_manifest(path: Path) -> bool:
     return classify_mod_dir(path) is not None
+
+
+def _is_portrait_dir(path: Path) -> bool:
+    return any(child.name.casefold() in _PORTRAIT_FILES and child.is_file()
+               for child in path.iterdir())
+
+
+def _portrait_dirs(mod_dir: Path) -> list[Path] | None:
+    """Folders holding portrait images, outermost only; None if not a portrait mod.
+
+    A mod with a UMM or Template manifest anywhere is never a portrait mod:
+    images inside it are that mod's own assets.
+    """
+    found: list[Path] = []
+    for directory, dirs, files in os.walk(mod_dir, followlinks=False):
+        if any(name.casefold() in _MANIFEST_NAMES for name in files):
+            return None
+        dirs[:] = sorted(name for name in dirs if not name.startswith(".")
+                         and not Path(directory, name).is_symlink())
+        here = Path(directory)
+        if any(name.casefold() in _PORTRAIT_FILES for name in files) and not any(
+                parent in found for parent in here.parents):
+            found.append(here)
+    return found
 
 
 class OwlcatBase(StandardCustomGame):
@@ -249,21 +278,23 @@ class OwlcatBase(StandardCustomGame):
 
     @property
     def custom_routing_rules(self) -> list:
-        if not self.supports_template_mods:
-            return []
         rel = self._locallow_rel()
         if rel is None:
             return []
         from Utils.deployment import CustomRule
-        return [CustomRule(dest=rel, folders=[_MODIFICATIONS], to_prefix=True,
-                           rule_id="owlcat-template")]
+        folders = [_MODIFICATIONS, _PORTRAITS] if self.supports_template_mods \
+            else [_PORTRAITS]
+        return [CustomRule(dest=rel, folders=folders, to_prefix=True,
+                           rule_id="owlcat-locallow")]
 
     @property
     def filemap_exclude_dirs(self) -> frozenset[str]:
         dirs = super().filemap_exclude_dirs
-        if self.supports_template_mods and self._locallow_rel() is None:
-            # No prefix to route Template mods into: keep them out of Mods/.
-            return dirs | {_MODIFICATIONS.casefold()}
+        if self._locallow_rel() is None:
+            # No prefix to route LocalLow content into: keep it out of Mods/.
+            dirs = dirs | {_PORTRAITS.casefold()}
+            if self.supports_template_mods:
+                dirs = dirs | {_MODIFICATIONS.casefold()}
         return dirs
 
     @property
@@ -387,6 +418,39 @@ class OwlcatBase(StandardCustomGame):
             moved = True
         return moved
 
+    @staticmethod
+    def _file_portraits(mod_dir: Path, log_fn) -> bool:
+        """Move portrait folders under ``Portraits/``; loose images get a folder."""
+        found = _portrait_dirs(mod_dir)
+        if not found:
+            return False
+        portraits = find_child(mod_dir, _PORTRAITS) or mod_dir / _PORTRAITS
+        moved = False
+        for folder in found:
+            if folder.parent == portraits:
+                continue
+            target = portraits / (mod_dir.name if folder == mod_dir else folder.name)
+            if target.exists():
+                log_fn(f"Owlcat: portrait '{target.name}' already exists in "
+                       f"{mod_dir.name}; left '{folder.relative_to(mod_dir)}' in place.")
+                continue
+            if folder == mod_dir:
+                target.mkdir(parents=True)
+                for image in mod_dir.iterdir():
+                    if image.is_file() and image.name.casefold() in _PORTRAIT_FILES:
+                        image.rename(target / image.name)
+            else:
+                target.parent.mkdir(exist_ok=True)
+                old_parent = folder.parent
+                folder.rename(target)
+                while old_parent != mod_dir and not any(old_parent.iterdir()):
+                    old_parent.rmdir()
+                    old_parent = old_parent.parent
+            moved = True
+        if moved:
+            log_fn(f"Owlcat: filed portraits in '{mod_dir.name}' under {_PORTRAITS}/.")
+        return moved
+
     def prepare_mod_staging(self, staging: Path, log_fn) -> bool:
         if not staging.is_dir():
             return False
@@ -403,7 +467,8 @@ class OwlcatBase(StandardCustomGame):
                 self.mod_staging_wrap_subdir_name)
             with preserve_sources(mod_dir):
                 filed = self._move_templates(mod_dir, log_fn)
-            changed = flattened or wrapped or filed or changed
+                portraits = self._file_portraits(mod_dir, log_fn)
+            changed = flattened or wrapped or filed or portraits or changed
         return changed
 
     # -- mod inspection -----------------------------------------------------

@@ -208,17 +208,25 @@ def test_routing_rules() -> None:
         root = Path(tmp)
         for game in (km, wotr, rt):
             _point(game, root)
-        assert km.custom_routing_rules == []
         paths = ["Modifications/B/OwlcatModificationManifest.json",
-                 "Modifications/B/Assemblies/b.dll", "A/Info.json", "A/a.dll"]
-        for game, base in ((wotr, "Pathfinder Wrath Of The Righteous"), (rt, _RT_DIR)):
+                 "Modifications/B/Assemblies/b.dll", "A/Info.json", "A/a.dll",
+                 "Portraits/P/Small.png"]
+
+        def routed(game, rel):
             claims = compute_routed_destinations(paths, game.custom_routing_rules)
-            dest = (f"drive_c/users/steamuser/AppData/LocalLow/Owlcat Games/{base}"
-                    "/Modifications/B/Assemblies/b.dll").lower()
-            got = [(to_prefix, d.lower())
-                   for to_prefix, d in claims["modifications/b/assemblies/b.dll"]]
-            assert got == [(True, dest)], got
-            assert "a/info.json" not in claims and "a/a.dll" not in claims
+            return [(to_prefix, d.lower()) for to_prefix, d in claims.get(rel, [])]
+
+        for game, base in ((km, "Pathfinder Kingmaker"),
+                           (wotr, "Pathfinder Wrath Of The Righteous"), (rt, _RT_DIR)):
+            locallow = f"drive_c/users/steamuser/AppData/LocalLow/Owlcat Games/{base}".lower()
+            assert routed(game, "portraits/p/small.png") == [
+                (True, f"{locallow}/portraits/p/small.png")], game.name
+            assert routed(game, "a/info.json") == [] and routed(game, "a/a.dll") == []
+            if game is km:  # Kingmaker doesn't load Template mods
+                assert routed(game, "modifications/b/assemblies/b.dll") == []
+            else:
+                assert routed(game, "modifications/b/assemblies/b.dll") == [
+                    (True, f"{locallow}/modifications/b/assemblies/b.dll")], game.name
         _point(rt, root, prefix=False)
         assert rt.custom_routing_rules == []
     print("✓ routing rules")
@@ -350,13 +358,15 @@ def test_restore_whitelist_protects_umm() -> None:
 
 
 def test_no_prefix_keeps_templates_out_of_mods() -> None:
-    _km, wotr, _rt = _games()
+    km, wotr, _rt = _games()
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         _point(wotr, root, prefix=False)
-        assert "modifications" in wotr.filemap_exclude_dirs
+        assert {"modifications", "portraits"} <= wotr.filemap_exclude_dirs
         _point(wotr, root)
-        assert "modifications" not in wotr.filemap_exclude_dirs
+        assert not {"modifications", "portraits"} & wotr.filemap_exclude_dirs
+        _point(km, root, prefix=False)
+        assert "portraits" in km.filemap_exclude_dirs
     print("✓ no prefix keeps Template mods out of Mods/")
 
 
@@ -439,12 +449,72 @@ def test_apply_does_not_create_empty_settings() -> None:
 def test_reserved_ids_fall_back_to_mod_name() -> None:
     _km, wotr, _rt = _games()
     with tempfile.TemporaryDirectory() as tmp:
-        for reserved in ("Mods", "modifications", "UnityModManager", "FOMOD"):
+        for reserved in ("Mods", "modifications", "UnityModManager", "FOMOD",
+                         "Portraits"):
             mod = Path(tmp) / f"Mod-{reserved}"
             mod.mkdir()
             (mod / UMM_MANIFEST).write_text(json.dumps({"Id": reserved}))
             assert wotr.mod_staging_wrap_subdir_name(mod) == mod.name, reserved
     print("✓ reserved Ids fall back to the mod name")
+
+
+_PORTRAIT_PNGS = ("Fulllength.png", "Medium.png", "Small.png")
+
+
+def _portrait(folder: Path, names=_PORTRAIT_PNGS) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        (folder / name).write_bytes(b"png")
+
+
+def test_portrait_staging() -> None:
+    km, wotr, _rt = _games()
+    for game in (km, wotr):
+        with tempfile.TemporaryDirectory() as tmp:
+            staging = Path(tmp)
+            flat = staging / "Flat"
+            _portrait(flat)
+            (flat / "meta.ini").write_text("")
+            _portrait(staging / "Pack" / "A")
+            _portrait(staging / "Pack" / "B", ["medium.png"])
+            _portrait(staging / "Wrapped" / "Portraits" / "C")
+            _portrait(staging / "Deep" / "My Pack" / "Portraits" / "D")
+            umm = staging / "Umm"
+            _portrait(umm / "Art", ["Small.png"])
+            (umm / UMM_MANIFEST).write_text(json.dumps({"Id": "Umm"}))
+            tmpl = staging / "Tmpl" / "T"
+            _portrait(tmpl / "Art", ["Small.png"])
+            (tmpl / TEMPLATE_MANIFEST).write_text("{}")
+
+            assert game.prepare_mod_staging(staging, lambda _m: None)
+            for name in _PORTRAIT_PNGS:
+                assert (flat / "Portraits" / "Flat" / name).is_file(), name
+                assert not (flat / name).exists()
+            assert (flat / "meta.ini").is_file()
+            assert (staging / "Pack" / "Portraits" / "A" / "Small.png").is_file()
+            assert (staging / "Pack" / "Portraits" / "B" / "medium.png").is_file()
+            assert not (staging / "Pack" / "A").exists()
+            assert (staging / "Wrapped" / "Portraits" / "C" / "Small.png").is_file()
+            assert (staging / "Deep" / "Portraits" / "D" / "Small.png").is_file()
+            assert not (staging / "Deep" / "My Pack").exists()
+            assert (umm / "Umm" / "Art" / "Small.png").is_file()
+            assert not (umm / "Portraits").exists()
+            assert not (staging / "Tmpl" / "Portraits").exists()
+            assert not game.prepare_mod_staging(staging, lambda _m: None)
+    print("✓ portrait staging")
+
+
+def test_portrait_name_clash_left_in_place() -> None:
+    _km, wotr, _rt = _games()
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp)
+        mod = staging / "Clash"
+        _portrait(mod / "Portraits" / "X")
+        _portrait(mod / "Extra" / "X", ["Small.png"])
+        wotr.prepare_mod_staging(staging, lambda _m: None)
+        assert (mod / "Extra" / "X" / "Small.png").is_file()
+        assert (mod / "Portraits" / "X" / "Fulllength.png").is_file()
+    print("✓ portrait name clash left in place")
 
 
 if __name__ == "__main__":
@@ -473,4 +543,6 @@ if __name__ == "__main__":
     test_case_insensitive_folders_and_manifests()
     test_apply_does_not_create_empty_settings()
     test_reserved_ids_fall_back_to_mod_name()
+    test_portrait_staging()
+    test_portrait_name_clash_left_in_place()
     print("All Owlcat checks passed.")

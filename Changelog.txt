@@ -2,6 +2,7 @@
 ## Game Support
 - Added Pathfinder: Kingmaker, Pathfinder: Wrath of the Righteous and Warhammer 40,000: Rogue Trader (Steam, GOG and Epic)
   - Unity Mod Manager mods and Owlcat Template mods; Template mods are enabled in OwlcatModificationManagerSettings.json automatically
+  - Custom portrait packs install to the game's Portraits folder
   - Kingmaker and Wrath need Unity Mod Manager installed into the game (Doorstop Proxy) - Amethyst detects it and sets the winhttp override
 
 ---
