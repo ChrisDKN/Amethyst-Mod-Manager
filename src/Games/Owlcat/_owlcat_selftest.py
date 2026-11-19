@@ -400,6 +400,53 @@ def test_flat_umm_wraps_into_id_folder() -> None:
     print("✓ flat UMM mods wrap into their Id folder")
 
 
+def test_case_insensitive_folders_and_manifests() -> None:
+    _km, wotr, _rt = _games()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        _point(wotr, root)
+        staging = _profile(wotr, root, ["+Lower", "+LowerUmm"])
+        unit = staging / "Lower" / "modifications" / "L"
+        unit.mkdir(parents=True)
+        (unit / "owlcatmodificationmanifest.json").write_text(
+            json.dumps({"UniqueName": "LowerUnique"}))
+        umm = staging / "LowerUmm" / "mods" / "U"
+        umm.mkdir(parents=True)
+        (umm / "info.json").write_text("{}")
+        assert classify_mod_dir(unit) == "template"
+        assert classify_mod_dir(umm) == "umm"
+        assert template_id(unit) == "LowerUnique"
+        wotr.pop_deploy_warnings()
+        wotr.post_deploy(lambda _m: None)
+        settings = wotr.locallow_root() / "OwlcatModificationManagerSettings.json"
+        assert json.loads(settings.read_text())["EnabledModifications"] == ["LowerUnique"]
+        assert any("Unity Mod Manager isn't installed" in w
+                   for w in wotr.pop_deploy_warnings())
+    print("✓ case-insensitive folders and manifests")
+
+
+def test_apply_does_not_create_empty_settings() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        settings = Path(tmp) / "LocalLow" / "settings.json"
+        state = Path(tmp) / "state.json"
+        assert apply_settings_sync(settings, [], state, lambda _m: None)
+        assert not settings.exists()
+        assert not settings.parent.exists()
+        assert state.is_file()
+    print("✓ empty sync doesn't create the settings file")
+
+
+def test_reserved_ids_fall_back_to_mod_name() -> None:
+    _km, wotr, _rt = _games()
+    with tempfile.TemporaryDirectory() as tmp:
+        for reserved in ("Mods", "modifications", "UnityModManager", "FOMOD"):
+            mod = Path(tmp) / f"Mod-{reserved}"
+            mod.mkdir()
+            (mod / UMM_MANIFEST).write_text(json.dumps({"Id": reserved}))
+            assert wotr.mod_staging_wrap_subdir_name(mod) == mod.name, reserved
+    print("✓ reserved Ids fall back to the mod name")
+
+
 if __name__ == "__main__":
     test_locallow_rel_variants()
     test_classify()
@@ -423,4 +470,7 @@ if __name__ == "__main__":
     test_no_prefix_keeps_templates_out_of_mods()
     test_sync_reclaims_user_removed_entry()
     test_flat_umm_wraps_into_id_folder()
+    test_case_insensitive_folders_and_manifests()
+    test_apply_does_not_create_empty_settings()
+    test_reserved_ids_fall_back_to_mod_name()
     print("All Owlcat checks passed.")

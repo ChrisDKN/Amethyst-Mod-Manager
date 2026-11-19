@@ -51,19 +51,40 @@ def locallow_rel(prefix: Path | None, dir_name: str) -> str | None:
     return f"{drive_rel}/users/{user}/AppData/LocalLow/Owlcat Games/{dir_name}"
 
 
+def find_child(parent: Path, name: str) -> Path | None:
+    """*parent*'s entry called *name*, ignoring case (exact match preferred)."""
+    exact = parent / name
+    if exact.exists():
+        return exact
+    try:
+        children = list(parent.iterdir())
+    except OSError:
+        return None
+    folded = name.casefold()
+    return next((c for c in sorted(children) if c.name.casefold() == folded), None)
+
+
+def _manifest(path: Path, name: str) -> Path | None:
+    found = find_child(path, name)
+    return found if found is not None and found.is_file() else None
+
+
 def classify_mod_dir(path: Path) -> Literal["template", "umm", None]:
     """Classify one mod folder by the manifest it holds directly."""
-    if (path / UMM_MANIFEST).is_file():
+    if _manifest(path, UMM_MANIFEST) is not None:
         return "umm"
-    if (path / TEMPLATE_MANIFEST).is_file():
+    if _manifest(path, TEMPLATE_MANIFEST) is not None:
         return "template"
     return None
 
 
 def template_id(mod_unit: Path) -> str | None:
     """The ``UniqueName`` a Template mod is enabled by, or None."""
+    manifest = _manifest(mod_unit, TEMPLATE_MANIFEST)
+    if manifest is None:
+        return None
     try:
-        data = json.loads((mod_unit / TEMPLATE_MANIFEST).read_text(encoding="utf-8-sig"))
+        data = json.loads(manifest.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return None
     name = data.get("UniqueName") if isinstance(data, dict) else None
@@ -136,7 +157,8 @@ def apply_settings_sync(settings_path: Path, wanted: list[str],
 
     existing = [str(v) for v in data["EnabledModifications"]]
     result, new_state = sync_enabled(existing, wanted, state)
-    if result != existing or not settings_path.is_file():
+    # Don't create a settings file the game never wrote just to list nothing.
+    if result != existing or (result and not settings_path.is_file()):
         data["EnabledModifications"] = result
         write_atomic(settings_path, json.dumps(
             data, indent=2, ensure_ascii=False).encode("utf-8"))
@@ -157,6 +179,8 @@ _MODIFICATIONS = "Modifications"
 _MANIFEST_NAMES = {UMM_MANIFEST.lower(), TEMPLATE_MANIFEST.lower()}
 _BUNDLED_UMM_FILES = {"winhttp.dll", "doorstop_config.ini"}
 _SYNC_STATE = "owlcat_managed_modifications.json"
+# Folder names the handler strips, routes or excludes - never wrap a mod into one.
+_RESERVED_FOLDERS = {"mods", "unitymodmanager", _MODIFICATIONS.casefold(), "fomod"}
 
 
 def _has_manifest(path: Path) -> bool:
@@ -300,8 +324,11 @@ class OwlcatBase(StandardCustomGame):
         save inside it) stable across versions.  Anything else keeps the
         staging folder's name.
         """
+        manifest = _manifest(mod_dir, UMM_MANIFEST)
+        if manifest is None:
+            return mod_dir.name
         try:
-            info = json.loads((mod_dir / UMM_MANIFEST).read_text(encoding="utf-8-sig"))
+            info = json.loads(manifest.read_text(encoding="utf-8-sig"))
         except (OSError, ValueError):
             return mod_dir.name
         mod_id = info.get("Id") if isinstance(info, dict) else None
@@ -309,7 +336,8 @@ class OwlcatBase(StandardCustomGame):
             return mod_dir.name
         mod_id = mod_id.strip()
         if (not mod_id or mod_id in {".", ".."} or "\\" in mod_id
-                or Path(mod_id).name != mod_id):
+                or Path(mod_id).name != mod_id
+                or mod_id.casefold() in _RESERVED_FOLDERS):
             return mod_dir.name
         return mod_id
 
@@ -397,9 +425,10 @@ class OwlcatBase(StandardCustomGame):
     @staticmethod
     def _units(mod_dir: Path) -> list[Path]:
         units = [mod_dir] if _has_manifest(mod_dir) else []
-        for parent in (mod_dir, mod_dir / _MODIFICATIONS, mod_dir / "Mods",
-                       mod_dir / "UnityModManager"):
-            if parent.is_dir():
+        parents = [mod_dir] + [find_child(mod_dir, name) for name in (
+            _MODIFICATIONS, "Mods", "UnityModManager")]
+        for parent in parents:
+            if parent is not None and parent.is_dir():
                 units += [child for child in sorted(parent.iterdir())
                           if child.is_dir() and _has_manifest(child)]
         return units
