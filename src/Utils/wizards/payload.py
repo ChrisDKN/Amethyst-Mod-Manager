@@ -101,7 +101,7 @@ def tree_identity(root, checkpoint=lambda: None):
 
 @contextmanager
 def prepare_payload(archive, *, log_fn=lambda _m: None, checkpoint=lambda: None,
-                    strip_top_dir=True):
+                    strip_top_dir=True, payload_subdir=""):
     from Utils.wizards.archives import _strip_single_top_dir, extract_to_dir
 
     archive = Path(archive)
@@ -123,9 +123,18 @@ def prepare_payload(archive, *, log_fn=lambda _m: None, checkpoint=lambda: None,
                     raise PayloadInstallError("unsafe_tool_payload", "Tool payloads cannot contain links or special files.",
                                               {"path": str(path.relative_to(directory))})
                 files.append(path)
+        source = _strip_single_top_dir(directory) if strip_top_dir else directory
+        if payload_subdir:
+            # Packs such as Thunderstore's keep the real payload in one named
+            # folder next to manifest.json / icon.png / README.md. Install only
+            # that folder's contents; fall back to the whole archive if absent.
+            subdir = next((entry for entry in directory.iterdir()
+                           if entry.is_dir() and entry.name.casefold() == payload_subdir.casefold()), None)
+            if subdir is not None:
+                source = subdir
+                files = [path for path in files if subdir in path.parents]
         if not files:
             raise PayloadInstallError("empty_tool_payload", "The archive contains no installable files.")
-        source = _strip_single_top_dir(directory) if strip_top_dir else directory
         payload = PreparedPayload(archive, source, tuple(sorted(path.relative_to(source) for path in files)), identity)
         payload.check_archive()
         yield payload

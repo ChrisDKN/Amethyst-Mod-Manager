@@ -415,6 +415,7 @@ def install_archive_payload(
     restore_first: bool = True,
     delete_archive: bool = True,
     strip_top_dir: bool = True,
+    payload_subdir: str = "",
     log_fn: Callable[[str], None] = _noop,
 ) -> tuple[str, int, "str | None"]:
     """Extract *archive* into the wizard-standard destination for *mode*.
@@ -431,7 +432,8 @@ def install_archive_payload(
     """
     from Utils.wizards.payload import install_prepared_payload, prepare_payload
 
-    with prepare_payload(archive, log_fn=log_fn, strip_top_dir=strip_top_dir) as payload:
+    with prepare_payload(archive, log_fn=log_fn, strip_top_dir=strip_top_dir,
+                         payload_subdir=payload_subdir) as payload:
         return install_prepared_payload(
             game, payload, mode, mod_fallback_name=mod_fallback_name,
             nexus_mod_id=nexus_mod_id, modlist_path=modlist_path,

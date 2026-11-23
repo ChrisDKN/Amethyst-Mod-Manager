@@ -261,9 +261,14 @@ def resolve_dependencies(link, *, host: str = "thunderstore.io",
 
 
 def filter_already_installed(packages, staging_root: Path,
-                             keep_root: bool = True) -> tuple[list, list]:
+                             keep_root: bool = True,
+                             provided=()) -> tuple[list, list]:
     """
     Split *packages* into (to_install, already_present).
+
+    *provided* is a collection of lowercased package ids the game already
+    supplies outside the mod list (see ``thunderstore_provided_packages``);
+    those count as present, at any version.
 
     A package counts as present when a staging folder carries a
     ``[thunderstore]`` section with the same package id AND a version at least
@@ -285,6 +290,7 @@ def filter_already_installed(packages, staging_root: Path,
     from Thunderstore.repositories import version_key
 
     staging_root = Path(staging_root)
+    provided = {str(p).lower() for p in (provided or ())}
     installed: dict[tuple, str] = {}     # package_id → version
     folder_names: set = set()
     if staging_root.is_dir():
@@ -312,6 +318,10 @@ def filter_already_installed(packages, staging_root: Path,
         # user asked for THIS version (reinstall, upgrade or downgrade).
         if keep_root and getattr(pkg, "is_root", False):
             to_install.append(pkg)
+            continue
+        if (pkg.source == "thunderstore" and not getattr(pkg, "is_root", False)
+                and pkg.package_id.lower() in provided):
+            present.append(pkg)
             continue
         have = installed.get((pkg.source, pkg.package_id))
         if have:

@@ -274,7 +274,8 @@ def inspect_runner(game, profile, tool_id, version_index, version,
         progress(0, 1, "inspect_tool")
         try:
             with prepare_payload(archive, log_fn=log, checkpoint=lambda: _checkpoint(cancel),
-                                 strip_top_dir=version.get("strip_top_dir", True)) as payload:
+                                 strip_top_dir=version.get("strip_top_dir", True),
+                                 payload_subdir=version.get("payload_subdir", "")) as payload:
                 result = plan(game, profile, tool_id, version_index, version,
                               catalogue_revision, archive, mode, payload, cancel)
         except PayloadInstallError as exc:
@@ -312,8 +313,9 @@ def install_runner(game, profile, tool_id, version_index, version,
 
         try:
             with prepare_payload(archive, log_fn=log, checkpoint=lambda: _checkpoint(cancel),
-                                 strip_top_dir=version.get("strip_top_dir", True)) as payload:
-                selected = _selected_game(game, profile)
+                                 strip_top_dir=version.get("strip_top_dir", True),
+                                 payload_subdir=version.get("payload_subdir", "")) as payload:
+                selected =_selected_game(game, profile)
 
                 def verify_plan():
                     listing = catalogue(game, profile)

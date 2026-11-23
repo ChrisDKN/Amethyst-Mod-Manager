@@ -72,5 +72,6 @@ py.install_sources(
   'Prey_2017.png',
   'graveyard_keeper_2.png',
   'v_rising.png',
+  'cult_of_the_lamb.png',
   subdir: 'icons' / 'games',
 )

@@ -17,5 +17,6 @@ py.install_sources(
   'nivalis_nights.py',
   'graveyard_keeper_2.py',
   'v_rising.py',
+  'cult_of_the_lamb.py',
   subdir: 'Games' / 'BepInEx',
 )
