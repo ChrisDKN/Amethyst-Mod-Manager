@@ -24,6 +24,14 @@ _PACKAGES = {
             "https://download.visualstudio.microsoft.com/download/pr/7afca223-55d2-470a-8edc-6a1739ae3252/abd170b4b0ec15ad0222a809b761a036/ndp48-x86-x64-allos-enu.exe",
             "95889d6de3f2070c07790ad6cf2000d33d9a1bdfc6a381725ab82ab1c314fd53"),
 }
+# Files the .NET Framework 4.0 and 4.8 packages install into system32/syswow64.
+_SYSTEM_FILES = (
+    "aspnet_counters.dll", "dfshim.dll", "dxva2.dll", "evr.dll", "mscoree.dll", "mscorier.dll",
+    "msvcp110_clr0400.dll", "msvcp120_clr0400.dll", "msvcp140_clr0400.dll", "msvcr100_clr0400.dll",
+    "msvcr110_clr0400.dll", "msvcr120_clr0400.dll", "netfxperf.dll", "presentationhost.exe",
+    "presentationhostproxy.dll", "rgb9rast_2.dll", "ucrtbase_clr0400.dll", "uiautomationcore.dll",
+    "vcruntime140_clr0400.dll",
+)
 _PROBE = '''using System;
 class Verify {
     static int Main() {
@@ -192,6 +200,26 @@ class _Installer:
         for key in (r"HKLM\Software\Microsoft\.NETFramework", r"HKLM\Software\Wow6432Node\Microsoft\.NETFramework"):
             self.run("reg", "add", key, "/v", "OnlyUseLatestCLR", "/t", "REG_DWORD", "/d", "1", "/f")
 
+    def detach_links(self):
+        """Replace Proton's builtin-DLL symlinks that the installers overwrite with writable copies.
+
+        Proton links builtin DLLs to read-only files in its own install. Windows
+        Installer cannot overwrite them (error 5), so InstallFiles fails with 1603.
+        Proton replaces any copy that is still a Wine builtin on its next prefix update.
+        """
+        windows = self.prefix / "drive_c/windows"
+        links = [path for path in (windows / "Microsoft.NET").rglob("*") if path.is_symlink()]
+        for folder in ("system32", "syswow64"):
+            links += [windows / folder / name for name in _SYSTEM_FILES if (windows / folder / name).is_symlink()]
+        for link in links:
+            target = link.resolve()
+            if target.is_relative_to(self.prefix) or not target.is_file():
+                continue
+            pending = link.with_name(link.name + ".amethyst-copy")
+            shutil.copyfile(target, pending)
+            pending.chmod(0o644)
+            pending.replace(link)
+
     def remove_mono(self):
         self.log("Removing Wine Mono from this prefix and clearing its .NET setup entries…")
         products = set()
@@ -259,6 +287,7 @@ class _Installer:
                 self.recover()
                 raise
             try:
+                self.detach_links()
                 version = registry.read_value(self.prefix, r"Software\Wine", "Version", hive=registry.HIVE_USER)
                 if "4.0" in packages:
                     self.remove_mono()
