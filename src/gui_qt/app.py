@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time as _startup_time
 from collections import deque
 from pathlib import Path
@@ -86,6 +87,13 @@ from Utils.app_log import safe_print as print  # noqa: A004
 # Qt's "no maximum" sentinel. PySide6 doesn't export QWIDGETSIZE_MAX, so undoing
 # a setFixedSize/setFixedWidth means writing the value out.
 _QWIDGETSIZE_MAX = (1 << 24) - 1
+
+# One-letter level tag in output of the Steam runtime tools, which log as
+# "prog[pid]: E: text". Only their program names (pressure-vessel-wrap,
+# pv-adverb, srt-logger, steam-runtime-steam-remote and the like) are matched,
+# since a bare "E:" in other output is not a severity.
+_LOG_STEAM_RUNTIME_LEVEL_RE = re.compile(
+    r"(?:pressure-vessel|pv|srt|steam-runtime)-[\w.-]+\[\d+\]: ([EW]): ")
 
 
 def _tr_wizard(text: str, args: tuple = ()) -> str:
@@ -23878,13 +23886,19 @@ class MainWindow(QMainWindow, PluginPanelControls):
         """Return the severity of a log line: 'error', 'warning' or ''.
 
         Free-form backend messages are classified by keyword so error lines can
-        render red and warnings yellow."""
+        render red and warnings yellow. Output of the Steam runtime tools
+        carries a one-letter level tag instead ("E:" or "W:"), which counts
+        the same as a keyword on their lines."""
         low = line.lower()
-        if any(k in low for k in
-               ("error", "failed", "failure", "fatal", "exception",
-                "traceback", "[err]", "could not", "cannot ", "can't")):
+        tag = _LOG_STEAM_RUNTIME_LEVEL_RE.search(line)
+        level = tag.group(1) if tag else ""
+        if level == "E" or any(
+                k in low for k in
+                ("error", "failed", "failure", "fatal", "exception",
+                 "traceback", "[err]", "could not", "cannot ", "can't")):
             return "error"
-        if any(k in low for k in ("warn", "[warning]", "deprecat")):
+        if level == "W" or any(
+                k in low for k in ("warn", "[warning]", "deprecat")):
             return "warning"
         return ""
 
