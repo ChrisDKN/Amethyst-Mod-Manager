@@ -427,9 +427,11 @@ def restore_to_vanilla(game: "BaseGame", current_profile: str,
 
         game.restore(log_fn=log_fn)
 
-        from Utils.deployment import restore_root_folder_for_game
+        from Utils.deployment import (
+            restore_root_folder_for_game, root_deployment_present,
+        )
         root_folder_dir = game.get_effective_root_folder_path()
-        if root_folder_dir.is_dir() and game_root:
+        if root_deployment_present(root_folder_dir) and game_root:
             restore_root_folder_for_game(
                 game, root_folder_dir=root_folder_dir,
                 game_root=game_root, log_fn=log_fn,

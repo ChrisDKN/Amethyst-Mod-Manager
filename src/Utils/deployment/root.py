@@ -678,6 +678,19 @@ def restore_root_folder(
     return removed
 
 
+def root_deployment_present(root_folder_dir: Path) -> bool:
+    """Whether *root_folder_dir* may have root deployment state to restore.
+
+    The journal lives beside Root_Folder/, not inside it.  Root-flagged mods
+    write it even when the profile has no Root_Folder/ directory (for example
+    a profile-specific-mods profile created by a Wabbajack install), so the
+    directory's existence alone does not decide whether restore is needed.
+    """
+    root_folder_dir = Path(root_folder_dir)
+    return (root_folder_dir.is_dir()
+            or (root_folder_dir.parent / _ROOT_LOG_NAME).is_file())
+
+
 def restore_root_folder_for_game(
     game,
     *,
@@ -716,4 +729,5 @@ __all__ = [
     "deploy_root_flagged_mods",
     "restore_root_folder",
     "restore_root_folder_for_game",
+    "root_deployment_present",
 ]

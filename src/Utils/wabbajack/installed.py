@@ -176,7 +176,9 @@ def _installation_lock(directory: Path):
 
 
 def _restore_deployment(game, profile_name: str, log, progress) -> None:
-    from Utils.deployment import restore_root_folder_for_game
+    from Utils.deployment import (
+        restore_root_folder_for_game, root_deployment_present,
+    )
     from Utils.deployment.pipeline import (
         check_paths_mounted, finalize_filegraph_recovery)
 
@@ -196,7 +198,7 @@ def _restore_deployment(game, profile_name: str, log, progress) -> None:
                 progress("Restoring deployed game", done, total, phase or ""),
             )
         root_files = game.get_effective_root_folder_path()
-        if root_files.is_dir() and game_root:
+        if root_deployment_present(root_files) and game_root:
             restore_root_folder_for_game(
                 game, root_folder_dir=root_files, game_root=game_root,
                 log_fn=log)

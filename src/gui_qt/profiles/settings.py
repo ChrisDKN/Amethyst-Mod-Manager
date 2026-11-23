@@ -647,7 +647,9 @@ class ProfileSettingsView(QWidget):
         Mirrors the app's _on_restore sequence (borrows the window's op signals
         for the progress popup)."""
         win = self._window
-        from Utils.deployment import restore_root_folder_for_game
+        from Utils.deployment import (
+            restore_root_folder_for_game, root_deployment_present,
+        )
         # Remember the profile we're actually on so the finally block restores to
         # it - restoring to None (default) would desync the game object from the
         # selected profile and make later path-derived opens resolve wrong.
@@ -663,7 +665,7 @@ class ProfileSettingsView(QWidget):
                 if restored is False:
                     raise RuntimeError("Restore failed; the profile was kept")
             rf = game.get_effective_root_folder_path()
-            if rf.is_dir() and game_root:
+            if root_deployment_present(rf) and game_root:
                 restore_root_folder_for_game(
                     game, root_folder_dir=rf, game_root=game_root,
                     log_fn=lambda m: self._log(str(m)),
