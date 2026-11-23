@@ -601,6 +601,46 @@ class DeploymentTransferFailureTests(unittest.TestCase):
             self.assertFalse(plan.ran_incremental)
 
 
+class RootDeploymentPresenceTests(unittest.TestCase):
+    """Root restore must run when only the journal beside Root_Folder exists."""
+
+    def test_presence_follows_directory_or_journal(self) -> None:
+        from Utils.deployment import root_deployment_present
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root_folder = Path(tmp) / "profile" / "Root_Folder"
+            root_folder.parent.mkdir()
+            self.assertFalse(root_deployment_present(root_folder))
+
+            journal = root_folder.parent / "root_folder_deployed.txt"
+            journal.write_text("d3d11.dll", encoding="utf-8")
+            self.assertTrue(root_deployment_present(root_folder))
+
+            journal.unlink()
+            root_folder.mkdir()
+            self.assertTrue(root_deployment_present(root_folder))
+
+    def test_journal_without_root_folder_restores_placed_file(self) -> None:
+        from Utils.deployment import root_deployment_present
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile = root / "profile"
+            root_folder = profile / "Root_Folder"
+            game_root = root / "game"
+            profile.mkdir()
+            game_root.mkdir()
+            (game_root / "d3d11.dll").write_text("mod", encoding="utf-8")
+            (profile / "root_folder_deployed.txt").write_text(
+                "d3d11.dll", encoding="utf-8")
+
+            self.assertFalse(root_folder.exists())
+            self.assertTrue(root_deployment_present(root_folder))
+            self.assertEqual(restore_root_folder(root_folder, game_root), 1)
+            self.assertFalse((game_root / "d3d11.dll").exists())
+            self.assertFalse((profile / "root_folder_deployed.txt").exists())
+
+
 class _NullContext:
     def __enter__(self):
         return self

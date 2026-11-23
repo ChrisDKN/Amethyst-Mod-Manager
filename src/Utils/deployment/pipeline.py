@@ -22,6 +22,7 @@ from Utils.deployment import (
     deploy_root_flagged_mods,
     load_per_mod_strip_prefixes,
     restore_root_folder_for_game,
+    root_deployment_present,
 )
 from Utils.deployment.missing_installation import (
     MissingInstallation, archive_if_missing, path_is_missing,
@@ -911,7 +912,7 @@ def _run_deploy_pipeline(
         else:
             timeline.mark("pre-deploy restore not required")
         last_root_folder_dir = game.get_effective_root_folder_path()
-        if last_root_folder_dir.is_dir() and game_root:
+        if root_deployment_present(last_root_folder_dir) and game_root:
             # The persisted root-deploy identity lets restore remove a leftover
             # root payload under Data/ without risking the vanilla file that
             # Data_Core may just have restored at the same path.  This runs
@@ -1471,7 +1472,8 @@ def _run_restore_pipeline(
                 archive_if_missing(game_root, game.get_effective_filemap_path().parent
                                    / _FILEMAP_SNAPSHOT_NAME)
             root_folder_dir = game.get_effective_root_folder_path()
-            if game_root and (root_folder_dir.is_dir() or missing_installation is not None):
+            if game_root and (root_deployment_present(root_folder_dir)
+                              or missing_installation is not None):
                 restore_root_folder_for_game(
                     game, root_folder_dir=root_folder_dir, game_root=game_root, log_fn=log_fn)
         finalize_filegraph_recovery(
