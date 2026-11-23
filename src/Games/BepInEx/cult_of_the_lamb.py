@@ -1,5 +1,7 @@
 """Cult of the Lamb game handler."""
 
+from pathlib import Path
+
 from Games.base_game import WizardTool
 from Games.BepInEx.bepinex_base import BepInExBase
 
@@ -32,6 +34,20 @@ class CultOfTheLamb(BepInExBase):
     @property
     def extra_mod_folder_strip_prefixes(self) -> set[str]:
         return {"BepInExPack_CultOfTheLamb"}
+
+    def thunderstore_provided_packages(self) -> set[str]:
+        # BepInEx installed into the game folder or Root_Folder (the Install
+        # BepInEx wizard) has no Thunderstore metadata, so without this the
+        # dependency installer would offer BepInExPack again.
+        roots = [self.get_game_path()]
+        try:
+            roots.append(self.get_effective_root_folder_path())
+        except Exception:
+            pass
+        for root in roots:
+            if root is not None and (Path(root) / "winhttp.dll").exists():
+                return {"bepinex-bepinexpack_cultofthelamb"}
+        return set()
 
     @property
     def wizard_tools(self) -> list[WizardTool]:

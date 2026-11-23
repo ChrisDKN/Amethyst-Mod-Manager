@@ -1038,6 +1038,14 @@ class BaseGame(ABC):
         """
         return None
 
+    def thunderstore_provided_packages(self) -> "set[str]":
+        """Lowercased Thunderstore package ids (``namespace-name``) this setup
+        already provides outside the mod list, e.g. a loader a wizard put in
+        Root_Folder. The dependency installer treats them as present instead
+        of offering to install them again. Empty by default.
+        """
+        return set()
+
     def requirement_replacement(self, mod_id: int) -> "dict | None":
         """What stands in for the Nexus requirement *mod_id* on this setup, for
         the missing-requirements view to show in its place: a dict with

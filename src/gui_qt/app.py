@@ -4804,7 +4804,9 @@ class MainWindow(QMainWindow, PluginPanelControls):
                 try:
                     staging = Path(resolve_target_staging(
                         game, Path(profile_dir)))
-                    wanted, skipped = filter_already_installed(wanted, staging)
+                    wanted, skipped = filter_already_installed(
+                        wanted, staging,
+                        provided=self._thunderstore_provided_packages())
                 except Exception as exc:
                     self._append_log(
                         f"[thunderstore] could not check installed mods ({exc})"
@@ -5206,6 +5208,14 @@ class MainWindow(QMainWindow, PluginPanelControls):
         return install_entries(
             entries, game, profile_dir, stamp_meta=self._stamp_thunderstore_meta,
             control=control, callbacks=callbacks, ownership=ownership)
+
+    def _thunderstore_provided_packages(self) -> set:
+        """Package ids the current game already provides outside the mod list."""
+        game = self._gs.game
+        try:
+            return set(game.thunderstore_provided_packages()) if game is not None else set()
+        except Exception:
+            return set()
 
     def _thunderstore_staging(self):
         """Staging root for the current profile, or None."""
@@ -6001,7 +6011,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
                             + ", ".join(graph.failed))
                         continue
                     todo, _have = filter_already_installed(
-                        graph.packages, staging, keep_root=False)
+                        graph.packages, staging, keep_root=False,
+                        provided=self._thunderstore_provided_packages())
                     for pkg in todo:
                         if pkg.is_root:
                             continue    # the mod we just installed
