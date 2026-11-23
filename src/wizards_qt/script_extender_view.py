@@ -61,7 +61,8 @@ class ScriptExtenderView(QWidget):
                  github_api_url: str = "", download_url: str = "",
                  archive_keywords: list | None = None,
                  direct_download_url: str = "", versions: list | None = None,
-                 nexus_file_id: int = 0, strip_top_dir: bool = True):
+                 nexus_file_id: int = 0, strip_top_dir: bool = True,
+                 payload_subdir: str = ""):
         super().__init__()
         self._game = game
         self._log = log_fn or (lambda _m: None)
@@ -76,6 +77,7 @@ class ScriptExtenderView(QWidget):
         self._nexus_page_opened = False
         self._archive_keywords = [k.lower() for k in (archive_keywords or [])]
         self._strip_top_dir = strip_top_dir
+        self._payload_subdir = payload_subdir or ""
         self._versions = list(versions or [])
 
         self._archive_path: Path | None = None
@@ -528,6 +530,7 @@ class ScriptExtenderView(QWidget):
                     mod_fallback_name="Script Extender",
                     nexus_mod_id=nexus_mod_id,
                     strip_top_dir=self._strip_top_dir,
+                    payload_subdir=self._payload_subdir,
                     log_fn=lambda m: self._log(str(m)))
                 safe_emit(self._ex_status_sig,
                     self.tr("Script extender installed successfully!\n"

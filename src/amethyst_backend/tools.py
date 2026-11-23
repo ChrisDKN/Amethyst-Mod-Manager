@@ -72,6 +72,10 @@ def _script_extender(tool):
         strip_top_dir = option.get("strip_top_dir", tool.extra.get("strip_top_dir", True))
         if not isinstance(strip_top_dir, bool):
             raise JobError("invalid_tool_catalogue", "A tool's archive folder policy is invalid.")
+        payload_subdir = option.get("payload_subdir", tool.extra.get("payload_subdir", ""))
+        if (not isinstance(payload_subdir, str) or "/" in payload_subdir
+                or "\\" in payload_subdir or payload_subdir in (".", "..")):
+            raise JobError("invalid_tool_catalogue", "A tool's archive payload folder is invalid.")
         versions.append({
             "index": index, "label": option.get("label") or tool.label,
             "description": option.get("description") or "",
@@ -79,6 +83,7 @@ def _script_extender(tool):
                                  (option.get("archive_keywords") or tool.extra.get("archive_keywords") or [])],
             "source": _source(option),
             "strip_top_dir": strip_top_dir,
+            "payload_subdir": payload_subdir,
         })
     return {"version_required": bool(tool.extra.get("versions")),
             "install_modes": ["game", "root", "mod"], "versions": versions}

@@ -35,8 +35,9 @@ class CultOfTheLamb(BepInExBase):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        # The pack keeps its BepInExPack_CultOfTheLamb/ wrapper folder (same as
-        # a Thunderstore install); it is stripped when the filemap is built.
+        # The pack zip holds manifest.json / icon.png / README.md next to a
+        # BepInExPack_CultOfTheLamb/ folder; only that folder's contents belong
+        # in the game root.
         return self._base_wizard_tools() + [WizardTool(
             id="install_bepinex",
             label="Install BepInEx",
@@ -55,6 +56,6 @@ class CultOfTheLamb(BepInExBase):
                     "BepInExPack_CultOfTheLamb/"
                 ),
                 "archive_keywords": ["bepinexpack_cultofthelamb"],
-                "strip_top_dir": False,
+                "payload_subdir": "BepInExPack_CultOfTheLamb",
             },
         )]
