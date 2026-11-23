@@ -45,6 +45,18 @@ def _exchange(left, right):
         raise OSError(error, os.strerror(error))
 
 
+def _packed_guid(guid):
+    """Windows Installer's packed form of a product code, as used in Installer\\Products."""
+    parts = guid.strip("{}").split("-")
+    tail = "".join(parts[3:])
+    return (parts[0][::-1] + parts[1][::-1] + parts[2][::-1]
+            + "".join(tail[i + 1] + tail[i] for i in range(0, len(tail), 2))).upper()
+
+
+def _msi_product_registered(prefix, guid):
+    return registry.key_exists(prefix, "Software\\Classes\\Installer\\Products\\" + _packed_guid(guid))
+
+
 def _download(version, log):
     from Utils.ca_bundle import download_file
     from Utils.config_paths import get_dotnet_cache_dir
@@ -195,12 +207,22 @@ class _Installer:
     def remove_mono(self):
         self.log("Removing Wine Mono from this prefix and clearing its .NET setup entries…")
         products = set()
+        orphans = set()
         for root in (r"Software\Microsoft\Windows\CurrentVersion\Uninstall",
                      r"Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall"):
             pattern = re.escape(registry.escape_key(root)) + r"\\\\\{[0-9A-Fa-f-]{36}\}"
             for key, values in registry.find_sections(self.prefix, pattern):
                 if values.get("displayname", "").startswith("Wine Mono"):
-                    products.add(key.rsplit("\\", 1)[-1])
+                    guid = key.rsplit("\\", 1)[-1]
+                    if _msi_product_registered(self.prefix, guid):
+                        products.add(guid)
+                    else:
+                        orphans.add(key.replace("\\\\", "\\"))
+        # Wine Mono upgrades can leave the old version's Uninstall entry behind
+        # without its Windows Installer registration; msiexec /x then fails
+        # with ERROR_UNKNOWN_PRODUCT (1605, exit status 69).
+        for key in sorted(orphans):
+            self.run("reg", "delete", "HKLM\\" + key, "/f", allow_failure=True)
         for guid in sorted(products):
             self.run("msiexec", "/x", guid, "/qn", "/norestart", label="Removing Wine Mono", timeout=300)
         for key in (r"HKLM\Software\Microsoft\NET Framework Setup\NDP\v4",
