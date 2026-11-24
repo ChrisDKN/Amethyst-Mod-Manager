@@ -210,7 +210,7 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         self._add_tab(
             self.tr("Downloads"), self._build_archives,
             self._build_downloads, self._build_extraction,
-            margins=(16, 14, 24, 18))
+            self._build_wabbajack, margins=(16, 14, 24, 18))
         self._connections_tab_index = self._tabs.count()
         self._add_tab(self.tr("Connections"), self._build_connections)
         self._add_tab(self.tr("General"), self._build_general)
@@ -1409,6 +1409,19 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             lambda: bool(uc.load_extraction_settings().get("low_priority", False)),
             uc.save_extraction_low_priority,
             help=priority_help)
+        self._finish_section(g)
+
+    def _build_wabbajack(self):
+        g = self._section(self.tr("Wabbajack"))
+        self._checkbox(
+            g, self.tr("Override list resolution with screen resolution"),
+            uc.load_wabbajack_display_override,
+            uc.save_wabbajack_display_override,
+            help=self.tr("New Wabbajack installs start with the Display resolution "
+                 "override on, set to the primary screen's resolution, instead of "
+                 "keeping the resolution in the list author's game INIs and "
+                 "display-tweak files. Installations that already saved a choice "
+                 "keep it."))
         self._finish_section(g)
 
     def _build_general(self):

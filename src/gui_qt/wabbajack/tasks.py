@@ -5,6 +5,7 @@ import zipfile
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QSignalBlocker, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout, QLabel,
     QLineEdit, QPushButton, QSpinBox, QFrame, QSizePolicy,
@@ -14,6 +15,20 @@ from gui_qt.runtime.safe_emit import safe_emit
 from gui_qt.appearance.theme import active_palette, _c
 from gui_qt.widgets.tri_state_checkbox import TriStateCheckBox
 from gui_qt.wabbajack.setup import CappedComboBox
+
+
+def _screen_resolution():
+    """Return [width, height] of the primary screen in physical pixels, or None.
+
+    Qt reports geometry in device-independent pixels, which the UI scale and
+    desktop scaling shrink; the device pixel ratio converts back.
+    """
+    screen = QGuiApplication.primaryScreen()
+    if screen is None:
+        return None
+    size, ratio = screen.size(), screen.devicePixelRatio()
+    resolution = [round(size.width() * ratio), round(size.height() * ratio)]
+    return resolution if all(320 <= n <= 16384 for n in resolution) else None
 
 
 class SetupOptions(QWidget):
@@ -262,6 +277,15 @@ class SetupOptions(QWidget):
         form.setRowVisible(self._store, store_available)
         self._store.currentIndexChanged.connect(self.changed)
         self._display = TriStateCheckBox(self.tr("Override"), settings, two_state=True)
+        if display_available and "display" not in self._values:
+            from Utils.ui.config import load_wabbajack_display_override
+            if load_wabbajack_display_override():
+                screen = _screen_resolution()
+                if screen:
+                    self._values["display"] = screen
+                elif self._log:
+                    self._log("[wabbajack] Could not detect the screen resolution; "
+                              "the display resolution override stays off.")
         display = self._values.get("display")
         self._display.set_state(1 if display else 0)
         display_field = QWidget(settings)

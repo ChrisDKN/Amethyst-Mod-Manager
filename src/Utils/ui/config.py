@@ -2336,6 +2336,26 @@ def save_wabbajack_filter(key: str, value: bool) -> None:
     _write_ini(parser, path)
 
 
+def load_wabbajack_display_override() -> bool:
+    """True = new Wabbajack installs start with the display resolution
+    override on, set to the primary screen's resolution."""
+    try:
+        return _read_ini(get_ui_config_path()).getboolean(
+            _WABBAJACK_SECTION, "display_override", fallback=False)
+    except Exception:
+        return False
+
+
+def save_wabbajack_display_override(value: bool) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _read_for_write(path)
+    if _WABBAJACK_SECTION not in parser:
+        parser[_WABBAJACK_SECTION] = {}
+    parser[_WABBAJACK_SECTION]["display_override"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 _THUNDERSTORE_SECTION = "thunderstore"
 
 
