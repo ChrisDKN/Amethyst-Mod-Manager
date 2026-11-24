@@ -9236,6 +9236,9 @@ class MainWindow(QMainWindow, PluginPanelControls):
         # subset is None for a full check (re-reads all flags) or the checked
         # names for a right-click subset; either way, no filemap rebuild.
         self._refresh_modlist_flags(result.get("subset"))
+        view = getattr(self, "_view_requirements_view", None)
+        if view is not None:
+            view.show_mods(view.current_mods)
         # Offer to Quick Update everything the check just flagged. Nexus only -
         # Quick Update resolves and downloads through the Nexus API, so mod.io
         # updates (BG3) stay manual. Ignored updates never reach this list.
@@ -11132,8 +11135,8 @@ class MainWindow(QMainWindow, PluginPanelControls):
 
     def _open_view_requirements_tab(self, name):
         """Open the View Requirements panel over the plugins panel (right-click
-        item). Offline - it reads the full requirements list the update checker
-        stores in meta.ini. While open it follows the modlist selection and the
+        item). It reads the full requirements list the update checker stores
+        in meta.ini. While open it follows the modlist selection and the
         modlist tints the related mods purple (requires) / blue (required by)
         instead of the green/red conflict highlights.
 
@@ -11160,6 +11163,7 @@ class MainWindow(QMainWindow, PluginPanelControls):
             on_data_changed=self._apply_requirement_highlights,
             on_focus_changed=self._on_view_requirements_focus_changed,
             on_view_missing=self._view_requirements_open_missing,
+            on_check_updates=self._on_check_updates,
             missing_names_fn=lambda: {
                 name for name, pairs in getattr(
                     self, "_requirement_index", None).missing.items() if pairs

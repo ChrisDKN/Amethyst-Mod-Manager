@@ -32,9 +32,10 @@ if TYPE_CHECKING:
     from Nexus.nexus_api import NexusAPI, NexusModRequirement, NexusModUpdateInfo
 from Nexus.nexus_meta import (
     NexusModMeta, normalise_game_domain, parse_req_pairs, scan_installed_mods,
-    write_meta)
+    read_meta, set_meta_keys, write_meta)
 from Utils.config_paths import get_requirement_external_tool_mod_ids_path
 from Utils.ca_bundle import resolve_ca_bundle
+from Utils.mods.metadata import meta_file_lock
 
 ProgressCallback = Callable[[str], None]
 
@@ -733,8 +734,36 @@ def check_requirements_from_gql(
     """
     _log = progress_cb or (lambda m: None)
 
-    if not gql_info:
-        return []
+    def save_check(meta, state, full=None, missing=None):
+        if not save_results:
+            return
+        path = staging_root / meta.mod_name / "meta.ini"
+        if write_meta_cb is not None:
+            changes = {"requirements_state": state}
+            if full is not None and (state == "ok" or not (
+                    meta.nexus_requirements or meta.missing_requirements)):
+                changes.update(nexus_requirements=full, missing_requirements=missing)
+            if any(getattr(meta, key) != value for key, value in changes.items()):
+                for key, value in changes.items():
+                    setattr(meta, key, value)
+                write_meta_cb(path, meta)
+            return
+        with meta_file_lock(path):
+            current = read_meta(path)
+            if (current.game_domain, current.mod_id, current.file_id, current.installed) != (
+                    meta.game_domain, meta.mod_id, meta.file_id, meta.installed):
+                return
+            values = {}
+            if current.requirements_state != state:
+                values["requirementsState"] = state
+            if full is not None and (state == "ok" or not (
+                    current.nexus_requirements or current.missing_requirements)):
+                if current.nexus_requirements != full:
+                    values["nexusRequirements"] = full
+                if current.missing_requirements != missing:
+                    values["missingRequirements"] = missing
+            if values:
+                set_meta_keys(path, values)
 
     # Work within one Nexus game. The update checker calls this once per
     # domain, and the filter also protects direct callers from treating an
@@ -746,41 +775,36 @@ def check_requirements_from_gql(
             or wanted_domain) == wanted_domain
     ]
 
-    # All same-domain installed IDs (including disabled) so disabled mods don't
-    # trigger spurious "missing requirement" warnings.
-    installed_mod_ids: set[int] = {
-        m.mod_id for m in domain_installed if m.mod_id > 0}
-    installed_mod_ids |= externally_provided(wanted_domain)
+    by_mod_id: dict[int, list[NexusModMeta]] = {}
+    for meta in domain_installed:
+        if meta.mod_id <= 0 or (enabled_only is not None and meta.mod_name not in enabled_only):
+            continue
+        info = gql_info.get(meta.mod_id)
+        if info is None or not info.requirements_complete:
+            _log(f"  {meta.mod_name}: could not fetch complete Nexus requirements.")
+            save_check(meta, "failed")
+            continue
+        by_mod_id.setdefault(meta.mod_id, []).append(meta)
+    if not by_mod_id:
+        return []
 
+    installed_mod_ids = {m.mod_id for m in domain_installed if m.mod_id > 0}
+    installed_mod_ids |= externally_provided(wanted_domain)
     external_set, alternatives_dict, substitutions = _load_requirement_filter()
 
-    # Build by_mod_id only for enabled mods (the ones we actually report on)
-    checkable = [
-        m for m in domain_installed
-        if m.mod_id > 0 and (enabled_only is None or m.mod_name in enabled_only)
-    ]
-    by_mod_id: dict[int, list] = {}
-    for meta in checkable:
-        by_mod_id.setdefault(meta.mod_id, []).append(meta)
-
-    # File-level requirements (v3 API) for all checkable mods, in one batch.
-    # We fetch ALL of them (installed or not) so the View Requirements full list
-    # can show installed file-level deps too, then derive the *missing* subset
-    # locally - one batch of API calls instead of two. Only runs when the caller
-    # provides an API client; {} on kill switch or any v3 failure - mod-level
-    # results are unaffected.
     file_all: dict[int, list[NexusModRequirement]] = {}
+    file_failed: set[int] = set()
     if api is not None:
         from Nexus.nexus_file_requirements import compute_file_level_all
-        file_all = compute_file_level_all(api, checkable, game_domain, log=_log)
+        file_all = compute_file_level_all(
+            api, [meta for metas in by_mod_id.values() for meta in metas],
+            game_domain, log=_log, failed_mod_ids=file_failed)
 
     results: list[MissingRequirementInfo] = []
 
     for mod_id, metas in by_mod_id.items():
-        info = gql_info.get(mod_id)
-        if info is None:
-            # Not returned by GraphQL (hidden/deleted mod) - leave flags unchanged
-            continue
+        info = gql_info[mod_id]
+        state = "failed" if mod_id in file_failed else "ok"
 
         # Full requirement pool: mod-level (GraphQL) + file-level (v3), deduped,
         # then rewritten through the replacement rules (e.g. Nemesis → Pandora)
@@ -822,11 +846,7 @@ def check_requirements_from_gql(
                 names = ", ".join(r.mod_name for r in missing[:3])
                 suffix = f" (+{len(missing) - 3} more)" if len(missing) > 3 else ""
                 _log(f"  ⚠ {meta.mod_name}: missing {names}{suffix}")
-            if save_results and (meta.missing_requirements != missing_str
-                                 or meta.nexus_requirements != full_str):
-                meta.missing_requirements = missing_str
-                meta.nexus_requirements = full_str
-                (write_meta_cb or write_meta)(staging_root / meta.mod_name / "meta.ini", meta)
+            save_check(meta, state, full_str, missing_str)
 
     _log(f"Requirements check complete: {len(results)} mod(s) with missing dependencies.")
     return results

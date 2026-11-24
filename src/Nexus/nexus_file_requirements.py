@@ -153,6 +153,8 @@ def compute_file_level_all(
     source_metas: list["NexusModMeta"],
     game_domain: str,
     log: Callable[[str], None] = lambda m: None,
+    *,
+    failed_mod_ids: set[int] | None = None,
 ) -> dict[int, list[NexusModRequirement]]:
     """ALL file-level requirements for the given metas (installed or not).
 
@@ -176,8 +178,12 @@ def compute_file_level_all(
                 continue
             if domain not in game_id_cache:
                 game_id_cache[domain] = api._resolve_game_id(domain)
+                if not game_id_cache[domain]:
+                    log(f"File-level requirements: could not resolve Nexus game ID for {domain}.")
             gid = game_id_cache[domain]
             if gid <= 0:
+                if failed_mod_ids is not None:
+                    failed_mod_ids.add(meta.mod_id)
                 continue
             uid = make_version_uid(gid, meta.file_id)
             uid_sources.setdefault(uid, set()).add(meta.mod_id)
@@ -215,6 +221,8 @@ def compute_file_level_all(
         return result
     except Exception as exc:
         log(f"File-level requirements (all) check skipped ({exc})")
+        if failed_mod_ids is not None:
+            failed_mod_ids.update(m.mod_id for m in source_metas if m.file_id > 0)
         return {}
 
 

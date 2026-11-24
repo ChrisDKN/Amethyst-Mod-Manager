@@ -97,6 +97,7 @@ class NexusModMeta:
     fomod_active_deps: str = ""        # ';'-separated '+'-joined AND-clauses of fileDependency plugins on FOMOD options the user DID select; flags a rerun when a clause is no longer fully present (its mod was removed)
     fomod_active_deps_seen: str = ""   # subset of fomod_active_deps observed SATISFIED at least once; the "orphaned patch" flag only fires for these, so a clause that was never satisfied (a hint pattern recorded by an older installer) can't fire it
     fomod_pending_baselined: bool = False  # True once the rerun-flag refresh has evaluated fomod_pending_deps against the first post-install load order and pruned the clauses that already held (deps the wizard showed and the user declined - an informed choice, not a change); cleared by a (re)install
+    requirements_state: str = "unknown"
 
     @property
     def nexus_page_url(self) -> str:
@@ -183,6 +184,7 @@ _KEY_MAP: dict[str, str] = {
     "ignoredVersion":    "ignored_version",
     "missingRequirements": "missing_requirements",
     "nexusRequirements": "nexus_requirements",
+    "requirementsState": "requirements_state",
     "ignoredRequirements": "ignored_requirements",
     "FOMOD":             "is_fomod",
     "BAIN":              "is_bain",
