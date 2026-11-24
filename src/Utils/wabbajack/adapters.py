@@ -22,6 +22,7 @@ STORE_ROOT_FOLDERS = {"gog or steam only files requiring manual install": "steam
 ROOT_MOD_NAME = "Wabbajack Root Files"
 _BETHESDA = {"morrowind", "oblivion", "skyrim", "skyrimspecialedition", "skyrimvr",
              "fallout3", "newvegas", "fallout4", "fallout76", "enderal", "enderalspecialedition", "starfield"}
+_DAO_MOD_ROOTS = {"addins", "offers", "packages", "modules", "characters", "settings", "bin_ship", "root"}
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ class GameAdapter:
     bethesda: bool = False
     keep: frozenset[str] = frozenset()
     store: str = ""
+    dao_override: bool = False
 
     def application_file(self, path):
         parts = path.casefold().split("/")
@@ -77,6 +79,16 @@ class GameAdapter:
             return None
         if self.mo2 and self.root_destination(path):
             return None
+        if self.dao_override and first == "mods" and path.count("/") >= 2:
+            mods, name, relative = path.split("/", 2)
+            folder, sep, rest = relative.partition("/")
+            folder = folder.casefold()
+            if (relative.casefold() == "meta.ini" or (sep and folder in _DAO_MOD_ROOTS)
+                    or relative.rsplit("/", 1)[-1].casefold() in self.keep):
+                return path
+            if sep and folder == "override":
+                relative = rest
+            return f"{mods}/{name}/packages/core/override/{relative}"
         return path
 
 
@@ -134,9 +146,10 @@ def adapter_for(package, game, *, store="", log=None):
             store = "epic"
         elif (root.parent.name.casefold() == "common" and root.parent.parent.name.casefold() == "steamapps") or any(root.glob("goggame-*.info")):
             store = "steam-gog"
+    domain = nexus_domain(package.game)
     adapter = GameAdapter(mo2, stock_folder(package), frozenset(launch_files),
-                          nexus_domain(package.game) in _BETHESDA,
-                          _declared_tool_roots(package, log), store)
+                          domain in _BETHESDA, _declared_tool_roots(package, log), store,
+                          dao_override=mo2 and domain == "dragonage")
     emit(log, "adapter.selected", mo2=adapter.mo2, bethesda=adapter.bethesda,
          stock=adapter.stock, store=adapter.store,
          launch_files=sorted(adapter.launch_files), keep=sorted(adapter.keep))
