@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  '_selftest.py',
   'diff.py',
   'export.py',
   'ini_tweaks.py',
