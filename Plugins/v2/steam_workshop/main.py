@@ -22,7 +22,6 @@ from .support import workshop_app_id
 class WorkshopPanel(QWidget):
     def __init__(self, context, parent, on_close, *, operation=None):
         super().__init__(parent)
-        self.preferred_size = QSize(640, 420)
         self.context = dict(context)
         self.on_close = on_close
         self.operation = operation
@@ -89,6 +88,8 @@ class WorkshopPanel(QWidget):
             self.status.setText(str(exc))
         layout.addWidget(self.progress)
         layout.addWidget(self.footer)
+        if not self.available or not (operation or {}).get('items'):
+            self.preferred_size = QSize(640, 420)
         if self.available and operation is not None:
             QTimer.singleShot(0, self, self._dispatch_operation)
 

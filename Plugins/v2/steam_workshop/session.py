@@ -1,6 +1,6 @@
 import threading
 
-from PySide6.QtCore import QCoreApplication, QObject, Qt, Signal, QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, Qt, Signal, QTimer
 from PySide6.QtGui import QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea,
@@ -38,9 +38,9 @@ class WorkshopLoginView(QWidget):
         note.setObjectName("Help")
         layout.addWidget(note)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.NoFrame)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QScrollArea.NoFrame)
         body = QWidget()
         form = QVBoxLayout(body)
         form.setContentsMargins(0, 0, 8, 0)
@@ -56,6 +56,7 @@ class WorkshopLoginView(QWidget):
         self._qr = QLabel()
         self._qr.setAlignment(Qt.AlignCenter)
         self._qr.hide()
+        self._qr_image = QImage()
         form.addWidget(self._qr)
         self._prompt = QWidget()
         prompt_layout = QVBoxLayout(self._prompt)
@@ -78,8 +79,8 @@ class WorkshopLoginView(QWidget):
         self._status.setWordWrap(True)
         form.addWidget(self._status)
         form.addStretch()
-        scroll.setWidget(body)
-        layout.addWidget(scroll, 1)
+        self._scroll.setWidget(body)
+        layout.addWidget(self._scroll, 1)
 
         saved_note = QLabel(self.tr(
             "Your Steam session is saved on this device; your password is not. "
@@ -103,6 +104,24 @@ class WorkshopLoginView(QWidget):
         self._browse_button.setVisible(allow_browse)
         layout.addWidget(self._browse_button)
         self._username.setFocus()
+        self._scroll.viewport().installEventFilter(self)
+
+    def eventFilter(self, watched, event):
+        if watched is self._scroll.viewport() and event.type() == QEvent.Resize:
+            self._fit_qr()
+        return super().eventFilter(watched, event)
+
+    def _fit_qr(self):
+        if self._qr.isHidden():
+            return
+        side = max(1, min(240, self._scroll.viewport().height()))
+        self._qr.setPixmap(QPixmap.fromImage(self._qr_image).scaled(
+            side, side, Qt.KeepAspectRatio, Qt.FastTransformation))
+        QTimer.singleShot(0, self, self._reveal_qr)
+
+    def _reveal_qr(self):
+        if not self._qr.isHidden():
+            self._scroll.ensureWidgetVisible(self._qr, 0, 0)
 
     def _start(self):
         username = self._username.text().strip()
@@ -161,9 +180,9 @@ class WorkshopLoginView(QWidget):
                         bitmap.setPixelColor(x, y * 2, QColor("black"))
                     if char in "█▄":
                         bitmap.setPixelColor(x, y * 2 + 1, QColor("black"))
-            self._qr.setPixmap(QPixmap.fromImage(bitmap).scaled(
-                240, 240, Qt.KeepAspectRatio, Qt.FastTransformation))
+            self._qr_image = bitmap
             self._qr.show()
+            self._fit_qr()
         elif kind == "prompt":
             self._response.clear()
             self._prompt.setVisible(bool(value))
