@@ -1239,24 +1239,40 @@ INI設定を構成し、それを閉じて、[完了]をクリックします.</
       <translation>ブラック リスト — {0}</translation>
     </message>
     <message>
-      <source>Applies to all profiles for this game. Matching files and folders are excluded from deployment and conflict tracking; files remain in staging. Changes apply on the next deploy, or automatically when auto-deploy is enabled.</source>
-      <translation>このゲームのすべてのプロファイルに適用されます。マッチするファイルとフォルダはデプロイと競合の追跡から除外されます。ファイルはステージング中です。 変更は次のデプロイに適用されます。自動デプロイが有効になっている場合は自動的に適用されます。</translation>
+      <source>Applies to all profiles for this game. Exclusions prevent deployment. Conflict-only rules keep files deployed and hide their conflicts. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Deployment exclusions take precedence.</source>
+      <translation>このゲームのすべてのプロファイルに適用されます。除外するとデプロイが防止されます。競合のみのルールはファイルをデプロイし、競合を非表示にします。 変更は次のデプロイに適用されます。自動デプロイが有効な場合に自動的に適用されます。デプロイメント除外が優先されます。</translation>
     </message>
     <message>
-      <source>Files</source>
-      <translation>ファイル</translation>
+      <source>Exclude Files</source>
+      <translation>ファイルを除外</translation>
     </message>
     <message>
-      <source>Case-insensitive filename patterns, e.g. *.txt or readme*.</source>
-      <translation>大文字小文字を区別しないファイル名パターン。例: *.txt や readme* 。</translation>
+      <source>Case-insensitive filename patterns excluded from deployment and conflict tracking, e.g. *.txt or readme*.</source>
+      <translation>大文字小文字を区別しないファイル名パターンはデプロイメントと競合追跡から除外されます。例: *.txt や readme* 。</translation>
     </message>
     <message>
-      <source>Folders</source>
-      <translation>フォルダ</translation>
+      <source>Exclude Folders</source>
+      <translation>フォルダを除外</translation>
     </message>
     <message>
-      <source>Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Matching folders exclude their entire contents.</source>
-      <translation>大文字と小文字を区別しないフォルダ名パターン（例えば、docsや*_backupなど）。マッチングフォルダはコンテンツ全体を除外します。</translation>
+      <source>Case-insensitive folder-name patterns at any depth, e.g. docs or *_backup. Their entire contents are excluded from deployment and conflict tracking.</source>
+      <translation>大文字と小文字を区別しないフォルダ名パターン（例えば、docsや*_backupなど）。その内容全体はデプロイメントと競合トラッキングから除外されます。</translation>
+    </message>
+    <message>
+      <source>Ignore File Conflicts</source>
+      <translation>ファイルの競合を無視</translation>
+    </message>
+    <message>
+      <source>Case-insensitive destination filename patterns, e.g. readme*.txt. Matching files deploy normally without conflict reporting.</source>
+      <translation>大文字と小文字を区別しない宛先ファイル名パターン。例えば readme*.txt など。一致するファイルは競合レポートなしで通常デプロイします。</translation>
+    </message>
+    <message>
+      <source>Ignore Folder Conflicts</source>
+      <translation>フォルダの競合を無視</translation>
+    </message>
+    <message>
+      <source>Case-insensitive destination folder-name patterns at any depth, e.g. docs or *_info. Their contents and subfolders deploy normally without conflict reporting.</source>
+      <translation>大文字と小文字を区別しない宛先フォルダ名パターン（例えば、docsや*_infoなど）。その内容とサブフォルダは競合レポートなしで通常デプロイします。</translation>
     </message>
     <message>
       <source>Pattern</source>
@@ -2111,6 +2127,10 @@ Press Try Again, or use Browse to select it manually.</source>
     <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack ギャラリーとパッケージ</translation>
+    </message>
+    <message>
+      <source>{0} (shared with {1})</source>
+      <translation>{0} ( {1} と共有)</translation>
     </message>
     <message>
       <source>Nothing selected.</source>
@@ -3582,6 +3602,18 @@ The default profile's settings are not affected.</source>
       <translation>以前のデプロイを復元</translation>
     </message>
     <message>
+      <source>Duplicate Instance…</source>
+      <translation>Duplicate Instance…</translation>
+    </message>
+    <message>
+      <source>Create a fresh instance with independent locations, mods and profiles.</source>
+      <translation>独立した場所、Mod、プロファイルを持つ新しいインスタンスを作成します。</translation>
+    </message>
+    <message>
+      <source>This handler must declare independent instance support and its write targets.</source>
+      <translation>このハンドラは独立したインスタンスのサポートとその書き込みターゲットを宣言しなければなりません。</translation>
+    </message>
+    <message>
       <source>Configured</source>
       <translation>設定済み</translation>
     </message>
@@ -3632,6 +3664,14 @@ The default profile's settings are not affected.</source>
     <message>
       <source>Mod staging</source>
       <translation>Mod staging</translation>
+    </message>
+    <message>
+      <source>Each instance needs its own configuration file.</source>
+      <translation>各インスタンスには独自の設定ファイルが必要です。</translation>
+    </message>
+    <message>
+      <source>OpenMW config</source>
+      <translation>OpenMW config</translation>
     </message>
     <message>
       <source>Previous deployment's staging folder. Restore before changing it.</source>
@@ -3698,6 +3738,10 @@ Flatpakは次の起動時に新しいファイルシステムアクセスを適�
       <translation>後で</translation>
     </message>
     <message>
+      <source>Creating instance…</source>
+      <translation type="unfinished">Creating instance…</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>まず、ゲームのインストールフォルダを設定してください。</translation>
     </message>
@@ -3716,6 +3760,10 @@ Flatpakは次の起動時に新しいファイルシステムアクセスを適�
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod のステージングフォルダはゲームフォルダか内部にすることはできません。 別の場所を選択します.</translation>
+    </message>
+    <message>
+      <source>Enter an absolute OpenMW configuration path.</source>
+      <translation>絶対的な OpenMW 設定パスを入力します。</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -3778,6 +3826,22 @@ Flatpakは次の起動時に新しいファイルシステムアクセスを適�
       <translation>移動 Mod のステージング ファイル</translation>
     </message>
     <message>
+      <source>Restore without the original installation?</source>
+      <translation>元のインストールなしで復元しますか？</translation>
+    </message>
+    <message>
+      <source>Amethyst could not find the previous game folder at {0}.
+
+If the drive is temporarily disconnected, reconnect it before restoring. If the installation is gone, continue to recover the previous deployment. Amethyst will restore files at available locations and keep backups for missing locations in staging.</source>
+      <translation>{0}で以前のゲームフォルダが見つかりませんでした。
+
+ドライブが一時的に切断されている場合は、復元する前に再接続してください。 インストールが終了した場合は、以前のデプロイメントを回復し続けます。 アメジストは利用可能な場所でファイルを復元し、ステージングで欠落した場所のバックアップを維持します。</translation>
+    </message>
+    <message>
+      <source>Restore</source>
+      <translation>復元</translation>
+    </message>
+    <message>
       <source>Restore the previous deployment of {0} using its saved locations?
 
 Your unsaved location changes will be kept in this form. After Restore succeeds, save to finish adding or reconfiguring the game.</source>
@@ -3804,6 +3868,10 @@ Your unsaved location changes will be kept in this form. After Restore succeeds,
     <message>
       <source>Restore failed: {0}</source>
       <translation>復元に失敗しました: {0}</translation>
+    </message>
+    <message>
+      <source>Deployment state repaired. Review the recovery advice before deploying.</source>
+      <translation>デプロイ状態が修復されました。デプロイする前にリカバリアドバイスを確認してください。</translation>
     </message>
     <message>
       <source>Yes</source>
@@ -4914,6 +4982,14 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>サンダーストアコミュニティ</translation>
     </message>
     <message>
+      <source>Hexium Community</source>
+      <translation>Hexiumコミュニティ</translation>
+    </message>
+    <message>
+      <source>The game's community slug on hexium.gg. e.g. 'valheim'. Leave empty if the game has no Hexium page.</source>
+      <translation>hexium.ggのコミュニティスラグ。例えば'valheim'。Hexiumページがない場合は空のままにします。</translation>
+    </message>
+    <message>
       <source>The game's community slug on thunderstore.io. e.g. 'lethal-company'. Leave empty if the game has no Thunderstore page.</source>
       <translation>'lethal-company' などの thunderstore.io でゲームのコミュニティスラグ。 ゲームがThunderstoreページがない場合、空のままにします.</translation>
     </message>
@@ -5166,16 +5242,8 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>カスタムルーティングルール</translation>
     </message>
     <message>
-      <source>Route specific files to alternate destinations during deploy. Each rule maps files (by extension, folder or filename) to a game-root-relative directory. For extensions, append (.ext, .ext) to also route same-stem siblings (e.g. .asi (.ini) sends Foo.ini alongside Foo.asi). Flatten drops subfolders below the matched folder. To Prefix routes relative to the Proton/Wine prefix root instead of the game install root.</source>
-      <translation>デプロイ時に、特定のファイルを別の保存先に振り分ける。 各ルールは、ファイル（拡張子、フォルダ、またはファイル名による）を、ゲームのルートディレクトリを基準としたディレクトリにマッピングします。拡張子については、(.ext, .ext) を追加することで、同じステムを持つ兄弟ファイルもルーティング対象に含めることができます（例：.asi (.ini) を指定すると、Foo.asi とともに Foo.ini も送信されます）。 「Flatten」を選択すると、一致したフォルダの下にあるサブフォルダが展開されます。「Prefix」を選択すると、ゲームのインストールルートではなく、Proton/Wineのプレフィックスルートを基準にファイルが転送されます。</translation>
-    </message>
-    <message>
       <source>+ Add Rule</source>
       <translation>+ ルールを追加</translation>
-    </message>
-    <message>
-      <source>Destination</source>
-      <translation>目的地</translation>
     </message>
     <message>
       <source>File/folder</source>
@@ -5306,6 +5374,10 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>例:会社案内</translation>
     </message>
     <message>
+      <source>e.g. valheim</source>
+      <translation>e.g. valheim</translation>
+    </message>
+    <message>
       <source>Banner Image URL</source>
       <translation>バナーイメージURL</translation>
     </message>
@@ -5314,8 +5386,28 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>Mod は調整を取付けます</translation>
     </message>
     <message>
+      <source>Install Rules (0)</source>
+      <translation>インストールルール (0)</translation>
+    </message>
+    <message>
+      <source>Install Rules</source>
+      <translation>インストールルール</translation>
+    </message>
+    <message>
+      <source>Ordered rules applied after post-install stripping to plain archives. Supports &lt;modname&gt; and &lt;random&gt; destinations.</source>
+      <translation>順序付けられたルールは、インストール後のストリップ後にプレーンアーカイブに適用されます。 &lt;modname&gt; &lt;random&gt; 宛先をサポートします。</translation>
+    </message>
+    <message>
       <source>Conflicts &amp; Advanced Behaviour</source>
       <translation>紛争と高度な行動</translation>
+    </message>
+    <message>
+      <source>Edit the game's default routing rules using the same editor as the Data tab. Rules are saved with the custom-game definition.</source>
+      <translation>format@@0タブと同じエディタを使用してゲームのデフォルトルーティングルールを編集します。ルールはカスタムゲーム定義とともに保存されます。</translation>
+    </message>
+    <message>
+      <source>Routing Rules (0)</source>
+      <translation>ルーティングルール (0)</translation>
     </message>
     <message>
       <source>Game Sub-folder</source>
@@ -5324,6 +5416,14 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>e.g. Data   (leave empty for game root)</source>
       <translation>例：データ  （ゲームのルートディレクトリの場合は空欄のままにしてください）</translation>
+    </message>
+    <message>
+      <source>Routing Rules ({0})</source>
+      <translation>ルーティングルール ({0})</translation>
+    </message>
+    <message>
+      <source>Install Rules ({0})</source>
+      <translation>インストールルール ({0})</translation>
     </message>
     <message>
       <source>Move up</source>
@@ -5350,22 +5450,6 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>ファイル／フォルダ</translation>
     </message>
     <message>
-      <source>Loose only</source>
-      <translation>「ルーズ」のみ</translation>
-    </message>
-    <message>
-      <source>Flatten</source>
-      <translation>平らにする</translation>
-    </message>
-    <message>
-      <source>Include Siblings</source>
-      <translation>兄弟姉妹を含める</translation>
-    </message>
-    <message>
-      <source>To Prefix</source>
-      <translation>接頭辞として</translation>
-    </message>
-    <message>
       <source>Remove rule</source>
       <translation>ルールを削除する</translation>
     </message>
@@ -5384,6 +5468,10 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>Remove framework</source>
       <translation>フレームワークを削除する</translation>
+    </message>
+    <message>
+      <source>Hexium Community must be a community slug, for example 'valheim'.</source>
+      <translation>Hexiumコミュニティは、例えば「valheim」のようなコミュニティナメクジでなければなりません。</translation>
     </message>
     <message>
       <source>Downloading image…</source>
@@ -5473,6 +5561,75 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>OK</source>
       <translation>OK</translation>
+    </message>
+  </context>
+  <context>
+    <name>DependencyInstallOverlay</name>
+    <message>
+      <source>Installing Windows dependencies</source>
+      <translation>Windowsの依存関係のインストール</translation>
+    </message>
+    <message>
+      <source>{0}
+Prefix: {1}</source>
+      <translation>{0}
+プレフィックス: {1}</translation>
+    </message>
+    <message>
+      <source>Dependency</source>
+      <translation>依存関係</translation>
+    </message>
+    <message>
+      <source>Status</source>
+      <translation>ステータス</translation>
+    </message>
+    <message>
+      <source>Waiting</source>
+      <translation>待機中</translation>
+    </message>
+    <message>
+      <source>Checking Windows dependencies…</source>
+      <translation type="unfinished">Checking Windows dependencies…</translation>
+    </message>
+    <message>
+      <source>%v of %m dependencies processed</source>
+      <translation>%v の %m 依存関係が処理されました</translation>
+    </message>
+    <message>
+      <source>Processed</source>
+      <translation>処理完了</translation>
+    </message>
+    <message>
+      <source>Checking / installing</source>
+      <translation>確認/インストール中</translation>
+    </message>
+    <message>
+      <source>Setting up {0} ({1} of {2})…</source>
+      <translation type="unfinished">Setting up {0} ({1} of {2})…</translation>
+    </message>
+    <message>
+      <source>Failed</source>
+      <translation>失敗しました</translation>
+    </message>
+    <message>
+      <source>Not run</source>
+      <translation>実行されません</translation>
+    </message>
+    <message>
+      <source>Dependency setup failed: {0}</source>
+      <translation>依存関係のセットアップに失敗しました: {0}</translation>
+    </message>
+    <message>
+      <source>Installed</source>
+      <translation>インストール済み</translation>
+    </message>
+    <message>
+      <source>Skipped</source>
+      <translation>スキップ</translation>
+    </message>
+    <message>
+      <source>Dependency setup finished: {0} installed, {1} skipped, {2} failed.</source>
+      <translation>依存関係のセットアップが完了しました: {0} がインストールされ、 {1} がスキップされ、 {2} が失敗しました。</translation>
     </message>
   </context>
   <context>
@@ -5885,6 +6042,33 @@ Check the output above and the log.</source>
     </message>
   </context>
   <context>
+    <name>DuplicateInstanceOverlay</name>
+    <message>
+      <source>Duplicate Instance</source>
+      <translation>Duplicate Instance</translation>
+    </message>
+    <message>
+      <source>Create a fresh instance using the same handler and download cache. Select its installation and launcher on the next screen.</source>
+      <translation>同じハンドラを使用して新しいインスタンスを作成し、キャッシュをダウンロードします。次の画面でインストールとランチャーを選択します。</translation>
+    </message>
+    <message>
+      <source>New instance name</source>
+      <translation>新しいインスタンス名</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>キャンセル</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation>続ける</translation>
+    </message>
+    <message>
+      <source>Instance ID: {0}</source>
+      <translation>インスタンス ID: {0}</translation>
+    </message>
+  </context>
+  <context>
     <name>DynDOLODView</name>
     <message>
       <source>{0} - {1}</source>
@@ -5987,6 +6171,10 @@ or use Browse to select it manually.</source>
       <translation>ステップ 4: Modlist のデプロイ</translation>
     </message>
     <message>
+      <source>Disable previous '{0}' outputs, including numbered copies, before deploying. Each run generates into a new disabled mod, adding (2), (3), etc. when needed. The new mod is enabled after generation succeeds. Previous outputs are kept for you to remove manually.</source>
+      <translation>デプロイする前に、以前の「{0}」出力を無効にします。各実行は新しい無効化されたModに生成されます。(2), (3) など。 必要な場合。生成が成功すると、新しいMODが有効になります。手動で削除するために、以前の出力が保持されます。</translation>
+    </message>
+    <message>
       <source>Skip</source>
       <translation>スキップ</translation>
     </message>
@@ -6041,10 +6229,6 @@ Please restart the wizard and install {1} first.</source>
       <translation>{0}の起動中…</translation>
     </message>
     <message>
-      <source>{0} finished.</source>
-      <translation>{0} が完成しました.</translation>
-    </message>
-    <message>
       <source>Launch error: {0}</source>
       <translation>起動エラー: {0}</translation>
     </message>
@@ -6053,26 +6237,58 @@ Please restart the wizard and install {1} first.</source>
       <translation>GitHubから最新リリースを取得中…</translation>
     </message>
     <message>
+      <source>Output folder: {0}</source>
+      <translation>出力フォルダ: {0}</translation>
+    </message>
+    <message>
+      <source>Checking generation inputs…</source>
+      <translation type="unfinished">Checking generation inputs…</translation>
+    </message>
+    <message>
+      <source>Preparing the tool prefix…</source>
+      <translation type="unfinished">Preparing the tool prefix…</translation>
+    </message>
+    <message>
+      <source>Finishing the tool session…</source>
+      <translation type="unfinished">Finishing the tool session…</translation>
+    </message>
+    <message>
+      <source>Restoring the game after generation…</source>
+      <translation type="unfinished">Restoring the game after generation…</translation>
+    </message>
+    <message>
+      <source>Validating generated output…</source>
+      <translation type="unfinished">Validating generated output…</translation>
+    </message>
+    <message>
+      <source>Importing generated output as a new mod…</source>
+      <translation type="unfinished">Importing generated output as a new mod…</translation>
+    </message>
+    <message>
+      <source>Indexing the new output mod…</source>
+      <translation type="unfinished">Indexing the new output mod…</translation>
+    </message>
+    <message>
+      <source>Synchronizing generated plugins…</source>
+      <translation type="unfinished">Synchronizing generated plugins…</translation>
+    </message>
+    <message>
+      <source>{0} finished. Created '{1}'.</source>
+      <translation>{0} は完了しました。作成された '{1}'。</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+When generation finishes, choose Exit or Save &amp; Exit without zipping. Keep the selected Output Path when loading presets. The new output mod will be enabled after generation succeeds.</source>
+      <translation>{0} が実行されています。
+生成が完了したら、zippingせずに終了または保存&amp;終了を選択します。 プリセットの読み込み時に選択した出力パスを保持します。新しい出力モジュールは生成が成功すると有効になります。</translation>
+    </message>
+    <message>
       <source>Searching Downloads folder…</source>
       <translation>「ダウンロード」フォルダを検索中…</translation>
     </message>
     <message>
       <source>Extracting…</source>
       <translation>抽出中…</translation>
-    </message>
-    <message>
-      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
-      <translation>デプロイする前に、前の '{0}' 出力モジュールを無効または削除します。新しい出力は生成が成功した後にインポートされます。</translation>
-    </message>
-    <message>
-      <source>Replace the disabled output after generation succeeds</source>
-      <translation>生成成功後に無効な出力を置き換え</translation>
-    </message>
-    <message>
-      <source>{0} is running.
-Close the tool when generation finishes; its output will then be imported.</source>
-      <translation>{0} が実行されています。
-生成終了時にツールを閉じます。その出力はインポートされます。</translation>
     </message>
   </context>
   <context>
@@ -6968,6 +7184,14 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
       <translation>プロトンツール</translation>
     </message>
     <message>
+      <source>Capture launch logs</source>
+      <translation>起動ログをキャプチャする</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation>起動出力とProton診断ログをキャッシュに保存します。</translation>
+    </message>
+    <message>
       <source>Hide from dropdown</source>
       <translation>ドロップダウンから非表示</translation>
     </message>
@@ -7061,6 +7285,10 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     <message>
       <source>Nexus</source>
       <translation>ネクサス</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation>ヘキシウム</translation>
     </message>
     <message>
       <source>Thunderstore</source>
@@ -7233,6 +7461,10 @@ Proton プレフィックス: 'Install Java をプレフィックスに一度ク
     <message>
       <source>This mod has no portable provider source.</source>
       <translation>このMODにはポータブルプロバイダのソースがありません。</translation>
+    </message>
+    <message>
+      <source>This mod has no recorded package identity for this source.</source>
+      <translation>このMODにはこのソースのパッケージIDが記録されていません。</translation>
     </message>
     <message>
       <source>Could not load versions from Thunderstore.</source>
@@ -8564,6 +8796,40 @@ Managed directory: {2}</source>
     </message>
   </context>
   <context>
+    <name>LaunchLogEditor</name>
+    <message>
+      <source>Refresh</source>
+      <translation>更新</translation>
+    </message>
+    <message>
+      <source>No {0} log is available for the latest launch.
+Enable Capture launch logs in launch settings, then press Play. Native and plain Wine launches do not produce Proton logs.</source>
+      <translation>最新の起動には {0} ログがありません。
+起動設定でキャプチャログを有効にし、Playを押します。 ネイティブおよびプレーンワインの起動はProtonログを生成しません。</translation>
+    </message>
+    <message>
+      <source>Showing the last 2 MiB.
+</source>
+      <translation>最後の 2 MiB を表示しています。
+</translation>
+    </message>
+    <message>
+      <source>Could not read log: {0}</source>
+      <translation>ログを読むことができませんでした: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>LauncherEntryOverlay</name>
+    <message>
+      <source>Capture launch logs</source>
+      <translation>起動ログをキャプチャする</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation>起動出力とProton診断ログをキャッシュに保存します。</translation>
+    </message>
+  </context>
+  <context>
     <name>LauncherSettingsOverlay</name>
     <message>
       <source>Launch settings - {0}</source>
@@ -8604,6 +8870,14 @@ Managed directory: {2}</source>
     <message>
       <source>Deploy mods before launching</source>
       <translation>起動前にMODを適用する</translation>
+    </message>
+    <message>
+      <source>Capture launch logs</source>
+      <translation>起動ログをキャプチャする</translation>
+    </message>
+    <message>
+      <source>Save launch output and Proton diagnostic logs in the cache.</source>
+      <translation>起動出力とProton診断ログをキャッシュに保存します。</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -11060,6 +11334,78 @@ Run Quick Update on all of them now?</source>
       <translation>ゲームが利用できません</translation>
     </message>
     <message>
+      <source>The blacklist changed. Close and reopen the editor before saving.</source>
+      <translation>ブラックリストが変更されました。保存する前にエディタを閉じて再度開きます。</translation>
+    </message>
+    <message>
+      <source>Install Rules</source>
+      <translation>インストールルール</translation>
+    </message>
+    <message>
+      <source>The selected game changed. Reopen the editor.</source>
+      <translation>選択したゲームが変更されました。エディターを再度開きます。</translation>
+    </message>
+    <message>
+      <source>Install rules changed while the editor was open. Reopen it before saving.</source>
+      <translation>エディタを開いている間にインストールルールが変更されました。保存する前に再開してください。</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation>ヘキシウム</translation>
+    </message>
+    <message>
+      <source>Browse Hexium</source>
+      <translation>ヘキシウムを検索</translation>
+    </message>
+    <message>
+      <source>Open game on Hexium</source>
+      <translation>Hexiumでゲームを開く</translation>
+    </message>
+    <message>
+      <source>Select game instance</source>
+      <translation>ゲームインスタンスを選択</translation>
+    </message>
+    <message>
+      <source>Received an invalid or unsupported repository install link.</source>
+      <translation>無効またはサポートされていないリポジトリのインストールリンクを受信しました。</translation>
+    </message>
+    <message>
+      <source>Select and configure a game before installing repository mods.</source>
+      <translation>リポジトリの Mod をインストールする前に、ゲームを選択して設定します。</translation>
+    </message>
+    <message>
+      <source>Checking {0} dependencies…</source>
+      <translation type="unfinished">Checking {0} dependencies…</translation>
+    </message>
+    <message>
+      <source>This repository does not support the selected game.</source>
+      <translation>このリポジトリは選択したゲームをサポートしていません。</translation>
+    </message>
+    <message>
+      <source>Could not resolve all package dependencies. Installation stopped; please try again. See the log for details.</source>
+      <translation>パッケージの依存関係をすべて解決できませんでした。インストールが停止しました。もう一度やり直してください。詳細についてはログを参照してください。</translation>
+    </message>
+    <message>
+      <source>Game or profile changed. Start the installation again.</source>
+      <translation>ゲームまたはプロファイルが変更されました。再度インストールを開始します。</translation>
+    </message>
+    <message>
+      <source>Review package sources</source>
+      <translation>パッケージのソースを確認</translation>
+    </message>
+    <message>
+      <source>Replacements affect every profile using these mod folders. Continue?</source>
+      <translation>Modフォルダを使用しているすべてのプロファイルに置き換えが影響します。続行しますか？</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation>続ける</translation>
+    </message>
+    <message>
+      <source>Downloading mod from {0}…</source>
+      <translation type="unfinished">Downloading mod from {0}…</translation>
+    </message>
+    <message>
       <source>Remove game</source>
       <translation>ゲームを削除</translation>
     </message>
@@ -11070,6 +11416,30 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Removed {0} from Amethyst.</source>
       <translation>アメジストから {0} を削除しました。</translation>
+    </message>
+    <message>
+      <source>Select a configured game with {0} support first.</source>
+      <translation>{0} のサポートを持つ構成されたゲームを最初に選択してください。</translation>
+    </message>
+    <message>
+      <source>A repository profile is already downloading.</source>
+      <translation>リポジトリプロファイルは既にダウンロードされています。</translation>
+    </message>
+    <message>
+      <source>Downloading {0} profile…</source>
+      <translation type="unfinished">Downloading {0} profile…</translation>
+    </message>
+    <message>
+      <source>Import {0} share code</source>
+      <translation>{0} 共有コードをインポート</translation>
+    </message>
+    <message>
+      <source>Paste a share code from {0}:</source>
+      <translation>{0} の共有コードを貼り付けてください:</translation>
+    </message>
+    <message>
+      <source>Select a configured game with Thunderstore or Hexium support first.</source>
+      <translation>最初に Thunderbird または Hexium のサポートを使用して設定されたゲームを選択します。</translation>
     </message>
     <message>
       <source>Restoring {0}…</source>
@@ -11372,22 +11742,6 @@ Run Quick Update on all of them now?</source>
       <translation>サンダーストアでゲームを開く</translation>
     </message>
     <message>
-      <source>Received a malformed Thunderstore link.</source>
-      <translation>誤字のThunderstoreリンクを受け取りました.</translation>
-    </message>
-    <message>
-      <source>Select and configure a game before installing Thunderstore mods.</source>
-      <translation>Thunderstore mods をインストールする前に、ゲームを選択して設定します.</translation>
-    </message>
-    <message>
-      <source>Checking Thunderstore dependencies…</source>
-      <translation>Thunderstoreの依存関係をチェック..</translation>
-    </message>
-    <message>
-      <source>Downloading mod from Thunderstore…</source>
-      <translation>ThunderstoreからMODをダウンロード..</translation>
-    </message>
-    <message>
       <source>Thunderstore download failed - {0}</source>
       <translation>雷ストアのダウンロード失敗 - {0}</translation>
     </message>
@@ -11398,10 +11752,6 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>all</source>
       <translation>すべて</translation>
-    </message>
-    <message>
-      <source>Checking Thunderstore for updates ({0})…</source>
-      <translation>更新のためのThunderstoreをチェック ({0})..</translation>
     </message>
     <message>
       <source>Thunderstore update check failed - see the log.</source>
@@ -11418,10 +11768,6 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>{0} package(s) could not be checked.</source>
       <translation>{0} パッケージはチェックできません.</translation>
-    </message>
-    <message>
-      <source>All Thunderstore mods are up to date.</source>
-      <translation>すべてのThunderstoreのMODは最新です.</translation>
     </message>
     <message>
       <source>This mod has no Thunderstore metadata.</source>
@@ -11610,28 +11956,12 @@ Run Quick Update on all of them now?</source>
       <translation type="unfinished">Import share code…</translation>
     </message>
     <message>
-      <source>Import Thunderstore share code</source>
-      <translation>サンダーストアのシェアコードをインポート</translation>
-    </message>
-    <message>
-      <source>Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:</source>
-      <translation>r2modman、Thunderbird Mod マネージャー、またはGaleからThunderbstore共有コードを貼り付けます:</translation>
-    </message>
-    <message>
-      <source>A Thunderstore profile is already downloading.</source>
-      <translation>サンダーストアのプロファイルは既にダウンロードされています。</translation>
-    </message>
-    <message>
       <source>Could not import share code: {0}</source>
       <translation>共有コードをインポートできませんでした: {0}</translation>
     </message>
     <message>
       <source>Game changed. Enter the code again for the selected game.</source>
       <translation>ゲームが変更されました。選択したゲームのコードをもう一度入力してください。</translation>
-    </message>
-    <message>
-      <source>Downloading Thunderstore profile…</source>
-      <translation type="unfinished">Downloading Thunderstore profile…</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -11722,12 +12052,12 @@ Run Quick Update on all of them now?</source>
       <translation>選択したゲームが変更されました。バージョンの変更を再度開始します。</translation>
     </message>
     <message>
-      <source>Could not resolve all Thunderstore dependencies. Installation stopped; please try again. See the log for details.</source>
-      <translation>すべての Thunderbird の依存関係を解決できませんでした。インストールが停止しました。もう一度やり直してください。詳細についてはログを参照してください。</translation>
-    </message>
-    <message>
       <source>{0} ({1}/{2} downloaded)</source>
       <translation>{0} ({1}/{2} ダウンロード)</translation>
+    </message>
+    <message>
+      <source>A package download failed. Completed archives were retained; installation stopped.</source>
+      <translation>パッケージのダウンロードに失敗しました。完了したアーカイブは保持されました。インストールは停止しました。</translation>
     </message>
     <message>
       <source>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</source>
@@ -11738,8 +12068,28 @@ Run Quick Update on all of them now?</source>
       <translation>バージョンの変更を開始できませんでした - ログを参照してください。</translation>
     </message>
     <message>
+      <source>Checking package repositories for updates ({0})…</source>
+      <translation>パッケージリポジトリの更新を確認しています({0})…</translation>
+    </message>
+    <message>
+      <source>All checked packages are up to date.</source>
+      <translation>すべてのチェックされたパッケージは最新です。</translation>
+    </message>
+    <message>
+      <source>The selected instance is no longer available.</source>
+      <translation>選択したインスタンスは使用できません。</translation>
+    </message>
+    <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
       <translation>最初にログイン: 設定 &lt;unk&gt; 接続 Nexus &lt;unk&gt; SSO 経由でログインします。</translation>
+    </message>
+    <message>
+      <source>Finish the current operation before opening a Wabbajack list.</source>
+      <translation>Wabbajack リストを開く前に、現在の操作を完了します。</translation>
+    </message>
+    <message>
+      <source>Finish the current Wabbajack operation before opening another list.</source>
+      <translation>別のリストを開く前に現在の Wabbajack 操作を完了します。</translation>
     </message>
     <message>
       <source>this mod</source>
@@ -11748,6 +12098,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Identifying Thunderstore mods…</source>
       <translation>サンダーストアのMODを識別..</translation>
+    </message>
+    <message>
+      <source>Game or profile changed. Start identification again.</source>
+      <translation>ゲームまたはプロフィールが変更されました。再度IDを開始してください。</translation>
     </message>
     <message>
       <source>Identifying mods failed - see the log.</source>
@@ -11772,6 +12126,18 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Could not identify any of the {0} mod(s) found.</source>
       <translation>{0} MOD(s) が見つかりませんでした.</translation>
+    </message>
+    <message>
+      <source>Select a configured game with Hexium support first.</source>
+      <translation>Hexiumをサポートする設定されたゲームを選択してください。</translation>
+    </message>
+    <message>
+      <source>Choose Hexium author</source>
+      <translation>Hexiumの作成者を選択</translation>
+    </message>
+    <message>
+      <source>Identify</source>
+      <translation>識別</translation>
     </message>
     <message>
       <source>Another installation or deployment operation</source>
@@ -12010,6 +12376,14 @@ Run Quick Update on all of them now?</source>
       <translation>mod.io 更新チェックは mod.io API キーツールで API パスが追加されるまで無効です.</translation>
     </message>
     <message>
+      <source>Nexus update check failed; see log</source>
+      <translation>Nexusのアップデートのチェックに失敗しました。ログを見る</translation>
+    </message>
+    <message>
+      <source>Nexus: {0} mod(s) could not be checked; see log</source>
+      <translation>Nexus: {0} mod(s) をチェックできませんでした。ログを参照してください</translation>
+    </message>
+    <message>
       <source>Mod providers: {0} updates</source>
       <translation>Mod providers: {0} updates</translation>
     </message>
@@ -12040,6 +12414,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>Reinstall download</source>
       <translation>ダウンロード</translation>
+    </message>
+    <message>
+      <source>Nexus login is required for the selected Nexus mods.</source>
+      <translation>選択した Nexus Mod には、Nexus ログインが必要です。</translation>
     </message>
     <message>
       <source>Quick Update download cancelled.</source>
@@ -12162,6 +12540,10 @@ Run Quick Update on all of them now?</source>
       <translation>{0} が保存されたゲームを変更する前に終了するまでお待ちください。</translation>
     </message>
     <message>
+      <source>{0} is unavailable and still has an active deployment. Reconnect its drive if it is disconnected. To change its location or remove it, open Reconfigure game and select Restore previous deployment.</source>
+      <translation>{0} は利用できず、まだアクティブな展開があります。接続を切断した場合はドライブを再接続してください。 場所を変更または削除するには、再設定ゲームを開き、format@@0を選択します。</translation>
+    </message>
+    <message>
       <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
 
 If the game has moved, choose Reconfigure game to update its location.
@@ -12176,10 +12558,6 @@ Amethystからこのゲームを削除しますか? 保存した設定は削除�
     <message>
       <source>Reconfigure game</source>
       <translation>ゲームを再設定</translation>
-    </message>
-    <message>
-      <source>Select a configured Thunderstore game first.</source>
-      <translation>設定された Thunderbird ゲームを先に選択します。</translation>
     </message>
     <message>
       <source>Game changed. Open the manifest again for the selected game.</source>
@@ -12256,6 +12634,10 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     <message>
       <source>MangoHud controls</source>
       <translation>MangoHud controls</translation>
+    </message>
+    <message>
+      <source>Logs</source>
+      <translation>ログ</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -12424,6 +12806,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>リンクされたソースを削除</translation>
     </message>
     <message>
+      <source>Could not remove the previous version: {0}</source>
+      <translation>以前のバージョンを削除できませんでした: {0}</translation>
+    </message>
+    <message>
       <source>Rename linked source</source>
       <translation>リンクされたソースの名前を変更</translation>
     </message>
@@ -12578,6 +12964,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Refreshing LOOT metadata for {0} plugins…</source>
       <translation>{0}プラグイン用のLOOTメタデータをリフレッシュ..</translation>
+    </message>
+    <message>
+      <source>The active game or profile changed. Run LOOT again.</source>
+      <translation>アクティブなゲームまたはプロファイルが変更されました。もう一度LOOTを実行してください。</translation>
     </message>
     <message>
       <source>LOOT cancelled.</source>
@@ -13843,6 +14233,28 @@ This cannot be undone.</source>
 {0}</translation>
     </message>
     <message>
+      <source>Custom URL</source>
+      <translation>カスタム URL</translation>
+    </message>
+    <message>
+      <source>Open URL</source>
+      <translation>URLを開く</translation>
+    </message>
+    <message>
+      <source>Set URL</source>
+      <translation>URL を設定</translation>
+    </message>
+    <message>
+      <source>URL for {0} selected mod(s) (leave blank to clear):</source>
+      <translation>{0} 選択したModのURL（空白のままにしてください）：</translation>
+    </message>
+    <message>
+      <source>Could not set URL for "{0}":
+{1}</source>
+      <translation>"{0}"のURLを設定できませんでした：
+{1}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>"{0}" の無視された更新を保存できませんでした:
@@ -14211,6 +14623,18 @@ This cannot be undone.</source>
       <translation>タブとして開く</translation>
     </message>
     <message>
+      <source>Open mod pages</source>
+      <translation>MODページを開く</translation>
+    </message>
+    <message>
+      <source>Open source pages for {0} selected mods in your browser?</source>
+      <translation>ブラウザで {0} 選択した Mod のソースページを開きますか？</translation>
+    </message>
+    <message>
+      <source>Open pages</source>
+      <translation>ページを開く</translation>
+    </message>
+    <message>
       <source>Lock Separator - Mods in this separator are attached to it</source>
       <translation>ロックセパレータ - このセパレータのモッズはそれに付されます</translation>
     </message>
@@ -14343,6 +14767,10 @@ Done をクリックして閉じます.</translation>
     <message>
       <source>Update available on mod.io</source>
       <translation>Mod.ioで利用可能なアップデート</translation>
+    </message>
+    <message>
+      <source>Update available on Hexium</source>
+      <translation>Hexiumで利用可能な更新</translation>
     </message>
     <message>
       <source>Update available on Thunderstore</source>
@@ -15043,6 +15471,125 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <message>
       <source>Suggested names</source>
       <translation>提案された名前</translation>
+    </message>
+  </context>
+  <context>
+    <name>NewCaliforniaView</name>
+    <message>
+      <source>Install New California - {0}</source>
+      <translation>カリフォルニアのインストール - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Download New California</source>
+      <translation>ステップ 1: 新しいカリフォルニアをダウンロード</translation>
+    </message>
+    <message>
+      <source>Download the New California 2.3.1 full installer ZIP. Premium accounts download automatically; other accounts can download in the browser and the archive will be detected.</source>
+      <translation>新しいカリフォルニア州をダウンロード 2.3.1 完全なインストーラZIP. プレミアムアカウントは自動的にダウンロードされます; 他のアカウントはブラウザでダウンロードでき、アーカイブが検出されます。</translation>
+    </message>
+    <message>
+      <source>Step 2: Extract the installer</source>
+      <translation>ステップ 2: インストーラを抽出</translation>
+    </message>
+    <message>
+      <source>Installing New California</source>
+      <translation>新しいカリフォルニアのインストール</translation>
+    </message>
+    <message>
+      <source>Step 3: Create a New California profile</source>
+      <translation>ステップ 3: 新しいカリフォルニアプロフィールを作成する</translation>
+    </message>
+    <message>
+      <source>The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
+
+In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
+
+Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</source>
+      <translation type="unfinished">The wizard restores the current deployment, creates an empty profile with its own mods, and runs the installer. Its files become a managed New California mod and its edited INIs stay in the new profile. Your original INIs and game files are restored afterwards.
+
+In the installer, confirm the New Vegas folder shown below. Complete the installer and close it without launching the game. The wizard finishes with the game restored; deploy the new profile when ready.
+
+Extracted installer files are removed after installation or when you close this wizard. The downloaded ZIP, Wine prefixes and recovery backups are kept.</translation>
+    </message>
+    <message>
+      <source>New profile name:</source>
+      <translation>新しいプロファイル名:</translation>
+    </message>
+    <message>
+      <source>Continue</source>
+      <translation>続ける</translation>
+    </message>
+    <message>
+      <source>Profile selection and deployment are unavailable here.</source>
+      <translation>ここではプロファイルの選択と展開は利用できません。</translation>
+    </message>
+    <message>
+      <source>Select the New California installer ZIP</source>
+      <translation>新しいカリフォルニアインストーラのZIPを選択してください</translation>
+    </message>
+    <message>
+      <source>Installer archive not found. Download it, then try again or browse.</source>
+      <translation>インストーラのアーカイブが見つかりません。ダウンロードしてからもう一度お試しください。</translation>
+    </message>
+    <message>
+      <source>Extracting installer into Applications…</source>
+      <translation type="unfinished">Extracting installer into Applications…</translation>
+    </message>
+    <message>
+      <source>Saving current INIs…</source>
+      <translation type="unfinished">Saving current INIs…</translation>
+    </message>
+    <message>
+      <source>Return to Fallout New Vegas before starting this wizard.</source>
+      <translation>このウィザードを開始する前に、Fallout New Vegasに戻ります。</translation>
+    </message>
+    <message>
+      <source>The game or prefix paths changed. Reopen the wizard to review them.</source>
+      <translation>ゲームまたはプレフィックスのパスが変更されました。ウィザードを再度開いて確認してください。</translation>
+    </message>
+    <message>
+      <source>Could not restore the original deployment.</source>
+      <translation>元のデプロイを復元できませんでした。</translation>
+    </message>
+    <message>
+      <source>Creating the new profile…</source>
+      <translation type="unfinished">Creating the new profile…</translation>
+    </message>
+    <message>
+      <source>Could not select the new profile.</source>
+      <translation>新しいプロファイルを選択できませんでした。</translation>
+    </message>
+    <message>
+      <source>Could not deploy the empty profile.</source>
+      <translation>空のプロファイルをデプロイできませんでした。</translation>
+    </message>
+    <message>
+      <source>Complete the New California installer, then close it without launching the game.</source>
+      <translation>新しいカリフォルニアのインストーラを完了し、ゲームを起動せずに閉じます。</translation>
+    </message>
+    <message>
+      <source>Restore failed. Keep the recovery files and run Restore before continuing.</source>
+      <translation>復元に失敗しました。続行する前に復元を実行してください。</translation>
+    </message>
+    <message>
+      <source>New California is installed. The game is restored. Deploy this profile when you are ready to play.</source>
+      <translation>新しいカリフォルニアがインストールされました。ゲームは復元されました。準備ができたらこのプロフィールを展開してください。</translation>
+    </message>
+    <message>
+      <source>New California is installed, but extracted installer files could not be removed. Remove them manually from {0}.
+{1}</source>
+      <translation>新しいカリフォルニアがインストールされましたが、抽出されたインストーラファイルは削除できませんでした。 {0}から手動で削除してください。
+{1}</translation>
+    </message>
+    <message>
+      <source>Extracted installer files could not be removed. Remove them manually from {0}.
+{1}</source>
+      <translation>解凍されたインストーラファイルは削除できませんでした。 {0}から手動で削除してください。
+{1}</translation>
+    </message>
+    <message>
+      <source>Extracted installer files could not be removed from {0}: {1}</source>
+      <translation>{0}から展開されたインストーラファイルを削除できませんでした: {1}</translation>
     </message>
   </context>
   <context>
@@ -17638,6 +18185,10 @@ Re-scan to verify.</source>
       <translation>ルーティングルール</translation>
     </message>
     <message>
+      <source>Install Rules</source>
+      <translation>インストールルール</translation>
+    </message>
+    <message>
       <source>⊟ Collapse all</source>
       <translation>&lt;unk> すべてを折りたたむ</translation>
     </message>
@@ -19611,6 +20162,22 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>ゲームファイル、空き容量、ランタイムの要件を確認するために要件をチェックします。インストールする前に結果を確認してください。</translation>
     </message>
     <message>
+      <source>Manual downloads</source>
+      <translation>手動ダウンロード</translation>
+    </message>
+    <message>
+      <source>{0} files need to be downloaded through your browser during installation.</source>
+      <translation>{0} ファイルは、インストール中にブラウザからダウンロードする必要があります。</translation>
+    </message>
+    <message>
+      <source>Free Nexus accounts and some download sites require browser downloads.</source>
+      <translation>無料のNexusアカウントと一部のダウンロードサイトでは、ブラウザのダウンロードが必要です。</translation>
+    </message>
+    <message>
+      <source>Start the installation and follow each browser prompt. If Amethyst does not find a download, choose Select File and select it yourself. Download the exact versions listed below.</source>
+      <translation>インストールを開始し、各ブラウザの指示に従います。 Amethystがダウンロードを見つけられない場合は、format@@0を選択し、自分で選択してください。下記の正確なバージョンをダウンロードしてください。</translation>
+    </message>
+    <message>
       <source>Stock game folder: Invalid</source>
       <translation>ストックゲームフォルダ: 無効です</translation>
     </message>
@@ -19717,6 +20284,18 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>ルーティング ルール — {0}</translation>
     </message>
     <message>
+      <source>Install Rules — {0}</source>
+      <translation>インストールルール — {0}</translation>
+    </message>
+    <message>
+      <source>Applies to future plain-archive installs and reinstalls for all profiles. Runs after post-install prefix stripping. Earlier rules take precedence. Destinations are relative to the mod's staging root; &lt;modname&gt; uses its installation name and &lt;random&gt; is saved across reinstalls and updates. Installer-driven and exact-layout installs are unaffected.</source>
+      <translation>将来のプレーンアーカイブのインストールとすべてのプロファイルの再インストールに適用されます。インストール後のプリフィックスストリップ後に実行されます。以前のルールが優先されます。 デスティネーションはModのステージングルートからの相対パスです。 &lt;modname&gt; はインストール名を使用し、 &lt;random&gt; は再インストールとアップデートに渡り保存されます。 インストーラ駆動および正確なレイアウトのインストールは影響を受けません。</translation>
+    </message>
+    <message>
+      <source>Edit the game's default routing rules. Changes are saved when you save the custom-game definition. Earlier matching rules take precedence. The Data tab can override these defaults separately for this game.</source>
+      <translation>ゲームの既定のルーティング ルールを編集します。変更はカスタムゲームの定義を保存するときに保存されます。 以前のマッチングルールが優先されます。format@@0タブは、このゲームでこれらのデフォルトを個別に上書きできます。</translation>
+    </message>
+    <message>
       <source>Applies to all profiles for this game. Earlier matching rules take precedence. Changes apply on the next deploy, or automatically when auto-deploy is enabled. Blacklist exclusions still apply. Removed built-ins remain available to restore.</source>
       <translation>このゲームのすべてのプロファイルに適用されます。以前のマッチングルールが優先されます。自動デプロイが有効になっている場合、変更は次のデプロイに適用されます。 ブラックリスト除外はまだ適用されます。内蔵インは復元可能です。</translation>
     </message>
@@ -19759,6 +20338,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>Empty = root of the selected destination base</source>
       <translation>Empty = selected destination base</translation>
+    </message>
+    <message>
+      <source>e.g. &lt;modname&gt; or plugins/&lt;random&gt;; empty = mod staging root</source>
+      <translation>例: &lt;modname&gt; または plugins/&lt;random&gt;; empty = mod staging root</translation>
     </message>
     <message>
       <source>Extensions, folders, and filenames are alternatives within one rule. For example, .asi, MyPlugins, and winmm.dll route all .asi files, everything inside MyPlugins, and winmm.dll to the same destination.</source>
@@ -19853,6 +20436,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>目的地は、ゲームのルートの代わりにProton/Wineプレフィックスルートから相対的です。プレフィックスが設定されている必要があります。</translation>
     </message>
     <message>
+      <source>Bring the top-level containing folder; a loose match brings all mod contents, including subfolders. Overrides Flatten.</source>
+      <translation>最上位のフォルダを持参してください。ルーズマッチはサブフォルダを含むすべてのMODコンテンツをもたらします。Flattenをオーバーライドします。</translation>
+    </message>
+    <message>
       <source>Reset to built-in</source>
       <translation>ビルトインにリセット</translation>
     </message>
@@ -19875,6 +20462,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>Game</source>
       <translation>ゲーム</translation>
+    </message>
+    <message>
+      <source>Staging</source>
+      <translation>ステージング中</translation>
     </message>
     <message>
       <source>Custom</source>
@@ -19911,6 +20502,10 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>Could not save routing rules: {0}</source>
       <translation>ルーティングルールを保存できませんでした: {0}</translation>
+    </message>
+    <message>
+      <source>Could not save install rules: {0}</source>
+      <translation>インストールルールを保存できませんでした: {0}</translation>
     </message>
   </context>
   <context>
@@ -21287,6 +21882,10 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Thunderstore</source>
       <translation>Thunderstore</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation>ヘキシウム</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -24431,6 +25030,10 @@ or use Browse to select it manually.</source>
       <translation>NSFWの特長</translation>
     </message>
     <message>
+      <source>Include prereleases</source>
+      <translation>プレリリースを含める</translation>
+    </message>
+    <message>
       <source>Refresh</source>
       <translation>リフレッシュ</translation>
     </message>
@@ -25097,6 +25700,14 @@ Try clearing your search or filters.</source>
       <translation>このエントリにはパッケージのダウンロードURLがありません。ローカルの .wabbajack ファイルを開きます。</translation>
     </message>
     <message>
+      <source>Finish the current operation before opening another list.</source>
+      <translation>別のリストを開く前に現在の操作を終了します。</translation>
+    </message>
+    <message>
+      <source>Log in to Nexus before loading this collection revision.</source>
+      <translation>このコレクションリビジョンをロードする前に Nexus にログインしてください。</translation>
+    </message>
+    <message>
       <source>Downloading modlist package…</source>
       <translation>Modlistパッケージをダウンロード..</translation>
     </message>
@@ -25251,6 +25862,14 @@ Try clearing your search or filters.</source>
     <message>
       <source>Check requirements first, then run the developer texture test.</source>
       <translation>要件を確認し、開発者のテクスチャテストを実行します。</translation>
+    </message>
+    <message>
+      <source>Retry download</source>
+      <translation>ダウンロードを再試行</translation>
+    </message>
+    <message>
+      <source>{0} · Nexus revision {1}</source>
+      <translation>{0} · Nexus revision {1}</translation>
     </message>
     <message>
       <source>Local installation</source>
@@ -25732,6 +26351,10 @@ Prefix: {1}</source>
       <translation>2つの廃棄物の物語をインストールする</translation>
     </message>
     <message>
+      <source>Install New California</source>
+      <translation>新しいカリフォルニアをインストール</translation>
+    </message>
+    <message>
       <source>BSA Decompressor</source>
       <translation>BSAデコンプレッサー</translation>
     </message>
@@ -25890,6 +26513,10 @@ Prefix: {1}</source>
     <message>
       <source>Install ReShade</source>
       <translation>ReShade をインストールする</translation>
+    </message>
+    <message>
+      <source>Run the New California installer and capture its files and INIs in a dedicated profile.</source>
+      <translation>新しいカリフォルニアのインストーラを実行し、そのファイルとINIを専用プロファイルでキャプチャします。</translation>
     </message>
     <message>
       <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
@@ -27041,6 +27668,29 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     </message>
   </context>
   <context>
+    <name>_PanelHandle</name>
+    <message>
+      <source>Drag to resize panels. Double-click to reset the layout.</source>
+      <translation>ドラッグしてパネルのサイズを変更します。ダブルクリックしてレイアウトをリセットします。</translation>
+    </message>
+    <message>
+      <source>Resize modlist and plugins panels</source>
+      <translation>Modlistとプラグインパネルのサイズを変更</translation>
+    </message>
+    <message>
+      <source>Show Modlist</source>
+      <translation>Modリストを表示</translation>
+    </message>
+    <message>
+      <source>Show Plugins</source>
+      <translation>プラグインを表示</translation>
+    </message>
+    <message>
+      <source>Click to reopen, or drag to resize.</source>
+      <translation>クリックして再開するか、ドラッグしてサイズを変更します。</translation>
+    </message>
+  </context>
+  <context>
     <name>_PolicyOverlay</name>
     <message>
       <source>Update policy - {0}</source>
@@ -27259,6 +27909,14 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
       <source>Download package from Thunderstore</source>
       <translation>Thunderstoreからパッケージをダウンロード</translation>
+    </message>
+    <message>
+      <source>Hexium</source>
+      <translation>ヘキシウム</translation>
+    </message>
+    <message>
+      <source>Download package from Hexium</source>
+      <translation>Hexiumからパッケージをダウンロード</translation>
     </message>
     <message>
       <source>Mod provider</source>
