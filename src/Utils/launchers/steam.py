@@ -1541,7 +1541,9 @@ def find_proton_for_game(steam_id: str) -> Path | None:
             continue
 
         # Map internal short names to steamapps/common directory names
-        dir_name = _COMPAT_TOOL_NAMES.get(tool_name, tool_name)
+        versioned = _re.fullmatch(r"proton_(\d+)", tool_name)
+        dir_name = _COMPAT_TOOL_NAMES.get(
+            tool_name, f"Proton {versioned[1]}.0" if versioned else tool_name)
 
         # Search steamapps/common/ and compatibilitytools.d/ (GE-Proton, etc.)
         # across every Steam root AND secondary library - Proton tools live
