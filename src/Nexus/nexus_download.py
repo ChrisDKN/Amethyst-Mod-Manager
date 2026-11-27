@@ -73,7 +73,13 @@ def _archive_name_parts(name: str) -> tuple[str, str]:
     return name, ""
 
 
+class _ArchiveChecksumMismatch(requests.ConnectionError):
+    pass
+
+
 def _transfer_error(exc: Exception) -> str:
+    if isinstance(exc, _ArchiveChecksumMismatch):
+        return "Downloaded archive does not match the Collection MD5"
     if isinstance(exc, requests.RequestException):
         response = getattr(exc, "response", None)
         status = int(getattr(response, "status_code", 0) or 0)
@@ -541,8 +547,7 @@ def _find_cached_archive(
     Matching strategy
     -----------------
     0. If *file_id* > 0: check each archive's ``.fileid`` sidecar for an exact
-       match.  This is the most reliable check and short-circuits everything
-       else.
+       match, checking its checksum when available.
     1. If *expected_size_bytes* > 0: find a file whose size is within 1 % of
        the expected value (or *size_tolerance_bytes*, if larger) AND whose
        filename contains the mod ID.  The display name is used as an
@@ -552,11 +557,8 @@ def _find_cached_archive(
 
     md5 verification
     ----------------
-    If *expected_md5* is given, a size/name candidate is only accepted when
-    its md5 matches.  Manually-downloaded archives lack the ``.fileid``
-    sidecar so this extra check prevents false positives where an unrelated
-    archive happens to share the same size and name shape.  The computed
-    hash is cached in an ``.md5`` sidecar so repeat lookups don't rehash.
+    If *expected_md5* is given, a complete archive is only accepted when
+    its MD5 matches. Computed hashes are cached for repeat lookups.
 
     Partial-download detection
     --------------------------
@@ -594,12 +596,13 @@ def _find_cached_archive(
                 actual = f.stat().st_size
             except Exception:
                 continue
+            is_complete = _zip_is_intact(f)
             if expected_size_bytes > 0:
                 ratio = actual / expected_size_bytes
-                is_complete = (actual > 0 and ratio >= (1.0 - _SIZE_TOLERANCE)
-                               and _zip_is_intact(f))
-                return f, is_complete
-            return f, _zip_is_intact(f)
+                is_complete = is_complete and actual > 0 and ratio >= (1.0 - _SIZE_TOLERANCE)
+            if is_complete and not _md5_matches(f, expected_md5):
+                continue
+            return f, is_complete
 
     best_partial: "Path | None" = None
 
@@ -1091,6 +1094,7 @@ class NexusDownloader:
         requires_nxm: bool = False,
         resume_metadata_path: Path | None = None,
         resume_revision: str = "",
+        *, expected_md5: str = "",
     ) -> DownloadResult:
         """Download one Nexus file, serializing the same cache identity."""
         from Utils.operations import (
@@ -1122,6 +1126,7 @@ class NexusDownloader:
                     requires_nxm=requires_nxm,
                     resume_metadata_path=resume_metadata_path,
                     resume_revision=resume_revision,
+                    expected_md5=expected_md5.strip().lower(),
                 )
         except OperationCancelled:
             return DownloadResult(
@@ -1148,6 +1153,7 @@ class NexusDownloader:
         requires_nxm: bool = False,
         resume_metadata_path: Path | None = None,
         resume_revision: str = "",
+        *, expected_md5: str = "",
     ) -> DownloadResult:
         """
         Download a file directly (premium users only - no key needed).
@@ -1199,7 +1205,7 @@ class NexusDownloader:
         cached, is_complete = ((None, False) if resume is not None else
             _find_cached_archive(
                 _dest, known_file_name, expected_size_bytes, mod_id, file_id,
-                cache_index=cache_index))
+                expected_md5=expected_md5, cache_index=cache_index))
         if cached is not None:
             if is_complete:
                 app_log(
@@ -1277,6 +1283,7 @@ class NexusDownloader:
             mod_id=mod_id,
             file_id=file_id,
             expected_size_bytes=expected_size_bytes,
+            expected_md5=expected_md5,
             requires_nxm=requires_nxm,
             resume=resume,
             finish_on_failure=not bool(prefetched_links),
@@ -1313,6 +1320,7 @@ class NexusDownloader:
                     mod_id=mod_id,
                     file_id=file_id,
                     expected_size_bytes=expected_size_bytes,
+                    expected_md5=expected_md5,
                     requires_nxm=requires_nxm,
                     resume=resume,
                     finish_on_failure=False,
@@ -1340,6 +1348,7 @@ class NexusDownloader:
         requires_nxm: bool = False,
         finish_on_failure: bool = True,
         resume: _ResumeSelection | None = None,
+        *, expected_md5: str = "",
     ) -> DownloadResult:
         """Try each mirror in order until one succeeds."""
 
@@ -1380,6 +1389,7 @@ class NexusDownloader:
                         mod_id=mod_id,
                         file_id=file_id,
                         expected_size_bytes=expected_size_bytes,
+                        expected_md5=expected_md5,
                         requires_nxm=requires_nxm,
                         resume=resume,
                     )
@@ -1442,6 +1452,7 @@ class NexusDownloader:
         expected_size_bytes: int = 0,
         requires_nxm: bool = False,
         resume: _ResumeSelection | None = None,
+        *, expected_md5: str = "",
     ) -> DownloadResult:
         """Stream one CDN URL, retaining a locked partial for later retries."""
 
@@ -1449,9 +1460,13 @@ class NexusDownloader:
             if resume is not None:
                 raise DownloadResumeError("download_interrupted_unsupported",
                                           "This downloader cannot resume a selected transfer.")
-            return self._stream_handler(url=url, file_name=file_name, dest_dir=dest_dir,
+            result = self._stream_handler(url=url, file_name=file_name, dest_dir=dest_dir,
                 progress_cb=progress_cb, cancel=cancel, game_domain=game_domain,
                 mod_id=mod_id, file_id=file_id)
+            if expected_md5 and result.success and (
+                    not result.file_path or not _md5_matches(result.file_path, expected_md5)):
+                raise _ArchiveChecksumMismatch()
+            return result
 
         from urllib.parse import unquote, urlparse
 
@@ -1693,6 +1708,12 @@ class NexusDownloader:
                         game_domain=game_domain,
                         mod_id=mod_id, file_id=file_id,
                     )
+                if expected_md5 and _compute_md5(partial) != expected_md5:
+                    partial.unlink(missing_ok=True)
+                    _partial_metadata_path(partial).unlink(missing_ok=True)
+                    raise _ArchiveChecksumMismatch()
+                if expected_md5 and wait_if_paused(cancel):
+                    raise DownloadCancelled()
                 if destination_taken(dest):
                     raise FileExistsError(f"Download destination already exists: {dest}")
                 if file_id > 0:

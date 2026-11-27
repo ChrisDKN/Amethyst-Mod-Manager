@@ -1536,6 +1536,7 @@ def run_collection_install(
                     progress_cb=_progress_cb, cancel=_col_stop,
                     known_file_name=mod.file_name or "",
                     expected_size_bytes=_exp_size,
+                    expected_md5=_expected_md5(mod),
                     prefetched_links=_pref_links,
                     cache_index=_archive_index,
                     dest_dir=get_download_cache_dir_for_game(getattr(game, "name", "") or ""))
