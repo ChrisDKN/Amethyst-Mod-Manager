@@ -5,6 +5,7 @@ import inspect
 import json
 import os
 import re
+import stat
 import threading
 import unicodedata
 from contextlib import contextmanager
@@ -431,6 +432,43 @@ def validate_paths(game, games=None, *, staging_only=False):
                         details = {"instance": folder.name, "profile": profile, "path": path,
                                    "target": label, "conflicting_path": str(other_path), "conflicting_target": other_label}
                         raise InstanceError("instance_path_conflict", f"{path} overlaps {folder.name} ({profile}): {other_path}. Choose independent locations.", details)
+
+
+def validate_removal_storage(game, root):
+    from Utils.config_paths import (
+        get_config_dir, get_default_staging_root, get_download_cache_dir, get_profiles_dir,
+    )
+
+    config = get_config_dir()
+    paths_file = game._paths_file
+    saved = _read(paths_file)
+    legacy = normalized_path(get_profiles_dir() / game.name)
+    expected = normalized_path(saved.get("staging_path") or legacy)
+    if (not root.is_absolute() or root.is_symlink() or paths_file.parent.is_symlink()
+            or not saved or normalized_path(root) != expected):
+        raise InstanceError("unsafe_staging_path", f"Cannot verify {root} as this instance's staging folder.")
+    try:
+        staging_available = stat.S_ISDIR(root.stat().st_mode)
+    except FileNotFoundError:
+        staging_available = root.parent.is_dir()
+    if not staging_available:
+        raise InstanceError("staging_root_unavailable", f"The staging location {root} is unavailable.")
+
+    resolved = normalized_path(root)
+    shared_roots = (Path.home(), get_profiles_dir(), get_default_staging_root(),
+                    config, config / "LOOT", config / "Tools", config / "wine_prefixes")
+    protected = [config / "games", get_download_cache_dir(), game.get_prefix_path()]
+    active_game = game.get_game_path()
+    if active_game and not normalized_path(active_game).is_relative_to(resolved / ".wabbajack"):
+        protected.append(active_game)
+    for file in (config / "games").glob("*/paths.json"):
+        data = _read(file)
+        protected.extend(data.get(key) for key in (
+            "game_path", "prefix_path", "save_path_override",
+            "openmw_appimage_path", "openmw_cfg_path"))
+    if (any(normalized_path(path).is_relative_to(resolved) for path in shared_roots)
+            or any(paths_overlap(path, root) for path in protected if path)):
+        raise InstanceError("unsafe_staging_path", f"The staging folder {root} overlaps a game or shared data location.")
 
 
 def save_target_record(game):

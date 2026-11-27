@@ -3034,18 +3034,28 @@ class ConfigureGameView(QWidget):
                                  confirm_label=self.tr("Yes"))
 
     def _on_remove(self):
-        g = self._game
-        msg = self.tr(
-            "Remove the instance configuration for {0}?\n\n"
-            "Deleted: game config + generated caches; the game is restored to "
-            "vanilla.\nKept: your mods, profiles, and overwrite folders.\n\n"
-            "This cannot be undone.").format(g.name)
-        self._confirm(self.tr("Remove Instance - {0}").format(g.name), msg,
-                      self._do_remove)
+        if self._destructive_busy:
+            return
+        from gui_qt.dialogs.confirm import ConfirmOverlay
 
-    def _do_remove(self):
-        """Restore the game to vanilla + drop config/caches on a daemon worker
-        (a big restore + rmtree freezes the UI for many seconds otherwise)."""
+        msg = self.tr(
+            "Remove {0} from Amethyst? The game will be restored and its "
+            "instance configuration removed.\n\n"
+            "The checkbox also deletes staged mods, profiles (including profile "
+            "saves), overwrite files, and installed tools. Downloaded archives "
+            "and deployment recovery backups are kept.\n\n"
+            "This cannot be undone.").format(self._game.name)
+
+        def confirmed(ok):
+            if ok:
+                self._do_remove(delete_data=dialog.checkbox_checked())
+
+        dialog = ConfirmOverlay.show_over(
+            self, self.tr("Remove Instance - {0}").format(self._game.name),
+            msg, confirmed, card_h=300,
+            checkbox_label=self.tr("Also delete mods and instance data"))
+
+    def _do_remove(self, *, delete_data=False):
         if self._destructive_busy:
             return
         self._destructive_busy = True
@@ -3059,7 +3069,7 @@ class ConfigureGameView(QWidget):
             from amethyst_backend.game_instances import remove_instance
             from Utils.app_log import app_log
             try:
-                remove_instance(g, app_log)
+                remove_instance(g, app_log, delete_data=delete_data)
             except Exception as exc:
                 safe_emit(sig.remove_failed, str(exc))
                 return

@@ -3878,18 +3878,20 @@ Your unsaved location changes will be kept in this form. After Restore succeeds,
         <translation>Yes</translation>
     </message>
     <message>
-        <source>Remove the instance configuration for {0}?
+        <source>Remove {0} from Amethyst? The game will be restored and its instance configuration removed.
 
-Deleted: game config + generated caches; the game is restored to vanilla.
-Kept: your mods, profiles, and overwrite folders.
+The checkbox also deletes staged mods, profiles (including profile saves), overwrite files, and installed tools. Downloaded archives and deployment recovery backups are kept.
 
 This cannot be undone.</source>
-        <translation>Remove the instance configuration for {0}?
+        <translation>Remove {0} from Amethyst? The game will be restored and its instance configuration removed.
 
-Deleted: game config + generated caches; the game is restored to vanilla.
-Kept: your mods, profiles, and overwrite folders.
+The checkbox also deletes staged mods, profiles (including profile saves), overwrite files, and installed tools. Downloaded archives and deployment recovery backups are kept.
 
 This cannot be undone.</translation>
+    </message>
+    <message>
+        <source>Also delete mods and instance data</source>
+        <translation>Also delete mods and instance data</translation>
     </message>
     <message>
         <source>Remove Instance - {0}</source>

@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import shutil
+from contextlib import nullcontext
 from pathlib import Path
 
-from Utils.games.instances import InstanceError, registry_lock, validate_name, validate_paths
+from Utils.games.instances import (
+    InstanceError, registry_lock, validate_name, validate_paths, validate_removal_storage,
+)
 
 from .jobs import JobError
 
@@ -109,7 +112,7 @@ def create_instance(game, game_path, prefix_path, staging_path, deploy_mode,
         raise
 
 
-def remove_instance(game, log):
+def remove_instance(game, log, *, delete_data=False):
     from Utils.config_paths import remove_game_download_cache_link
     from Utils.deployment.locking import game_mutation_lock
     from Utils.deployment.missing_installation import RECOVERY_DIR
@@ -117,21 +120,28 @@ def remove_instance(game, log):
     from Utils.operations import acquire_game_operation
 
     with registry_lock():
+        root = game.get_profile_root()
+        if delete_data:
+            validate_removal_storage(game, root)
         if game.get_deploy_active():
             restored = run_restore_pipeline(
                 game, game.get_last_deployed_profile(), log_fn=log,
                 use_recorded_paths=bool(game.get_deployment_context()), raise_busy=True)
             if not restored or game.get_deploy_active():
                 raise JobError("instance_restore_failed", "Restoration failed. The instance and its recovery data have been kept.")
-        with acquire_game_operation(game, "instance.remove"), game_mutation_lock(game):
+        staging_lock = game_mutation_lock(game) if root.is_dir() or not delete_data else nullcontext()
+        with acquire_game_operation(game, "instance.remove"), staging_lock:
             validate_paths(game, staging_only=True)
-            root = game.get_profile_root()
-            if getattr(game, "is_instance", False):
+            keep = {".amethyst-operation.lock", RECOVERY_DIR}
+            if not delete_data:
+                keep.update(("mods", "profiles", "overwrite", "Applications"))
+            recovery = root / RECOVERY_DIR
+            has_recovery = recovery.exists() or recovery.is_symlink()
+            if getattr(game, "is_instance", False) and (not delete_data or has_recovery):
                 from Utils.games.instances import reserve_retained_storage
                 reserve_retained_storage(game._instance_record, root)
             for child in root.iterdir() if root.is_dir() else ():
-                if child.name in {"mods", "profiles", "overwrite", "Applications",
-                                  ".amethyst-operation.lock", RECOVERY_DIR}:
+                if child.name in keep:
                     continue
                 if child.is_dir() and not child.is_symlink():
                     shutil.rmtree(child)
@@ -140,3 +150,9 @@ def remove_instance(game, log):
             if getattr(game, "is_instance", False):
                 remove_game_download_cache_link(game.name)
             shutil.rmtree(game._paths_file.parent)
+            if delete_data and root.is_dir() and not has_recovery and not root.is_mount():
+                try:
+                    (root / ".amethyst-operation.lock").unlink(missing_ok=True)
+                    root.rmdir()
+                except OSError as exc:
+                    log(f"Could not remove the empty staging folder {root}: {exc}")

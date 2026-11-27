@@ -14,7 +14,7 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QPushButton, QListWidget, QPlainTextEdit)
+    QWidget, QCheckBox, QHBoxLayout, QLabel, QPushButton, QListWidget, QPlainTextEdit)
 
 from gui_qt.dialogs.base import OverlayBase
 from gui_qt.appearance.theme import active_palette, _c, contrast_text
@@ -35,7 +35,8 @@ class ConfirmOverlay(OverlayBase):
                  card_h: int | None = None,
                  list_items: list[str] | None = None,
                  scrollable: bool = False,
-                 secondary_action: tuple[str, Callable[[], None]] | None = None):
+                 secondary_action: tuple[str, Callable[[], None]] | None = None,
+                 checkbox_label: str | None = None):
         # When a long ``list_items`` is passed, the card grows and hosts a
         # scrollable list so the item names never overflow the window.
         if list_items and card_h is None:
@@ -86,6 +87,11 @@ class ConfirmOverlay(OverlayBase):
         elif not scrollable:
             v.addStretch(1)
 
+        self._checkbox = None
+        if checkbox_label is not None:
+            self._checkbox = QCheckBox(checkbox_label)
+            v.addWidget(self._checkbox)
+
         bar = QHBoxLayout()
         if secondary_action is not None:
             label, callback = secondary_action
@@ -119,6 +125,9 @@ class ConfirmOverlay(OverlayBase):
         v.addLayout(bar)
 
         self._present()
+
+    def checkbox_checked(self) -> bool:
+        return self._checkbox is not None and self._checkbox.isChecked()
 
     @classmethod
     def show_over(cls, host, title, body, on_done, **kw):
