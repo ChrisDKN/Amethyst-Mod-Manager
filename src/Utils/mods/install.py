@@ -2329,9 +2329,20 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     from Utils.mods.copy import resolve_target_staging
     staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
-    dest_root = staging_root / p.mod_name
     from Utils.mods.links import require_local_mod
-    require_local_mod(staging_root, p.profile_dir, p.mod_name)
+
+    def resolve_destination(name):
+        target = staging_root / name
+        if not target.exists() and not target.is_symlink():
+            matches = [child for child in staging_root.iterdir()
+                       if child.name.casefold() == name.casefold()
+                       and (child.is_dir() or child.is_symlink())]
+            if len(matches) > 1:
+                raise ValueError(f"Multiple mod folders match '{name}'. Use the exact folder name.")
+            if matches:
+                target = matches[0]
+        require_local_mod(staging_root, p.profile_dir, target.name)
+        return target
 
     def _pp(done, total, phase=None):
         if progress_fn is not None:
@@ -2341,10 +2352,14 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     # own loop (the single-mod exists-prompt below is keyed on the archive name,
     # which never becomes a mod folder for this shape).
     if p.is_multi_mod():
+        require_local_mod(staging_root, p.profile_dir, p.mod_name)
         return _install_multi_mod(
             p, log_fn, _pp,
             preserve_position=not interactive,
             on_exists=on_exists if not interactive else None)
+
+    dest_root = resolve_destination(p.mod_name)
+    p.mod_name = dest_root.name
 
     # Reinstall/update of an RE bundle: carry the user's saved option selection
     # (and order) onto the freshly detected spec before the folder is wiped -
@@ -2417,9 +2432,8 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                         conflict = True
                         continue
                     new_name = validate_mod_folder_name(new_name)
-                    p.mod_name = new_name
-                    dest_root = staging_root / p.mod_name
-                    require_local_mod(staging_root, p.profile_dir, p.mod_name)
+                    dest_root = resolve_destination(new_name)
+                    p.mod_name = dest_root.name
                     # Loop: if the new name is ALSO taken, re-prompt (conflict).
                     conflict = dest_root.exists()
                     # rename installs as a NEW mod (no position preserve).
