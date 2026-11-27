@@ -438,7 +438,7 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     <name>AutoBlendView</name>
     <message>
       <source>Run AutoBlend - {0}</source>
-      <translation>Uruchom automieszanie - {0}</translation>
+      <translation>Uruchom AutoBlend - {0}</translation>
     </message>
     <message>
       <source>Step 1: Install AutoBlend</source>
@@ -454,7 +454,7 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
     <message>
       <source>Step 3: Run AutoBlend</source>
-      <translation>Krok 3: Uruchom automieszanie</translation>
+      <translation>Krok 3: Uruchom AutoBlend</translation>
     </message>
     <message>
       <source>AutoBlend will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in AutoBlend's window to generate the '{0}' mod. After it finishes, enable that mod and AutoBlend.esp. Disable the output mod before rerunning AutoBlend.</source>
@@ -2430,7 +2430,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>View on Nexus</source>
-      <translation>Wyświetl na Nexusie</translation>
+      <translation>Zobacz na Nexus</translation>
     </message>
     <message>
       <source>Installed but disabled:</source>
@@ -2990,7 +2990,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Open on Nexus</source>
-      <translation>Otwórz w Nexusie</translation>
+      <translation>Otwórz na Nexus</translation>
     </message>
     <message>
       <source>Refresh</source>
@@ -6811,7 +6811,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>Premium accounts download the newest Main file automatically. With a free account, open the Nexus files page and download the EasyNPC Next Main file. This wizard watches your download locations for the archive.</source>
-      <translation>Konta Premium pobierają najnowszy plik główny automatycznie. W przypadku konta darmowego otwórz stronę z plikami na Nexusie i pobierz plik główny EasyNPC Next. Ten kreator monitoruje Twoje lokalizacje pobierania w poszukiwaniu archiwum.</translation>
+      <translation>Konta Premium pobierają najnowszy plik główny automatycznie. W przypadku konta darmowego otwórz stronę z plikami na Nexus i pobierz plik główny EasyNPC Next. Ten kreator monitoruje Twoje lokalizacje pobierania w poszukiwaniu archiwum.</translation>
     </message>
     <message>
       <source>Step 2: Locate EasyNPC Next</source>
@@ -10299,7 +10299,7 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
     </message>
     <message>
       <source>Open game on nexus</source>
-      <translation>Otwórz grę na Nexusie</translation>
+      <translation>Otwórz grę na Nexus</translation>
     </message>
     <message>
       <source>Login to Nexus</source>
@@ -10819,7 +10819,7 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>Quick Update</source>
-      <translation>Krótka aktualizacja</translation>
+      <translation>Szybka aktualizacja</translation>
     </message>
     <message>
       <source>Apply the 4GB patch automatically on deploy</source>
@@ -11043,11 +11043,11 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Quick Update: updated {0} mod(s)</source>
-      <translation>Krótka aktualizacja: zaktualizowano mody z serii „{0}”</translation>
+      <translation>Szybka aktualizacja: zaktualizowano {0} mod(ów)</translation>
     </message>
     <message>
       <source>Quick Update: nothing to update.</source>
-      <translation>Krótka aktualizacja: nie ma żadnych nowości.</translation>
+      <translation>Szybka aktualizacja: nic do zaktualizowania.</translation>
     </message>
     <message>
       <source>No profile selected.</source>
@@ -11091,7 +11091,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>View Requirements</source>
-      <translation>Wymogi dotyczące widoku</translation>
+      <translation>Zobacz wymagania</translation>
     </message>
     <message>
       <source>Conflicts: {0}</source>
@@ -14345,7 +14345,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>View Requirements</source>
-      <translation>Wymogi dotyczące widoku</translation>
+      <translation>Zobacz wymagania</translation>
     </message>
     <message>
       <source>Mod name:</source>
@@ -14397,7 +14397,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Open on Nexus</source>
-      <translation>Otwórz w Nexusie</translation>
+      <translation>Otwórz na Nexus</translation>
     </message>
     <message>
       <source>Open on Nexus ({0})</source>
@@ -14421,11 +14421,11 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Quick Update</source>
-      <translation>Krótka aktualizacja</translation>
+      <translation>Szybka aktualizacja</translation>
     </message>
     <message>
       <source>Quick Update ({0})</source>
-      <translation>Krótka aktualizacja ({0})</translation>
+      <translation>Szybka aktualizacja ({0})</translation>
     </message>
     <message>
       <source>Reinstall ({0})</source>
@@ -15760,7 +15760,7 @@ Eksportowane pliki instalacyjne są usuwane po instalacji lub po zamknięciu teg
     </message>
     <message>
       <source>Open on Nexus</source>
-      <translation>Otwórz w Nexusie</translation>
+      <translation>Otwórz na Nexus</translation>
     </message>
     <message>
       <source>Download</source>
@@ -17027,7 +17027,7 @@ Możesz pominąć ten krok i połączyć się później, korzystając z przycisk
     </message>
     <message>
       <source>Browser login started - complete it in your browser.</source>
-      <translation>Rozpoczęto logowanie przeglądarki - uzupełnij ją w przeglądarce.</translation>
+      <translation>Rozpoczęto logowanie w przeglądarce - dokończ je w przeglądarce.</translation>
     </message>
     <message>
       <source>✓ Logged in to Nexus Mods!</source>
@@ -18268,11 +18268,11 @@ Przeskanuj, żeby sprawdzić.</translation>
     </message>
     <message>
       <source>Pack {0}</source>
-      <translation type="unfinished">Pack {0}</translation>
+      <translation>Zapakuj {0}</translation>
     </message>
     <message>
       <source>Unpack {0}</source>
-      <translation type="unfinished">Unpack {0}</translation>
+      <translation>Rozpakuj {0}</translation>
     </message>
     <message>
       <source>File location</source>
@@ -21130,7 +21130,7 @@ Po pobraniu kliknij przycisk Dalej.</translation>
     </message>
     <message>
       <source>Step 4: Extract Script Merger</source>
-      <translation>Krok 4: Ekstrakcja połączenia skryptowego</translation>
+      <translation>Krok 4: Wypakuj Script Merger</translation>
     </message>
     <message>
       <source>Step 6: Install .NET 8</source>
@@ -21647,7 +21647,7 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>Extraction</source>
-      <translation>Ekstrakcja</translation>
+      <translation>Wypakowywanie</translation>
     </message>
     <message>
       <source>Add your own regex search/replace rules to clean up mod names on install - useful when a download site changes its filename format.</source>
@@ -22302,7 +22302,7 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     </message>
     <message>
       <source>Override</source>
-      <translation>Zastąp</translation>
+      <translation>Nadpisz</translation>
     </message>
     <message>
       <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
@@ -26646,7 +26646,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Scan load order for safe-to-disable plugins, then clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
-      <translation>Skanuj load order pod kątem bezpiecznych do wyłączenia wtyczek, a następnie wyczyść osierocone SkyGen BOS/SkyPatcher INI dla wtyczek, które muszą pozostać włączone.</translation>
+      <translation>Przeskanuj kolejność ładowania w poszukiwaniu wtyczek, które można bezpiecznie wyłączyć, a następnie usuń osierocone pliki INI SkyGen BOS/SkyPatcher dla wtyczek, które muszą pozostać włączone.</translation>
     </message>
     <message>
       <source>Create or edit SSEDisplayTweaks.ini with per-setting toggles and descriptions.</source>
