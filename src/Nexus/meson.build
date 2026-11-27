@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  '_selftest.py',
   'archive_lookup.py',
   'manual_download_watch.py',
   'nexus_api.py',

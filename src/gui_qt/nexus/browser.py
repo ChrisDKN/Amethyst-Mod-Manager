@@ -261,6 +261,7 @@ class NexusBrowserView(QWidget):
         self._download_cancels: dict[str, threading.Event] = {}
         self._download_targets: dict[str, tuple] = {}
         self._download_oversize: dict[str, threading.Event] = {}
+        self._download_errors: dict[str, str] = {}   # dl_key -> failure reason
         self._install_all_generation = 0
         self._install_all_preparing = False
         self._install_all_confirming = False
@@ -1963,7 +1964,10 @@ class NexusBrowserView(QWidget):
         for entry, files in plan:
             group = {"name": entry.name or f"Mod {entry.mod_id}",
                      "target": self._install_target(),
-                     "remaining": len(files), "results": [None] * len(files)}
+                     "remaining": len(files), "results": [None] * len(files),
+                     "labels": [f.name or f.file_name or f"File {f.file_id}"
+                                for f in files],
+                     "errors": {}}
             self._selected_queue.extend(
                 (entry, f, group, index) for index, f in enumerate(files))
         self._pump_selected_downloads()
@@ -1979,12 +1983,14 @@ class NexusBrowserView(QWidget):
                 key = self._start_download(entry, file, release_guard=False)
             except Exception as exc:
                 self._log(f"Nexus: couldn't start {file.name or file.file_name}: {exc}")
-                self._complete_selected_file(group, index, None, None)
+                self._complete_selected_file(group, index, None, None, str(exc))
                 continue
             self._selected_active[key] = (group, index)
 
-    def _complete_selected_file(self, group, index, archive, meta):
+    def _complete_selected_file(self, group, index, archive, meta, error=None):
         group["results"][index] = (archive, meta)
+        if not archive and error:   # cancelled downloads carry no error
+            group["errors"][index] = error
         group["remaining"] -= 1
         if group["remaining"]:
             return
@@ -1997,6 +2003,32 @@ class NexusBrowserView(QWidget):
         if paths:
             self._log(f"Nexus: downloaded {len(paths)} file(s) for {group['name']}.")
             self._install_fn(paths, metas or None)
+        if group["errors"]:
+            self._report_selected_failures(group, installed=len(paths))
+
+    def _report_selected_failures(self, group, installed):
+        """Tell the user which files of a multi-file install were not
+        downloaded, so a partial install isn't mistaken for a complete one."""
+        errors = group["errors"]
+        labels = group["labels"]
+        total = len(group["results"])
+        self._log(f"Nexus: {len(errors)} of {total} file(s) for "
+                  f"{group['name']} were not installed: "
+                  + "; ".join(labels[i] for i in sorted(errors)))
+        if installed:
+            body = self.tr(
+                "{0} of {1} file(s) for {2} could not be downloaded and were "
+                "not installed. The other files are being installed."
+            ).format(len(errors), total, group["name"])
+        else:
+            body = self.tr(
+                "None of the {0} file(s) for {1} could be downloaded. Nothing "
+                "was installed.").format(total, group["name"])
+        items = [self.tr("{0}: {1}").format(labels[i], errors[i])
+                 for i in sorted(errors)]
+        from gui_qt.dialogs.confirm import ConfirmOverlay
+        ConfirmOverlay.show_message(
+            self, self.tr("Download failed"), body, list_items=items)
 
     def _abort_selected_downloads(self):
         self._selected_queue.clear()
@@ -2646,10 +2678,13 @@ class NexusBrowserView(QWidget):
                     elif "cancel" in (result.error or "").lower():
                         self._log("Nexus: download cancelled.")
                     else:
-                        self._log(f"Nexus: download failed: "
-                                  f"{result.error or 'unknown error'}")
+                        error = result.error or "unknown error"
+                        self._download_errors[dl_key] = error
+                        self._log(f"Nexus: download failed for {dl_label}: "
+                                  f"{error}")
             except Exception as exc:
-                self._log(f"Nexus: download error: {exc}")
+                self._download_errors[dl_key] = str(exc)
+                self._log(f"Nexus: download error for {dl_label}: {exc}")
             safe_emit(done_signal, archive, meta, dl_key)
 
         threading.Thread(target=worker, daemon=True).start()
@@ -2675,6 +2710,7 @@ class NexusBrowserView(QWidget):
         download_target = self._download_targets.pop(dl_key, None)
         oversize = self._download_oversize.pop(dl_key, None)
         was_oversize = bool(oversize is not None and oversize.is_set())
+        error = self._download_errors.pop(dl_key, None)
         target_changed = bool(download_target and download_target != self._install_target())
         is_bulk = dl_key in self._install_all_active
         abort_bulk = False
@@ -2697,7 +2733,8 @@ class NexusBrowserView(QWidget):
         if selected is not None:
             group, index = selected
             self._complete_selected_file(
-                group, index, archive if not target_changed else None, meta)
+                group, index, archive if not target_changed else None, meta,
+                error)
             QTimer.singleShot(0, self._pump_selected_downloads)
             return
         if not archive:
