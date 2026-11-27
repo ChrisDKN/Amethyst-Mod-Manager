@@ -1,3 +1,9 @@
+- Unreleased
+## Bug Fixes
+- Fixed Nexus mod lookups failing when a response omits the mod name or ID.
+
+---
+
 - v2.6.4
 ## Game Support
 - Added V Rising

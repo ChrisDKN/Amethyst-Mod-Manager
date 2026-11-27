@@ -1309,8 +1309,8 @@ class NexusAPI:
             except Exception:
                 pass
         return NexusModInfo(
-            mod_id=d["mod_id"],
-            name=d["name"],
+            mod_id=d.get("mod_id") or mod_id,
+            name=d.get("name") or "",
             summary=d.get("summary", ""),
             description=d.get("description", ""),
             version=d.get("version", ""),
