@@ -6,6 +6,7 @@
 - Fixed fresh Bethesda INIs missing game defaults and vanilla archives after deployment or Collection installation.
 - Fixed stale Bethesda prefix INI links allowing deployment and Restore to change another profile's settings.
 - Fixed Collection installs accepting cached or newly downloaded archives that fail the manifest checksum.
+- Fixed Nexus Collection files with the same mod name overwriting one another during installation.
 
 ---
 
