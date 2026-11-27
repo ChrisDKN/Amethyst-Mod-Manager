@@ -180,7 +180,10 @@ def scan_staging_uuids(game, modlist_path: Path
     """
     staging = game.get_effective_mod_staging_path()
     entries = read_modlist(modlist_path)
-    mod_entries = [e for e in entries if not e.is_separator]
+    # The scanner keeps the last copy of a UUID. Within each enabled state,
+    # scan lowest priority first, as deployment does.
+    mod_entries = sorted((e for e in reversed(entries) if not e.is_separator),
+                         key=lambda e: e.enabled)
     by_uuid = scan_mod_paks(staging, mod_entries)
 
     uuid_to_mod: dict[str, str] = {}
@@ -227,7 +230,7 @@ def plan_reorder(
         uuid = uuid.lower()
         if uuid and uuid not in uuid_pos:
             uuid_pos[uuid] = i
-        if name and name.casefold() not in name_pos:
+        if name and uuid not in uuid_to_mod and name.casefold() not in name_pos:
             name_pos[name.casefold()] = i
 
     mod_pos: dict[str, int] = {}
