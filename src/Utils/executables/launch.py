@@ -4030,6 +4030,10 @@ def steam_compat_mounts(game, exe_path: Path, *, cwd: Path | None = None,
             _add(Path(staging).parent)
     _add(exe_path.parent)
     _add(cwd)
+    compat_data = (env or {}).get("STEAM_COMPAT_DATA_PATH")
+    if compat_data:
+        # Proton points the driver shader caches here.
+        _add(Path(compat_data).parent.parent / "shadercache" / Path(compat_data).name)
     try:
         _add(exe_path.resolve().parent)
     except OSError:
