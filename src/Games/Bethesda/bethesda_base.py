@@ -8,7 +8,7 @@ from Games.base_game import BaseGame, MODERN_DIRECTX_DEPS, WizardTool
 from Games.Bethesda.bethesda_ini import (
     _read_ini_key, _set_ini_key, game_default_ini, resolve_ini_path, seed_missing_ini,
 )
-from Utils.atomic_write import write_atomic_text
+from Utils.atomic_write import write_atomic, write_atomic_text
 from Utils.config_paths import get_profiles_dir
 from Utils.deployment import (
     LinkMode,
@@ -624,14 +624,18 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
                  f"{stem}Custom.ini", *self._PROFILE_SAVES_INI_FILES]
         return next((name for name in names if name and name.casefold() == filename.casefold()), filename)
 
-    @staticmethod
-    def _profile_ini_link_dir(target: Path) -> "Path | None":
+    def _profile_ini_link_dir(self, target: Path, *,
+                              ini_name: str | None = None) -> Path | None:
         if not target.is_symlink():
             return None
         try:
             source = target.readlink()
             if not source.is_absolute():
                 source = target.parent / source
+            if (source.name.casefold() != (ini_name or target.name).casefold()
+                    or source.parent.name.casefold() != self._PROFILE_INI_SUBDIR.casefold()
+                    or source.parent.parent.parent.name.casefold() != "profiles"):
+                return None
             return source.parent.resolve()
         except (OSError, RuntimeError):
             return None
@@ -660,19 +664,42 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
             backup.rename(target)
             log_fn(f"  Restored {target.name} from .bak")
 
+    def _detach_stale_profile_ini_links(self, mygames_dirs, active_ini_dir, log_fn) -> None:
+        for mygames in mygames_dirs:
+            if not mygames.is_dir():
+                continue
+            for target in mygames.iterdir():
+                if target.suffix.casefold() != ".ini":
+                    continue
+                source_dir = self._profile_ini_link_dir(target)
+                if source_dir is None or (source_dir == active_ini_dir and target.is_file()):
+                    continue
+                backup = target.with_suffix(".bak")
+                if backup.is_file() and self._profile_ini_link_dir(backup, ini_name=target.name) is None:
+                    backup.replace(target)
+                    log_fn(f"  Restored {target.name} from .bak in place of a stale profile INI link.")
+                elif target.is_file():
+                    write_atomic(target, target.read_bytes())
+                    log_fn(f"  Detached {target.name} from its previous profile.")
+                else:
+                    target.unlink()
+                    log_fn(f"  Removed broken profile INI link: {target.name}")
+
     def _symlink_profile_ini_files(self, profile: str, log_fn) -> None:
         """Link profile INIs using the game's filenames, preserving prefix backups."""
         _log = log_fn
+        mygames_dirs = self._mygames_paths()
+        ini_dir = self._profile_ini_dir(profile) if self._profile_ini_files else None
+        self._detach_stale_profile_ini_links(
+            mygames_dirs, ini_dir.resolve() if ini_dir is not None else None, _log)
         if self._PROFILE_SAVES_INI_FILES:
             from Games.Bethesda.profile_saves import restore_profile_saves
             restore_profile_saves(self, _log)
-        if not self._profile_ini_files:
+        if ini_dir is None:
             return
-        mygames_dirs = self._mygames_paths()
         if not mygames_dirs:
             _log("  WARN: Prefix path not set - skipping profile INI symlinks.")
             return
-        ini_dir = self._profile_ini_dir(profile)
         ini_dir.mkdir(parents=True, exist_ok=True)
         ini_files = {}
         for src in sorted(ini_dir.iterdir()):
@@ -1445,6 +1472,10 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
         remove_probe_stub_dirs(self._game_path, self.probe_stub_dirs,
                                log_fn=_log)
 
+        active = self._active_profile_dir
+        self._detach_stale_profile_ini_links(
+            self._mygames_paths(),
+            self._profile_ini_dir(active.name).resolve() if active is not None else None, _log)
         _log("Restore: reverting archive invalidation ...")
         self.revert_archive_invalidation(_log)
 
