@@ -28,6 +28,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from Games.Bethesda.bethesda_ini import game_default_ini, resolve_ini_path, seed_missing_ini
+
 
 # Per-game whitelist of valid target INI filenames. Mirrors the same table
 # Vortex uses (extensions/collections/src/initweaks.ts gameSettingsFiles).
@@ -123,6 +125,7 @@ def apply_collection_ini_tweaks(
     read_ini_key: Callable[[Path, str, str], "str | None"],
     log_fn: Callable[[str], None] | None = None,
     allowed_targets: list[str] | None = None,
+    *, game_root: Path | None = None,
 ) -> IniTweakResult:
     """Apply every ``.ini`` under ``<archive_root>/INI Tweaks/`` to profile copies.
 
@@ -166,13 +169,13 @@ def apply_collection_ini_tweaks(
             result.skipped += 1
             continue
 
-        profile_ini = profile_dir / target_name
+        profile_ini = resolve_ini_path(profile_dir, target_name)
 
         # Seed the profile INI from the user's live prefix INI on first apply.
         if not profile_ini.exists():
             seeded = False
             if prefix_ini_dir is not None:
-                src = prefix_ini_dir / target_name
+                src = resolve_ini_path(prefix_ini_dir, target_name)
                 if src.is_file():
                     try:
                         profile_dir.mkdir(parents=True, exist_ok=True)
@@ -184,6 +187,9 @@ def apply_collection_ini_tweaks(
                     except Exception as exc:
                         log(f"Collection INI tweaks: failed to seed "
                             f"'{target_name}' from prefix: {exc}")
+            if not seeded and seed_missing_ini(profile_ini, game_default_ini(game_root, target_name)):
+                seeded = True
+                log(f"Collection INI tweaks: seeded '{target_name}' from the game's default INI")
             if not seeded:
                 # Create an empty file so set_ini_key has something to write to.
                 profile_dir.mkdir(parents=True, exist_ok=True)

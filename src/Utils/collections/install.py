@@ -4262,7 +4262,8 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
     result = apply_collection_ini_tweaks(
         archive_root=archive_root, profile_dir=ini_target_dir,
         prefix_ini_dir=prefix_ini_dir, set_ini_key=_set_ini_key,
-        read_ini_key=_read_ini_key, log_fn=log, allowed_targets=allowed_targets)
+        read_ini_key=_read_ini_key, log_fn=log, allowed_targets=allowed_targets,
+        game_root=game.get_game_path())
     if result.files_processed or result.skipped:
         log(f"Collection INI tweaks: files={result.files_processed}, "
             f"added={result.keys_added}, changed={result.keys_changed}, "

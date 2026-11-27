@@ -3,6 +3,7 @@
 - Fixed Nexus mod lookups failing when a response omits the mod name or ID.
 - Fixed Baldur's Gate 3 load-order imports enabling a disabled variant that shares a UUID with an enabled mod.
 - Fixed archive installs bypassing the Replace prompt when the existing mod folder differs only in capitalization.
+- Fixed fresh Bethesda INIs missing game defaults and vanilla archives after deployment or Collection installation.
 
 ---
 

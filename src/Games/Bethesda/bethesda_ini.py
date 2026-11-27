@@ -1,7 +1,35 @@
 import re
 from pathlib import Path
 
-from Utils.atomic_write import write_atomic_text
+from Utils.atomic_write import write_atomic, write_atomic_text
+
+
+def resolve_ini_path(directory: Path, filename: str) -> Path:
+    target = directory / filename
+    if target.is_file() or target.is_symlink():
+        return target
+    try:
+        for entry in directory.iterdir():
+            if (entry.name.casefold() == filename.casefold()
+                    and (entry.is_file() or entry.is_symlink())):
+                return entry
+    except OSError:
+        pass
+    return target
+
+
+def game_default_ini(game_root: Path | None, filename: str) -> Path | None:
+    if game_root is None:
+        return None
+    source = resolve_ini_path(game_root, f"{Path(filename).stem}_default.ini")
+    return source if source.is_file() else None
+
+
+def seed_missing_ini(target: Path, source: Path | None) -> bool:
+    if source is None or target.exists() or target.is_symlink():
+        return False
+    write_atomic(target, source.read_bytes())
+    return True
 
 
 def _read_ini_key(ini_path: Path, section: str, key: str,
