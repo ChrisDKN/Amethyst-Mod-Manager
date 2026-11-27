@@ -70,6 +70,8 @@ _SUPPORTED_COLLECTION_SCHEMA_ID = 1
 # How long to wait after a 429 before retrying (seconds)
 _RATE_LIMIT_BACKOFF = 2.0
 _MAX_RETRIES = 3
+# Base wait before retrying a reset or timed-out request (seconds, grows per attempt)
+_CONNECTION_RETRY_BACKOFF = 1.0
 # Upper bound for a server-supplied numeric Retry-After header (seconds)
 _RETRY_AFTER_CAP = 30.0
 
@@ -787,22 +789,36 @@ class NexusAPI:
                 pass
         return wait
 
+    def _retry_connection(self, exc: requests.RequestException, url: str,
+                          attempt: int, retries: int,
+                          retry: bool = True) -> None:
+        """Back off after a connection error or timeout, or raise NexusAPIError
+        when no attempts are left or *retry* is False."""
+        if isinstance(exc, requests.ConnectionError):
+            error = NexusAPIError(f"Connection failed: {exc}", url=url)
+        else:
+            error = NexusAPIError(
+                f"Request timed out after {self._timeout}s", url=url)
+        if not retry or attempt + 1 >= retries:
+            raise error from exc
+        wait = _CONNECTION_RETRY_BACKOFF * (attempt + 1)
+        app_log(f"Nexus request to {url} failed ({error}), retrying in "
+                f"{wait:.1f}s (attempt {attempt + 1}/{retries})")
+        time.sleep(wait)
+
     def _get(self, path: str, params: dict | None = None,
              retries: int = _MAX_RETRIES) -> Any:
-        """Issue a GET request against the v1 API, with retry on 429."""
+        """Issue a GET request against the v1 API, with retry on 429,
+        connection errors, and timeouts."""
         self._refresh_oauth_if_needed()
         url = API_BASE + path
         for attempt in range(retries):
             try:
                 resp = self._session.get(url, params=params,
                                          timeout=self._timeout)
-            except requests.ConnectionError as exc:
-                raise NexusAPIError(
-                    f"Connection failed: {exc}", url=url) from exc
-            except requests.Timeout as exc:
-                raise NexusAPIError(
-                    f"Request timed out after {self._timeout}s",
-                    url=url) from exc
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                self._retry_connection(exc, url, attempt, retries)
+                continue
 
             self._update_rate_limits(resp)
             self._log_response("GET", path, resp)
@@ -909,7 +925,8 @@ class NexusAPI:
                       retries: int = _MAX_RETRIES,
                       base_url: str = GRAPHQL_BASE,
                       session: requests.Session | None = None) -> requests.Response:
-        """POST to a Nexus GraphQL endpoint (OAuth refresh + 429 retry)."""
+        """POST to a Nexus GraphQL endpoint (OAuth refresh, retry on 429, and
+        retry on connection errors and timeouts for queries)."""
         # Returns the raw response. Pass base_url=GRAPHQL_SEARCH_BASE for the
         # public mods-listing queries (see the constant's comment for why).
         with self._oauth_lock:
@@ -926,6 +943,7 @@ class NexusAPI:
         # so this strips them for the single call without touching the session.
         headers = ({h: None for h in _CREDENTIAL_HEADERS}
                    if base_url == GRAPHQL_SEARCH_BASE else None)
+        is_mutation = query.lstrip().startswith("mutation")
         for attempt in range(retries):
             try:
                 wait_started = time.perf_counter() if perftrace.is_enabled() else 0.0
@@ -942,13 +960,12 @@ class NexusAPI:
                         if request_started:
                             perftrace.mark("nexus.graphql.http",
                                            time.perf_counter() - request_started)
-            except requests.ConnectionError as exc:
-                raise NexusAPIError(
-                    f"Connection failed: {exc}", url=base_url) from exc
-            except requests.Timeout as exc:
-                raise NexusAPIError(
-                    f"Request timed out after {self._timeout}s",
-                    url=base_url) from exc
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                # A mutation may have reached the server before the failure,
+                # so only queries are resent.
+                self._retry_connection(exc, base_url, attempt, retries,
+                                       retry=not is_mutation)
+                continue
 
             self._update_rate_limits(resp)
             self._log_response("POST", op, resp)
