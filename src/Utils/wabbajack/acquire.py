@@ -30,6 +30,12 @@ _active = {}
 _AGGREGATE_INTERVAL = 0.5
 
 
+def _is_temporary_download(name):
+    name = name.lower()
+    return (name.startswith((".org.chromium.chromium.", ".com.google.chrome."))
+            or name.endswith((".part", ".tmp", ".crdownload", ".download")))
+
+
 class ArchiveCacheIndex:
     def __init__(self, roots, sizes, log=None):
         self.roots = tuple(dict.fromkeys(Path(root).resolve() for root in roots))
@@ -73,7 +79,7 @@ class ArchiveCacheIndex:
                                 if stop is not None and stop.is_set():
                                     raise InterruptedError("Installation stopped")
                                 try:
-                                    if not entry.is_file() or entry.name.endswith((".part", ".tmp")):
+                                    if _is_temporary_download(entry.name) or not entry.is_file():
                                         continue
                                     size = entry.stat().st_size
                                 except OSError:
@@ -106,6 +112,8 @@ class ArchiveCacheIndex:
 
     def add(self, path):
         path = Path(path).resolve()
+        if _is_temporary_download(path.name):
+            return
         size = path.stat().st_size
         with self._lock:
             if path.parent in self.roots and size in self.sizes:

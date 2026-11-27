@@ -4,8 +4,7 @@ selected mod requires ("Requires", purple) and which installed mods require it
 modlist selection while open (the window suppresses conflict highlights and
 tints the related rows with the same two colours instead).
 
-Entirely offline: it reads the full requirements list the update checker stores
-in each mod's meta.ini (`nexusRequirements`, "modId:name" pairs) - no API calls.
+The lists use the requirements stored in each mod's meta.ini.
 Requirements that aren't installed are shown dimmed with the Nexus mod name.
 """
 
@@ -59,7 +58,8 @@ class RequirementsView(QWidget):
     """Scoped-tab body showing a mod's requirement relationships."""
 
     def __init__(self, staging_fn, on_close, on_data_changed=None,
-                 on_focus_changed=None, on_view_missing=None, missing_names_fn=None):
+                 on_focus_changed=None, on_view_missing=None, missing_names_fn=None,
+                 on_check_updates=None):
         super().__init__()
         # staging_fn() → current staging Path (profile-switch safe) or None.
         self._staging_fn = staging_fn
@@ -76,6 +76,8 @@ class RequirementsView(QWidget):
         # actually have missing requirements).
         self._on_view_missing = on_view_missing or (lambda _n: None)
         self._missing_names_fn = missing_names_fn
+        self._on_check_updates = on_check_updates
+        self._check_targets: list[str] = []
 
         # Selected mod folder names (multiple pool their requirements together).
         self.current_mods: list[str] = []
@@ -140,6 +142,12 @@ class RequirementsView(QWidget):
         foot = QWidget(); foot.setObjectName("FooterBar")
         fb = QHBoxLayout(foot); fb.setContentsMargins(8, 6, 8, 8); fb.setSpacing(8)
         fb.addStretch(1)
+        self._check_btn = QPushButton(self.tr("Check Updates"))
+        self._check_btn.setCursor(Qt.PointingHandCursor)
+        self._check_btn.setStyleSheet(button_qss("BTN_GREY", pal=p))
+        self._check_btn.clicked.connect(self._check_updates)
+        self._check_btn.hide()
+        fb.addWidget(self._check_btn, 0)
         self._missing_btn = QPushButton(self.tr("View Missing Requirements"))
         self._missing_btn.setCursor(Qt.PointingHandCursor)
         self._missing_btn.setStyleSheet(button_qss("BTN_WARN", pal=p))
@@ -182,6 +190,11 @@ class RequirementsView(QWidget):
     def show_mod(self, mod_name):
         """Back-compat single-mod entry point (delegates to show_mods)."""
         self.show_mods([mod_name] if mod_name else [])
+
+    def _check_updates(self):
+        names = [name for name in self._check_targets if name in self.current_mods]
+        if self._on_check_updates is not None and names:
+            self._on_check_updates(names)
 
     def _request_repopulate(self):
         if not self.isVisible():
@@ -258,11 +271,13 @@ class RequirementsView(QWidget):
         for m in all_metas:
             by_id.setdefault(m.mod_id, []).append(m.mod_name)
 
-        # ---- Requires: union of every selected mod's stored requirements,
-        # deduped by requirement id. "Requires this data" only when NONE of the
-        # selected mods have been update-checked (a checked mod with genuinely
-        # no requirements just contributes nothing to the pool).
-        any_req_data = any(m.nexus_requirements for m in nexus_metas)
+        failed = [m.mod_name for m in nexus_metas if m.requirements_state == "failed"]
+        unchecked = [m.mod_name for m in nexus_metas if (
+            m.requirements_state not in {"ok", "failed"} and not m.nexus_requirements)]
+        self._check_targets = failed + unchecked
+        self._check_btn.setText(self.tr("Retry Check") if failed else self.tr("Check Updates"))
+        self._check_btn.setVisible(bool(self._on_check_updates and self._check_targets))
+
         seen_req: set[int] = set()
         for m in nexus_metas:
             for rid, rname in parse_req_pairs(m.nexus_requirements):
@@ -288,11 +303,18 @@ class RequirementsView(QWidget):
                     self._add_row(self._requires_list,
                                   self.tr("{0}  (not installed)").format(rname),
                                   dim=True)
-        if self._requires_list.count() == 0:
+        if failed:
             self._add_row(
                 self._requires_list,
-                self.tr("(none)") if any_req_data
-                else self.tr("Run Check Updates for this data."), dim=True)
+                self.tr("Requirements check failed for {0}.").format(", ".join(failed)),
+                dim=True)
+        if unchecked:
+            self._add_row(
+                self._requires_list,
+                self.tr("Requirements have not been checked for {0}.").format(", ".join(unchecked)),
+                dim=True)
+        if self._requires_list.count() == 0:
+            self._add_row(self._requires_list, self.tr("(none)"), dim=True)
 
         # ---- Required by: installed mods whose stored list names ANY of the
         # selected mods' ids (union). Derived from the OTHER mods' data, so it
@@ -301,9 +323,7 @@ class RequirementsView(QWidget):
         for m in all_metas:
             if m.mod_name in selected_set:
                 continue
-            if not m.nexus_requirements:
-                continue
-            have_data = True
+            have_data |= m.requirements_state == "ok" or bool(m.nexus_requirements)
             req_ids = {rid for rid, _ in parse_req_pairs(m.nexus_requirements)}
             if req_ids & selected_ids:
                 self._add_row(self._required_by_list, m.mod_name, dim=False)

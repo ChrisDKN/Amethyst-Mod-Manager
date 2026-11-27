@@ -184,7 +184,7 @@ def _decode_entry(f, info: dict, size_field: int, data_offset: int,
     return data
 
 
-def _parse_toc(f, *, name_aliases=None) -> tuple[dict, list[tuple[str, int, int]]]:
+def _parse_toc(f, *, name_aliases=None, name_encoding=None) -> tuple[dict, list[tuple[str, int, int]]]:
     """Walk the header + TOC, returning archive info and every file's
     ``(rel_path_lower, size_field, data_offset)`` in stored order."""
     magic = f.read(4)
@@ -208,6 +208,7 @@ def _parse_toc(f, *, name_aliases=None) -> tuple[dict, list[tuple[str, int, int]
     if version not in (103, 104, 105):
         raise BsaExtractError(f"unsupported BSA version {version}")
     utf8_aliases = name_aliases is not None and version == 104
+    decode_name = (lambda data: data.decode(name_encoding)) if name_encoding else decode_bsa_name
 
     end = f.seek(0, 2)
     folder_rec_size = 24 if version == 105 else 16
@@ -254,7 +255,7 @@ def _parse_toc(f, *, name_aliases=None) -> tuple[dict, list[tuple[str, int, int]
         name_bytes = f.read(nl)
         if len(name_bytes) < nl:
             raise BsaExtractError("truncated folder name")
-        folder_name = decode_bsa_name(name_bytes.rstrip(b"\x00")).replace("\\", "/").lower()
+        folder_name = decode_name(name_bytes.rstrip(b"\x00")).replace("\\", "/").lower()
         folder_names.append(folder_name)
         if utf8_aliases:
             folder_aliases.append(name_bytes.rstrip(b"\x00").decode("utf-8", "replace")
@@ -272,7 +273,7 @@ def _parse_toc(f, *, name_aliases=None) -> tuple[dict, list[tuple[str, int, int]
     name_block = f.read(total_file_name_length)
     if len(name_block) < total_file_name_length:
         raise BsaExtractError("truncated file-name block")
-    names_text = decode_bsa_name(name_block).lower()
+    names_text = decode_name(name_block).lower()
     file_names = names_text.split("\x00")
     # Some shipped archives pad the name block, occasionally with non-zero
     # data, so retain only the names represented by file records.

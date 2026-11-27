@@ -138,7 +138,9 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
                 roots.setdefault(mod, []).append(rel.lower())
                 strips[mod] = [parts[3]]
             if rel.lower().endswith(".mohidden"):
-                hidden.setdefault(mod, []).append(rel.lower())
+                installed = adapter.installed_path(key.removeprefix("root/"))
+                if installed:
+                    hidden.setdefault(mod, []).append(installed.split("/", 2)[2].lower())
         rel = key.removeprefix("root/")
         dest = adapter.root_destination(rel)
         if dest and key not in payloads and dest.casefold() not in priority_root_files:

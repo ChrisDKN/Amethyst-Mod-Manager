@@ -1811,14 +1811,15 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log,
          - best-effort: some Steam builds ignore URL args, but it's the only
          route into a Flatpak Steam (no host ``steam`` binary). xdg-open
          exits 0 once the URL is handed off, so a dropped arg can't be
-         detected - which is why it must come *after* -applaunch here,
-         reversing the argless candidate order.
+         detected - which is why it comes after -applaunch when forwarding args.
 
     A non-Steam shortcut is addressed differently: rungameid wants the 64-bit
     composite id built from the shortcut's app id, and ``-applaunch`` doesn't
     accept shortcuts at all (it only resolves real store app ids), so that
     candidate is dropped for them.
     """
+    from Utils.environment.xdg import host_env, run_host_tool
+
     in_flatpak = Path("/.flatpak-info").exists()
     have_spawn = shutil.which("flatpak-spawn") is not None
 
@@ -1836,23 +1837,28 @@ def launch_via_steam(steam_id: str, log_fn=_noop_log,
         pass
 
     def _url_candidates(target: str) -> "list[list[str]]":
-        """The steam:// routes, best first.
-
-        Host xdg-open leads: it hands the URL to whichever Steam the user
-        actually has - native, Flatpak com.valvesoftware.Steam or Snap -
-        whereas a bare ``steam`` binary only exists for a native install, so
-        it is the fallback rather than the primary.
-        """
         if in_flatpak and have_spawn:
             return [
                 ["flatpak-spawn", "--host", "xdg-open", target],
                 ["flatpak-spawn", "--host", "steam", target],
                 ["xdg-open", target],
             ]
-        return [
-            ["xdg-open", target],
-            ["steam", target],
-        ]
+        desktop = ["xdg-open", target]
+        direct = ["steam", target]
+        if not in_flatpak and shutil.which("steam", path=host_env().get("PATH")):
+            # Bypass KDE's blocking URL error while honoring other Steam handlers.
+            try:
+                handler = run_host_tool(
+                    ["xdg-mime", "query", "default", "x-scheme-handler/steam"],
+                    timeout=2,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+            else:
+                if (handler.returncode == 0
+                        and handler.stdout.strip() in (b"", b"steam.desktop")):
+                    return [direct, desktop]
+        return [desktop, direct]
 
     log_fn(f"Play: launching via Steam "
            f"({'non-Steam shortcut' if is_shortcut else 'app'} {steam_id}) ...")

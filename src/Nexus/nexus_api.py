@@ -69,6 +69,7 @@ _SUPPORTED_COLLECTION_SCHEMA_ID = 1
 
 # How long to wait after a 429 before retrying (seconds)
 _RATE_LIMIT_BACKOFF = 2.0
+_CONNECTION_BACKOFF = 1.0
 _MAX_RETRIES = 3
 # Upper bound for a server-supplied numeric Retry-After header (seconds)
 _RETRY_AFTER_CAP = 30.0
@@ -308,6 +309,7 @@ class NexusModUpdateInfo:
     category_name: str = ""                 # Category display name
     uploaded_by: str = ""                   # Nexus username that uploaded the mod
     files: list["NexusModFile"] = field(default_factory=list)  # from batch; avoids REST get_mod_files
+    requirements_complete: bool = True
 
 
 @dataclass
@@ -908,8 +910,9 @@ class NexusAPI:
                       op: str = "GraphQL",
                       retries: int = _MAX_RETRIES,
                       base_url: str = GRAPHQL_BASE,
-                      session: requests.Session | None = None) -> requests.Response:
-        """POST to a Nexus GraphQL endpoint (OAuth refresh + 429 retry)."""
+                      session: requests.Session | None = None, *,
+                      retry_connection: bool = False) -> requests.Response:
+        """POST to Nexus GraphQL, with connection retries for opted-in queries."""
         # Returns the raw response. Pass base_url=GRAPHQL_SEARCH_BASE for the
         # public mods-listing queries (see the constant's comment for why).
         with self._oauth_lock:
@@ -943,6 +946,12 @@ class NexusAPI:
                             perftrace.mark("nexus.graphql.http",
                                            time.perf_counter() - request_started)
             except requests.ConnectionError as exc:
+                if retry_connection and attempt + 1 < retries:
+                    wait = _CONNECTION_BACKOFF * 2 ** attempt
+                    app_log(f"Nexus {op}: connection failed, retrying in {wait:g}s "
+                            f"(attempt {attempt + 1}/{retries})")
+                    time.sleep(wait)
+                    continue
                 raise NexusAPIError(
                     f"Connection failed: {exc}", url=base_url) from exc
             except requests.Timeout as exc:
@@ -1300,8 +1309,8 @@ class NexusAPI:
             except Exception:
                 pass
         return NexusModInfo(
-            mod_id=d["mod_id"],
-            name=d["name"],
+            mod_id=d.get("mod_id") or mod_id,
+            name=d.get("name") or "",
             summary=d.get("summary", ""),
             description=d.get("description", ""),
             version=d.get("version", ""),
@@ -2133,18 +2142,35 @@ class NexusAPI:
             }
         }
         """
+        page_size = self._GRAPHQL_REQUIREMENTS_PAGE_SIZE
+
+        def requirements_page(node, offset):
+            mod_requirements = node.get("modRequirements")
+            page = (mod_requirements.get("nexusRequirements")
+                    if isinstance(mod_requirements, dict) else None)
+            if not isinstance(page, dict):
+                return None, []
+            total = page.get("totalCount")
+            nodes = page.get("nodes")
+            if (type(total) is not int or total < offset
+                    or not isinstance(nodes, list)
+                    or len(nodes) != min(total - offset, page_size)
+                    or not all(isinstance(row, dict) for row in nodes)):
+                return None, []
+            return total, self._parse_graphql_requirements(nodes)
+
         def fetch_batch(batch, session):
             results: dict[int, NexusModUpdateInfo] = {}
             requirement_totals: dict[int, int] = {}
             variables = {
                 "ids": [{"gameDomain": gd, "modId": mid} for gd, mid in batch],
-                "requirementsCount": self._GRAPHQL_REQUIREMENTS_PAGE_SIZE,
+                "requirementsCount": page_size,
                 "requirementsOffset": 0,
             }
             try:
                 resp = self._post_graphql(query, variables,
                                           op="GraphQL batchUpdateCheck",
-                                          session=session)
+                                          session=session, retry_connection=True)
                 if not resp.ok:
                     app_log(f"GraphQL batch update check failed: {resp.status_code}")
                     return results
@@ -2159,6 +2185,8 @@ class NexusAPI:
                     .get("legacyModsByDomain") or {}
                 ).get("nodes") or []
                 for n in nodes:
+                    if not isinstance(n, dict):
+                        continue
                     mid = int(n.get("modId", 0))
                     updated_at = None
                     raw_ts = n.get("updatedAt")
@@ -2171,14 +2199,7 @@ class NexusAPI:
                             pass
                     vua = n.get("viewerUpdateAvailable")
                     ven = n.get("viewerEndorsed")
-                    req_page = (
-                        (n.get("modRequirements") or {})
-                        .get("nexusRequirements") or {}
-                    )
-                    reqs = self._parse_graphql_requirements(
-                        req_page.get("nodes") or [])
-                    requirement_totals[mid] = int(
-                        req_page.get("totalCount") or 0)
+                    total, reqs = requirements_page(n, 0)
                     mcat = n.get("modCategory") or {}
                     cat_id = int(mcat.get("categoryId") or 0) if isinstance(mcat.get("categoryId"), (int, str)) else 0
                     cat_name = (mcat.get("name") or "").strip() if isinstance(mcat.get("name"), str) else ""
@@ -2192,20 +2213,23 @@ class NexusAPI:
                         viewer_update_available=None if vua is None else bool(vua),
                         viewer_endorsed=None if ven is None else bool(ven),
                         requirements=reqs,
+                        requirements_complete=total == len(reqs),
                         category_id=cat_id,
                         category_name=cat_name,
                         uploaded_by=(n.get("uploader") or {}).get("name", "") or "",
                         files=[],  # Mod has no files field in GraphQL; REST used for file checks
                     )
+                    if total is not None:
+                        requirement_totals[mid] = total
 
-                offset = self._GRAPHQL_REQUIREMENTS_PAGE_SIZE
-                while any(total > offset
-                          for total in requirement_totals.values()):
+                offset = page_size
+                while any(total > offset and len(results[mid].requirements) == offset
+                          for mid, total in requirement_totals.items()):
                     variables["requirementsOffset"] = offset
                     resp = self._post_graphql(
                         query, variables,
                         op="GraphQL batchUpdateCheck requirements page",
-                        session=session)
+                        session=session, retry_connection=True)
                     if not resp.ok:
                         app_log("GraphQL batch requirements page failed: "
                                 f"{resp.status_code}")
@@ -2222,18 +2246,18 @@ class NexusAPI:
                         .get("legacyModsByDomain") or {}
                     ).get("nodes") or []
                     for page_node in page_nodes:
+                        if not isinstance(page_node, dict):
+                            continue
                         page_mid = int(page_node.get("modId", 0))
                         info = results.get(page_mid)
-                        if info is None:
+                        if (info is None or info.requirements_complete
+                                or len(info.requirements) != offset):
                             continue
-                        req_page = (
-                            (page_node.get("modRequirements") or {})
-                            .get("nexusRequirements") or {}
-                        )
-                        info.requirements.extend(
-                            self._parse_graphql_requirements(
-                                req_page.get("nodes") or []))
-                    offset += self._GRAPHQL_REQUIREMENTS_PAGE_SIZE
+                        total, reqs = requirements_page(page_node, offset)
+                        if total is not None and total == requirement_totals.get(page_mid):
+                            info.requirements.extend(reqs)
+                            info.requirements_complete = len(info.requirements) == total
+                    offset += page_size
             except Exception as exc:
                 app_log(f"GraphQL batch update check error: {exc}")
             return results

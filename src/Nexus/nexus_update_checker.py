@@ -291,6 +291,16 @@ def check_for_updates(
                 continue
             with meta_file_lock(path):
                 current = read_meta(path)
+                if (current.game_domain, current.mod_id, current.file_id, current.installed) != (
+                        original.game_domain, original.mod_id, original.file_id, original.installed):
+                    continue
+                req_fields = {"requirements_state", "nexus_requirements", "missing_requirements"}
+                if req_fields & changed.keys():
+                    if meta.requirements_state == "ok":
+                        changed.update({key: getattr(meta, key) for key in req_fields})
+                    elif current.nexus_requirements or current.missing_requirements:
+                        changed.pop("nexus_requirements", None)
+                        changed.pop("missing_requirements", None)
                 if all(getattr(current, key) == value for key, value in changed.items()):
                     continue
                 for key, value in changed.items():
@@ -412,13 +422,12 @@ def _check_for_updates_one_domain(
     _log(f"Checking {len(checkable)} Nexus mod(s) for updates"
          f"{f' ({skipped} skipped - no version, file id, or install date)' if skipped else ''}...")
 
-    if not checkable:
-        _log("No checkable mods found (need a modid plus a version, file id, or install date).")
+    if not installed:
         return [], []
 
     # Determine the domain to use
     if not game_domain:
-        game_domain = checkable[0].game_domain.strip().lower()
+        game_domain = installed[0].game_domain.strip().lower()
     if not game_domain:
         _log("No game domain available - cannot check updates.")
         return [], []
@@ -436,7 +445,7 @@ def _check_for_updates_one_domain(
     #    This does not consume the REST hourly rate limit.
     # -----------------------------------------------------------------------
     _log("Fetching update info via GraphQL...")
-    gql_ids = [(game_domain, mod_id) for mod_id in by_mod_id]
+    gql_ids = [(game_domain, mod_id) for mod_id in dict.fromkeys(m.mod_id for m in installed)]
     try:
         gql_info: dict[int, NexusModUpdateInfo] = api.graphql_mod_update_info_batch(gql_ids)
     except Exception as exc:

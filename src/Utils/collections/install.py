@@ -29,6 +29,7 @@ import json
 import queue as _queue
 import re
 import threading
+from collections import Counter
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -111,50 +112,27 @@ def _adopted_disabled_folders(staging_path, install_order, disabled_rows,
 # Pure map helpers moved verbatim from gui/collections_dialog.py (imported back
 # there to keep ONE implementation). No Tk.
 # ---------------------------------------------------------------------------
-def _build_collision_suffix_map(
-    schema_mods: "list[dict]",
-    schema_file_id_to_logical: "dict[int, str]",
-    schema_pos_to_name: "dict[int, str]",
-    schema_file_id_to_pos: "dict[int, int]",
-) -> "dict[int, str]":
-    """Return file_id → suffix to append when multiple collection entries from
-    different mod pages would otherwise install into the same folder. Returns ""
-    for non-colliding entries; the suffix string for colliders."""
-    base_to_fids: dict[str, list[int]] = {}
-    fid_to_base: dict[int, str] = {}
-    fid_to_mod_id: dict[int, int] = {}
-    for sm in schema_mods:
-        src = sm.get("source") or {}
-        fid = src.get("fileId")
-        if fid is None:
-            continue
-        fid = int(fid)
-        logical = schema_file_id_to_logical.get(fid, "") or ""
-        schema_name = schema_pos_to_name.get(
-            schema_file_id_to_pos.get(fid, -1), "") or ""
-        base = (logical or schema_name or sm.get("name") or "").strip()
-        if not base:
-            continue
-        fid_to_base[fid] = base
-        mid = src.get("modId")
-        if mid:
-            fid_to_mod_id[fid] = int(mid)
-        base_to_fids.setdefault(base.lower(), []).append(fid)
-
-    result: dict[int, str] = {}
-    for fid, base in fid_to_base.items():
-        siblings = base_to_fids.get(base.lower(), [])
-        if len(siblings) <= 1:
-            result[fid] = ""
-            continue
-        sibling_mod_ids = {fid_to_mod_id.get(s) for s in siblings}
-        sibling_mod_ids.discard(None)
-        if len(sibling_mod_ids) <= 1:
-            result[fid] = ""
-            continue
-        mod_id = fid_to_mod_id.get(fid)
-        result[fid] = f" ({mod_id})" if mod_id else ""
-    return result
+def _reserve_collection_names(base_names, queued_ids, ambiguous_ids,
+                              occupied_names, claimed_names, preserve_existing):
+    occupied_keys = {name.casefold() for name in occupied_names}
+    reserved = {name.casefold() for name in base_names.values()}
+    reserved.update(occupied_keys)
+    reserved.update(claimed_names)
+    planned = {}
+    for fid in queued_ids:
+        name = base_names[fid]
+        key = name.casefold()
+        if (fid in ambiguous_ids or key in claimed_names
+                or (key in occupied_keys and (preserve_existing or name not in occupied_names))):
+            base = f"{name} [file {fid}]"
+            name = base
+            index = 2
+            while name.casefold() in reserved:
+                name = f"{base} {index}"
+                index += 1
+        reserved.add(name.casefold())
+        planned[fid] = name
+    return planned
 
 
 def _fomod_choices_from_collection(choices: dict) -> "dict[str, dict[str, list[str]]]":
@@ -789,11 +767,25 @@ def run_collection_install(
     def _sort_key(m):
         return schema_file_id_to_pos.get(m.file_id, len(schema_mods))
 
-    ordered_mods = sorted(mods, key=_sort_key)
+    ordered_mods = []
+    seen_ids = set()
+    for mod in sorted(mods, key=_sort_key):
+        if mod.file_id and mod.file_id in seen_ids:
+            total -= 1
+            continue
+        seen_ids.add(mod.file_id)
+        ordered_mods.append(mod)
 
-    schema_file_id_to_suffix: dict[int, str] = _build_collision_suffix_map(
-        schema_mods, schema_file_id_to_logical, schema_pos_to_name,
-        schema_file_id_to_pos)
+    base_names = {}
+    for mod in (*ordered_mods, *(skipped_mods or [])):
+        fid = mod.file_id
+        if fid and fid not in base_names:
+            base_names[fid] = (schema_file_id_to_logical.get(fid)
+                               or schema_pos_to_name.get(schema_file_id_to_pos.get(fid))
+                               or mod.mod_name or f"Nexus file {fid}")
+    name_counts = Counter(name.casefold() for name in base_names.values())
+    ambiguous_ids = {fid for fid, name in base_names.items()
+                     if name_counts[name.casefold()] > 1}
 
     # ------------------------------------------------------------------
     # Step 2 pre-scan staging for already-installed mods
@@ -919,7 +911,7 @@ def run_collection_install(
                 continue
             # Identity finds a candidate; ownership authorizes removal.
             folder_name = _match_existing(mod)
-            if not folder_name:
+            if not folder_name and mod.file_id not in ambiguous_ids:
                 # Name fallback: only for legacy installs with no id match. A
                 # cleaned title ("HSMarkarth - The Warrens - AE" → "HSMarkarth -
                 # The Warrens") can collide with a DIFFERENT mod's folder, so
@@ -1023,6 +1015,7 @@ def run_collection_install(
         int(entry["source"]["fileId"])
         for entry in schema_mods
         if entry.get("patches") and (entry.get("source") or {}).get("fileId")}
+    claimed_names = {name.casefold() for _, name in install_order}
 
     # Classify: already-installed (skip) vs needs downloading
     for mod in ordered_mods:
@@ -1036,7 +1029,7 @@ def run_collection_install(
             skipped += 1
             continue
         existing_folder: str = _match_existing(mod)
-        if not existing_folder:
+        if not existing_folder and mod.file_id not in ambiguous_ids:
             for candidate in _name_candidates(mod):
                 key = candidate.lower()
                 if key in staging_lower_map:
@@ -1066,7 +1059,8 @@ def run_collection_install(
                     log(f"Collection update: installing a separate copy of shared patch target "
                         f"'{existing_folder}'")
                     existing_folder = ""
-        if existing_folder:
+        if existing_folder and existing_folder.casefold() not in claimed_names:
+            claimed_names.add(existing_folder.casefold())
             log(f"Collection install: '{mod.mod_name}' already installed as "
                 f"'{existing_folder}' - skipping")
             _track_collection_mod(existing_folder)
@@ -1077,6 +1071,13 @@ def run_collection_install(
         else:
             _record_outcome(mod, "queued")
             to_download.append(mod)
+
+    occupied_names = ({entry.name for entry in staging_path.iterdir()}
+                      if staging_path is not None and staging_path.is_dir() else set())
+    preferred_names = _reserve_collection_names(
+        base_names, (mod.file_id for mod in to_download), ambiguous_ids,
+        occupied_names, claimed_names,
+        update_context is not None or overwrite_existing is False)
 
     # Mods classified as already-present/skipped BEFORE the pipeline. Status
     # and progress always count the whole collection - "Downloaded X/546" -
@@ -1334,16 +1335,6 @@ def run_collection_install(
         except Exception:
             return None
 
-    def _preferred_name(mod):
-        logical = schema_file_id_to_logical.get(mod.file_id, "") or ""
-        schema_name = schema_pos_to_name.get(
-            schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
-        pref = logical or schema_name or mod.mod_name or ""
-        pref += schema_file_id_to_suffix.get(mod.file_id, "")
-        return (_update_preferred_name(staging_path, pref, _slug, mod.file_id)
-                if update_context is not None
-                or (_is_append_run and not overwrite_existing) else pref)
-
     def _expected_size(mod) -> int:
         if _resolved_file_id(mod) != int(mod.file_id or 0):
             return int(getattr(mod, "size_bytes", 0) or 0)
@@ -1536,6 +1527,7 @@ def run_collection_install(
                     progress_cb=_progress_cb, cancel=_col_stop,
                     known_file_name=mod.file_name or "",
                     expected_size_bytes=_exp_size,
+                    expected_md5=_expected_md5(mod),
                     prefetched_links=_pref_links,
                     cache_index=_archive_index,
                     dest_dir=get_download_cache_dir_for_game(getattr(game, "name", "") or ""))
@@ -1647,7 +1639,7 @@ def run_collection_install(
         auto_bain = bain_by_file_id.get(mod.file_id)
         replicate_hashes = replicate_by_file_id.get(mod.file_id)
         _pmeta = _build_prebuilt_meta(mod, effective_domain)
-        _preferred = _preferred_name(mod)
+        _preferred = preferred_names[mod.file_id]
 
         # One listing supplies the memory estimate, optional FOMOD preflight and
         # extraction-placement decision. Small archives without a preflight keep
@@ -2217,14 +2209,14 @@ def run_collection_install(
                 schema_mods, schema_file_id_to_phase, schema_file_id_to_pos,
                 schema_file_id_to_mod_id, schema_file_id_to_install_type,
                 schema_file_id_to_category,
-                schema_file_id_to_logical, schema_pos_to_name, schema_file_id_to_suffix,
+                preferred_names,
                 fomod_by_file_id, bain_by_file_id, replicate_by_file_id, _install_results,
                 fomod_expected_installed_files, fomod_expected_active_files,
                 _install_counters, _record_catalogued, _install_lock,
                 _archive_use_count,
                 _external_archive_paths, _col_stop, _slug, overwrite_existing,
                 _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status,
-                track_mod=_track_collection_mod, update_context=update_context)
+                track_mod=_track_collection_mod)
 
     if download_only:
         # Everything below (mod index, bundled assets, modlist/plugins/filemap,
@@ -2631,14 +2623,14 @@ def _process_deferred(
         schema_mods, schema_file_id_to_phase, schema_file_id_to_pos,
         schema_file_id_to_mod_id, schema_file_id_to_install_type,
         schema_file_id_to_category,
-        schema_file_id_to_logical, schema_pos_to_name, schema_file_id_to_suffix,
+        preferred_names,
         fomod_by_file_id, bain_by_file_id, replicate_by_file_id, _install_results,
         fomod_expected_installed_files, fomod_expected_active_files,
         _install_counters, _record_catalogued, _install_lock,
         _archive_use_count,
         _external_archive_paths, _col_stop, _slug, overwrite_existing,
         _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status,
-        track_mod=None, update_context=None):
+        track_mod=None):
     from Nexus.nexus_meta import build_meta_from_download
 
     def _mk_meta_and_name(mod, domain):
@@ -2668,15 +2660,7 @@ def _process_deferred(
             pmeta.collection_phase = schema_file_id_to_phase.get(mod.file_id, 0)
         except Exception:
             pmeta = None
-        logical = schema_file_id_to_logical.get(mod.file_id, "") or ""
-        schema_name = schema_pos_to_name.get(
-            schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
-        pref = (logical or schema_name or mod.mod_name or "") \
-            + schema_file_id_to_suffix.get(mod.file_id, "")
-        if update_context is not None or overwrite_existing is False:
-            pref = _update_preferred_name(
-                game.get_effective_mod_staging_path(), pref, _slug, mod.file_id)
-        return pmeta, pref
+        return pmeta, preferred_names[mod.file_id]
 
     def _record(mod, folder):
         if folder and track_mod is not None:
@@ -4262,7 +4246,8 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
     result = apply_collection_ini_tweaks(
         archive_root=archive_root, profile_dir=ini_target_dir,
         prefix_ini_dir=prefix_ini_dir, set_ini_key=_set_ini_key,
-        read_ini_key=_read_ini_key, log_fn=log, allowed_targets=allowed_targets)
+        read_ini_key=_read_ini_key, log_fn=log, allowed_targets=allowed_targets,
+        game_root=game.get_game_path())
     if result.files_processed or result.skipped:
         log(f"Collection INI tweaks: files={result.files_processed}, "
             f"added={result.keys_added}, changed={result.keys_changed}, "

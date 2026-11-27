@@ -4,6 +4,14 @@
   - Unity Mod Manager mods and Owlcat Template mods; Template mods are enabled in OwlcatModificationManagerSettings.json automatically
   - Custom portrait packs install to the game's Portraits folder
   - Kingmaker and Wrath need Unity Mod Manager installed into the game (Doorstop Proxy) - Amethyst detects it and sets the winhttp override
+## Bug Fixes
+- Fixed Nexus mod lookups failing when a response omits the mod name or ID.
+- Fixed Baldur's Gate 3 load-order imports enabling a disabled variant that shares a UUID with an enabled mod.
+- Fixed archive installs bypassing the Replace prompt when the existing mod folder differs only in capitalization.
+- Fixed fresh Bethesda INIs missing game defaults and vanilla archives after deployment or Collection installation.
+- Fixed stale Bethesda prefix INI links allowing deployment and Restore to change another profile's settings.
+- Fixed Collection installs accepting cached or newly downloaded archives that fail the manifest checksum.
+- Fixed Nexus Collection files with the same mod name overwriting one another during installation.
 
 ---
 

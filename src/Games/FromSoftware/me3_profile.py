@@ -323,5 +323,7 @@ def render_profile(entries: list[Me3ModEntry], *, game: str, profile_dir: Path,
                 "[[natives]]",
                 f"path = {_toml_str(_rel_path(dll, profile_dir))}",
             ]
+            if game == "nightreign" and dll.name.lower() == "nrsc.dll":
+                lines.append("load_early = true")
 
     return "\n".join(lines) + "\n"

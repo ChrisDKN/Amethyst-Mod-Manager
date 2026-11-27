@@ -43,6 +43,25 @@ def _crc32_hex(data: bytes) -> str:
     return f"{zlib.crc32(data) & 0xFFFFFFFF:08X}"
 
 
+_HEX_DIGITS = frozenset("0123456789ABCDEF")
+
+
+def _crc_matches(src: bytes, actual_crc: str, expected_crc: object) -> bool:
+    """Return True when ``actual_crc`` matches Vortex's ``expected_crc``.
+
+    Vortex emits ``""`` or ``"0"`` for 0-byte files and may omit leading zeros
+    on shorter hex CRCs instead of zero-padding to 8 characters.
+    """
+    if expected_crc is None:
+        return False
+    expected = str(expected_crc).strip().upper()
+    if not expected:
+        return len(src) == 0
+    if len(expected) < 8 and all(ch in _HEX_DIGITS for ch in expected):
+        expected = expected.zfill(8)
+    return actual_crc.upper() == expected
+
+
 def _tag_mod_as_patched(
     mod_dir: Path, slug: str, revision: "str | None",
 ) -> None:
@@ -173,7 +192,7 @@ def apply_collection_patches(
                     result.already_applied += 1
                     continue
                 actual_crc = _crc32_hex(src)
-                if actual_crc.upper() != str(expected_crc).upper():
+                if not _crc_matches(src, actual_crc, expected_crc):
                     log(f"Collection patches: CRC mismatch for {rel_path} "
                         f"(expected {expected_crc}, got {actual_crc}) - skipping")
                     result.crc_mismatch += 1

@@ -2329,9 +2329,20 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     from Utils.mods.copy import resolve_target_staging
     staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
-    dest_root = staging_root / p.mod_name
     from Utils.mods.links import require_local_mod
-    require_local_mod(staging_root, p.profile_dir, p.mod_name)
+
+    def resolve_destination(name):
+        target = staging_root / name
+        if not target.exists() and not target.is_symlink():
+            matches = [child for child in staging_root.iterdir()
+                       if child.name.casefold() == name.casefold()
+                       and (child.is_dir() or child.is_symlink())]
+            if len(matches) > 1:
+                raise ValueError(f"Multiple mod folders match '{name}'. Use the exact folder name.")
+            if matches:
+                target = matches[0]
+        require_local_mod(staging_root, p.profile_dir, target.name)
+        return target
 
     def _pp(done, total, phase=None):
         if progress_fn is not None:
@@ -2341,10 +2352,14 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     # own loop (the single-mod exists-prompt below is keyed on the archive name,
     # which never becomes a mod folder for this shape).
     if p.is_multi_mod():
+        require_local_mod(staging_root, p.profile_dir, p.mod_name)
         return _install_multi_mod(
             p, log_fn, _pp,
             preserve_position=not interactive,
             on_exists=on_exists if not interactive else None)
+
+    dest_root = resolve_destination(p.mod_name)
+    p.mod_name = dest_root.name
 
     # Reinstall/update of an RE bundle: carry the user's saved option selection
     # (and order) onto the freshly detected spec before the folder is wiped -
@@ -2417,9 +2432,8 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                         conflict = True
                         continue
                     new_name = validate_mod_folder_name(new_name)
-                    p.mod_name = new_name
-                    dest_root = staging_root / p.mod_name
-                    require_local_mod(staging_root, p.profile_dir, p.mod_name)
+                    dest_root = resolve_destination(new_name)
+                    p.mod_name = dest_root.name
                     # Loop: if the new name is ALSO taken, re-prompt (conflict).
                     conflict = dest_root.exists()
                     # rename installs as a NEW mod (no position preserve).
@@ -2666,9 +2680,6 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             p._on_catalogued(p.mod_name)
         except Exception:
             pass
-    # Stamp missing-requirements + endorsed flags now (one GraphQL call, no
-    # rate-limit cost) so the modlist flags appear immediately without pressing
-    # "Check updates".
     _check_nexus_flags_after_install(p.game, p.mod_name, log_fn,
                                      profile_dir=p.profile_dir)
     record_download_install(
@@ -3721,7 +3732,8 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
         from Utils.bsa.packing_meta import clear_packing_state
         clear_packing_state(dest_root)
         from Nexus.nexus_meta import (
-            write_meta, resolve_nexus_meta_for_archive_domains, NexusModMeta)
+            NexusModMeta, normalise_game_domain,
+            resolve_nexus_meta_for_archive_domains, write_meta)
         if prebuilt_meta is None and plugin_source is not None:
             fields = plugin_source["metadata"]
             prebuilt_meta = NexusModMeta(version=fields.get("version", ""), author=fields.get("author", ""),
@@ -3758,6 +3770,14 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
             meta.collection_ownership = carry_ownership(previous_meta, meta)
             meta.mmb_custom_url = previous_meta.mmb_custom_url
             meta.install_random = previous_meta.install_random
+            if (meta.mod_id > 0 and meta.file_id > 0
+                    and meta.mod_id == previous_meta.mod_id
+                    and meta.file_id == previous_meta.file_id
+                    and normalise_game_domain(meta.game_domain)
+                    == normalise_game_domain(previous_meta.game_domain)):
+                meta.requirements_state = previous_meta.requirements_state
+                meta.nexus_requirements = previous_meta.nexus_requirements
+                meta.missing_requirements = previous_meta.missing_requirements
         if install_random:
             meta.install_random = install_random
         if not getattr(meta, "installed", ""):
@@ -3807,23 +3827,7 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
 
 def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
                                      profile_dir: "Path | None" = None) -> None:
-    """Stamp the freshly installed mod(s)' missing requirements + endorsed flag.
-
-    Both come from a SINGLE Nexus GraphQL v2 request (``modRequirements`` +
-    ``viewerEndorsed``) via ``graphql_mod_update_info_batch``, which does NOT
-    consume the REST hourly rate limit - so this runs on every install at zero
-    rate-limit cost. Results are written to each mod's ``missingRequirements``
-    and ``endorsed`` meta.ini fields, the same fields the "Check updates" flow
-    populates and the modlist UI already reads, so the warning/★ flags appear
-    immediately without the user pressing Check updates.
-
-    *mod_names* is a single folder name or an iterable of them - multi-mod
-    archives pass every installed name at once so the staging scan and the
-    GraphQL request happen once per archive, not once per mod.
-
-    Best-effort: offline / not-logged-in / any failure is swallowed - this must
-    never break or delay a successful install.
-    """
+    """Refresh requirement and endorsement metadata without failing the install."""
     try:
         names = {mod_names} if isinstance(mod_names, str) else set(mod_names)
         if not names:
@@ -3842,7 +3846,7 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
         except Exception:
             return
         from Nexus.nexus_meta import (
-            normalise_game_domain, scan_installed_mods, read_meta, write_meta)
+            normalise_game_domain, scan_installed_mods, read_meta, set_meta_keys)
         from Nexus.nexus_requirements import check_requirements_from_gql
 
         all_installed = scan_installed_mods(staging_root)
@@ -3864,10 +3868,12 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
         for domain, domain_mods in by_domain.items():
             # One GraphQL request per Nexus game. Mod ids are only unique
             # inside a domain, so combining these batches would cross-wire ids.
-            gql_info = api.graphql_mod_update_info_batch(
-                [(domain, m.mod_id) for m in domain_mods])
-            if not gql_info:
-                continue
+            try:
+                gql_info = api.graphql_mod_update_info_batch(
+                    [(domain, m.mod_id) for m in domain_mods])
+            except Exception as exc:
+                log_fn(f"Nexus flags could not be fetched for {domain} ({exc}).")
+                gql_info = {}
 
             # A mod that also carries Thunderstore metadata was installed from
             # Thunderstore, whose packages pin their own dependencies - the
@@ -3903,8 +3909,7 @@ def _check_nexus_flags_after_install(game, mod_names, log_fn: LogFn,
                 if meta_path.is_file():
                     meta = read_meta(meta_path)
                     if meta.endorsed != bool(ven):
-                        meta.endorsed = bool(ven)
-                        write_meta(meta_path, meta)
+                        set_meta_keys(meta_path, {"endorsed": "true" if ven else "false"})
     except Exception as exc:
         log_fn(f"Nexus flag check after install skipped ({exc}).")
 

@@ -5,8 +5,10 @@ import shutil
 from pathlib import Path
 
 from Games.base_game import BaseGame, MODERN_DIRECTX_DEPS, WizardTool
-from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
-from Utils.atomic_write import write_atomic_text
+from Games.Bethesda.bethesda_ini import (
+    _read_ini_key, _set_ini_key, game_default_ini, resolve_ini_path, seed_missing_ini,
+)
+from Utils.atomic_write import write_atomic, write_atomic_text
 from Utils.config_paths import get_profiles_dir
 from Utils.deployment import (
     LinkMode,
@@ -568,20 +570,7 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
 
     _MYGAMES_DOCS = Path("drive_c/users/steamuser/Documents/My Games")
 
-    @staticmethod
-    def _resolve_ini_path(directory: Path, filename: str) -> Path:
-        """Keep an existing INI's on-disk casing, or use the configured name."""
-        target = directory / filename
-        if target.is_file() or target.is_symlink():
-            return target
-        try:
-            for entry in directory.iterdir():
-                if (entry.name.casefold() == filename.casefold()
-                        and (entry.is_file() or entry.is_symlink())):
-                    return entry
-        except OSError:
-            pass
-        return target
+    _resolve_ini_path = staticmethod(resolve_ini_path)
 
     def _get_archive_ini_path(self) -> "Path | None":
         """Return the primary INI used for archive invalidation (back-compat)."""
@@ -635,14 +624,18 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
                  f"{stem}Custom.ini", *self._PROFILE_SAVES_INI_FILES]
         return next((name for name in names if name and name.casefold() == filename.casefold()), filename)
 
-    @staticmethod
-    def _profile_ini_link_dir(target: Path) -> "Path | None":
+    def _profile_ini_link_dir(self, target: Path, *,
+                              ini_name: str | None = None) -> Path | None:
         if not target.is_symlink():
             return None
         try:
             source = target.readlink()
             if not source.is_absolute():
                 source = target.parent / source
+            if (source.name.casefold() != (ini_name or target.name).casefold()
+                    or source.parent.name.casefold() != self._PROFILE_INI_SUBDIR.casefold()
+                    or source.parent.parent.parent.name.casefold() != "profiles"):
+                return None
             return source.parent.resolve()
         except (OSError, RuntimeError):
             return None
@@ -671,19 +664,42 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
             backup.rename(target)
             log_fn(f"  Restored {target.name} from .bak")
 
+    def _detach_stale_profile_ini_links(self, mygames_dirs, active_ini_dir, log_fn) -> None:
+        for mygames in mygames_dirs:
+            if not mygames.is_dir():
+                continue
+            for target in mygames.iterdir():
+                if target.suffix.casefold() != ".ini":
+                    continue
+                source_dir = self._profile_ini_link_dir(target)
+                if source_dir is None or (source_dir == active_ini_dir and target.is_file()):
+                    continue
+                backup = target.with_suffix(".bak")
+                if backup.is_file() and self._profile_ini_link_dir(backup, ini_name=target.name) is None:
+                    backup.replace(target)
+                    log_fn(f"  Restored {target.name} from .bak in place of a stale profile INI link.")
+                elif target.is_file():
+                    write_atomic(target, target.read_bytes())
+                    log_fn(f"  Detached {target.name} from its previous profile.")
+                else:
+                    target.unlink()
+                    log_fn(f"  Removed broken profile INI link: {target.name}")
+
     def _symlink_profile_ini_files(self, profile: str, log_fn) -> None:
         """Link profile INIs using the game's filenames, preserving prefix backups."""
         _log = log_fn
+        mygames_dirs = self._mygames_paths()
+        ini_dir = self._profile_ini_dir(profile) if self._profile_ini_files else None
+        self._detach_stale_profile_ini_links(
+            mygames_dirs, ini_dir.resolve() if ini_dir is not None else None, _log)
         if self._PROFILE_SAVES_INI_FILES:
             from Games.Bethesda.profile_saves import restore_profile_saves
             restore_profile_saves(self, _log)
-        if not self._profile_ini_files:
+        if ini_dir is None:
             return
-        mygames_dirs = self._mygames_paths()
         if not mygames_dirs:
             _log("  WARN: Prefix path not set - skipping profile INI symlinks.")
             return
-        ini_dir = self._profile_ini_dir(profile)
         ini_dir.mkdir(parents=True, exist_ok=True)
         ini_files = {}
         for src in sorted(ini_dir.iterdir()):
@@ -834,6 +850,11 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
 
         self._write_dummy_bsa_file(_log)
         primary_ini = ini_paths[0]
+        default_ini = game_default_ini(self.get_game_path(), primary_ini.name)
+        if seed_missing_ini(primary_ini, default_ini):
+            _log(f"  Created {primary_ini.name} from the game's default INI.")
+        archive_list = (_read_ini_key(default_ini, "Archive", self._invalidation_archive_list_key,
+                                      case_insensitive=True) if default_ini else "")
         longest_list = ""
         for ini_path in ini_paths:
             ini_path.parent.mkdir(parents=True, exist_ok=True)
@@ -847,7 +868,9 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
                 self._strip_archive_list_keys(ini_path)
                 continue
             written = self._apply_dummy_bsa_invalidation_ini(
-                ini_path, prev_mod_bsas, new_mod_bsas)
+                ini_path, prev_mod_bsas, new_mod_bsas, fallback_list=archive_list or "")
+            if ini_path == primary_ini and written:
+                archive_list = written
             if len(written) > len(longest_list):
                 longest_list = written
 
@@ -1039,24 +1062,29 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
         self, ini_path: Path,
         prev_mod_bsas: "list[str] | None" = None,
         new_mod_bsas: "list[str] | None" = None,
+        *, fallback_list: str = "",
     ) -> str:
         bsa_name = self._invalidation_bsa_name
         if bsa_name is None:
             return ""
         from Utils.bsa.invalidation import (
             ensure_in_archive_list, append_to_archive_list,
-            remove_many_from_archive_list,
+            remove_from_archive_list, remove_many_from_archive_list,
         )
         key = self._invalidation_archive_list_key
-        current = _read_ini_key(ini_path, "Archive", key) or ""
-        updated = ensure_in_archive_list(current, bsa_name)
+        current = _read_ini_key(ini_path, "Archive", key, case_insensitive=True) or ""
+        base_list = current
         if self._archive_list_needs_mod_bsas:
             prev = self._tracked_mod_bsas() if prev_mod_bsas is None else prev_mod_bsas
+            base_list = remove_many_from_archive_list(base_list, prev)
+        if not remove_from_archive_list(base_list, bsa_name):
+            base_list = fallback_list or base_list
+        updated = ensure_in_archive_list(base_list, bsa_name)
+        if self._archive_list_needs_mod_bsas:
             mod_bsas = self._deployed_mod_bsas() if new_mod_bsas is None else new_mod_bsas
-            updated = remove_many_from_archive_list(updated, prev)
             updated = append_to_archive_list(updated, mod_bsas)
         if updated != current:
-            _set_ini_key(ini_path, "Archive", key, updated)
+            _set_ini_key(ini_path, "Archive", key, updated, case_insensitive=True)
         _set_ini_key(ini_path, "Archive", "SInvalidationFile", "")
         return updated
 
@@ -1444,6 +1472,10 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
         remove_probe_stub_dirs(self._game_path, self.probe_stub_dirs,
                                log_fn=_log)
 
+        active = self._active_profile_dir
+        self._detach_stale_profile_ini_links(
+            self._mygames_paths(),
+            self._profile_ini_dir(active.name).resolve() if active is not None else None, _log)
         _log("Restore: reverting archive invalidation ...")
         self.revert_archive_invalidation(_log)
 
