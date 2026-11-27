@@ -458,7 +458,7 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
     <message>
       <source>AutoBlend will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in AutoBlend's window to generate the '{0}' mod. After it finishes, enable that mod and AutoBlend.esp. Disable the output mod before rerunning AutoBlend.</source>
-      <translation>AutoBlend przeczyta aktywne modyfikacje profilu w trybie MO2. Działa z rozmieszczonymi i VFS profilami. Wybierz Start w oknie AutoBlenda, aby wygenerować modyfikację '{0}'. Po jego zakończeniu, włącz ten mod i AutoBlend.esp. Wyłącz wyjście moda przed ponownym uruchomieniem AutoBlend.</translation>
+      <translation>AutoBlend odczyta aktywne modyfikacje profilu w trybie MO2. Działa z profilami wdrożonymi, jak i profilami VFS. Wybierz Start w oknie AutoBlend, aby wygenerować modyfikację '{0}'. Po jego zakończeniu, włącz ten mod i AutoBlend.esp. Przed ponownym uruchomieniem AutoBlend wyłącz wygenerowaną modyfikację.</translation>
     </message>
     <message>
       <source>Launch AutoBlend</source>
@@ -26418,7 +26418,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Run AutoBlend</source>
-      <translation>Uruchom Automieszend</translation>
+      <translation>Uruchom AutoBlend</translation>
     </message>
     <message>
       <source>Run SSEEdit</source>
