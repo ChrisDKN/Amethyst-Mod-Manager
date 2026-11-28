@@ -118,7 +118,9 @@ def find_witchy(game) -> "Path | None":
     return executable if executable.is_file() else None
 
 
-def _linux_asset(data: dict) -> "tuple[str, str] | None":
+def _linux_asset(data: dict) -> "tuple[str, str, str] | None":
+    """(tag, url, sha256) of the linux-x64 zip; sha256 is GitHub's digest or ""."""
+    from Utils.wizards.archives import github_asset_sha256
     machine = platform.machine().lower()
     if machine not in {"x86_64", "amd64"}:
         return None
@@ -128,11 +130,11 @@ def _linux_asset(data: dict) -> "tuple[str, str] | None":
         low = name.lower()
         url = str(asset.get("browser_download_url") or "")
         if low.endswith(".zip") and "linux-x64" in low and tag and url:
-            return tag, url
+            return tag, url, github_asset_sha256(asset)
     return None
 
 
-def _fetch_latest(log: LogFn) -> "tuple[str, str] | None":
+def _fetch_latest(log: LogFn) -> "tuple[str, str, str] | None":
     if platform.system() != "Linux":
         log("the automated WitchyBND backend currently requires Linux.")
         return None
@@ -227,7 +229,7 @@ def install_witchy(game, log_fn: "LogFn | None" = None) -> bool:
     latest = _fetch_latest(log)
     if latest is None:
         return False
-    tag, url = latest
+    tag, url, sha256 = latest
     destination = bundled_dir(game)
     destination.parent.mkdir(parents=True, exist_ok=True)
     log(f"downloading WitchyBND {tag} for linux-x64 ...")
@@ -236,6 +238,8 @@ def install_witchy(game, log_fn: "LogFn | None" = None) -> bool:
     archive = destination.parent / f"witchybnd-{tag}-linux-x64.zip"
     try:
         download_file(url, archive)
+        from Utils.wizards.archives import verify_github_download
+        verify_github_download(archive, sha256, log_fn=log)
         with tempfile.TemporaryDirectory(
                 prefix="witchybnd-install-", dir=destination.parent) as td:
             stage = Path(td)

@@ -133,8 +133,8 @@ _latest_cache: "tuple[float, tuple[str, str] | None] | None" = None
 
 
 def latest_release(log_fn: "LogFn | None" = None, timeout: float = 30,
-                   max_age: float = 3600) -> "tuple[str, str] | None":
-    """(tag, zip url) of the newest release, cached for *max_age* seconds."""
+                   max_age: float = 3600) -> "tuple[str, str, str] | None":
+    """(tag, zip url, sha256) of the newest release, cached for *max_age* seconds."""
     global _latest_cache
     now = time.monotonic()
     if _latest_cache is not None and now - _latest_cache[0] < max_age:
@@ -203,8 +203,10 @@ def launch_problem(game) -> "str | None":
 
 # ---- install ----------------------------------------------------------------
 
-def _fetch_latest(log: LogFn, timeout: float = 30) -> "tuple[str, str] | None":
-    """(tag, zip url) of the newest release, or None."""
+def _fetch_latest(log: LogFn, timeout: float = 30) -> "tuple[str, str, str] | None":
+    """(tag, zip url, sha256) of the newest release, or None; sha256 is the
+    digest GitHub publishes for the zip, or ""."""
+    from Utils.wizards.archives import github_asset_sha256
     from Utils.ca_bundle import get_ssl_context
     try:
         req = urllib.request.Request(
@@ -218,7 +220,8 @@ def _fetch_latest(log: LogFn, timeout: float = 30) -> "tuple[str, str] | None":
     for asset in data.get("assets") or []:
         name = asset.get("name") or ""
         if name.endswith(_ASSET_SUFFIX):
-            return data.get("tag_name") or "", asset.get("browser_download_url") or ""
+            return (data.get("tag_name") or "", asset.get("browser_download_url") or "",
+                    github_asset_sha256(asset))
     log(f"the latest bg3le release has no {_ASSET_SUFFIX} asset")
     return None
 
@@ -264,13 +267,15 @@ def install_bg3le(log_fn: "LogFn | None" = None) -> bool:
     latest = latest_release(log, max_age=0)
     if latest is None:
         return False
-    tag, url = latest
+    tag, url, sha256 = latest
     log(f"downloading bg3le {tag}")
     from Utils.ca_bundle import download_file
+    from Utils.wizards.archives import verify_github_download
     with tempfile.TemporaryDirectory(prefix="amethyst-bg3le-") as tmp:
         archive = Path(tmp) / url.rsplit("/", 1)[-1]
         try:
             download_file(url, archive)
+            verify_github_download(archive, sha256, log_fn=log)
             folder = _extract(archive, Path(tmp) / "release")
         except Exception as exc:
             log(f"could not download or unpack bg3le: {exc}")
