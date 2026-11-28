@@ -491,6 +491,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     if workshop_url:
         from Utils.environment.xdg import open_url
         act(_mt("Open on Steam Workshop"), lambda: open_url(workshop_url))
+    if not multi and getattr(view, "on_link_source", None) is not None:
+        act(_mt("Edit source link…") if _source_link_url(view, name)
+            else _mt("Link to source…"),
+            lambda: _link_source(view, name))
     updates = _update_menu_items(view, [name])
     if updates:
         submenu(_mt("Updates"), updates)
@@ -1104,6 +1108,27 @@ def _set_custom_url(view, names):
         view, _mt("Set URL"),
         _mtf("URL for {0} selected mod(s) (leave blank to clear):", len(names)),
         _save, initial=initial)
+
+
+def _source_link_url(view, name: str) -> str:
+    """The mod's linked source URL from the [sourceLink] marker ("" if none)."""
+    staging = getattr(view, "staging_dir", None)
+    if staging is None:
+        return ""
+    try:
+        from Utils.mods.source_link import read_source_link
+        return read_source_link(Path(staging) / name / "meta.ini").get("url", "")
+    except Exception:
+        return ""
+
+
+def _link_source(view, name: str):
+    """Open the source-link overlay for one mod (the window installs the callback)."""
+    if not _allow_file_changes(view, [name]):
+        return
+    cb = getattr(view, "on_link_source", None)
+    if cb is not None:
+        cb(name)
 
 
 def _mod_nexus_url(view, name: str) -> str:
@@ -2268,6 +2293,8 @@ def _remove_mods_multi(view, model, mod_rows):
 # runtime via QCoreApplication.translate("ModListMenu", …), which lupdate
 # cannot see through - so each literal is registered here explicitly.
 _TR_MARKERS = (
+    QT_TRANSLATE_NOOP("ModListMenu", "Link to source…"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Edit source link…"),
     QT_TRANSLATE_NOOP("ModListMenu", "Custom URL"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open URL"),
     QT_TRANSLATE_NOOP("ModListMenu", "Set URL"),
